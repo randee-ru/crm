@@ -13,6 +13,7 @@
 - configure settings by environment
 - add Docker and Compose
 - prepare basic health checks
+- document the bootstrap steps for a beginner
 
 ## Stage 3 - Core domain setup
 
@@ -32,4 +33,3 @@
 - roles and permissions
 - audit logging
 - notifications
-

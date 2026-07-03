@@ -13,6 +13,8 @@ Create the repository foundation so the project can evolve safely.
 - added the backend and frontend scaffold folders
 - added Django settings skeleton
 - added placeholder domain apps for the modular monolith
+- added `.env.example` templates for safe local setup
+- added beginner-friendly lessons in `docs/lessons/`
 
 ## Why this stage matters
 

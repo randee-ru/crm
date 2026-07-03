@@ -42,5 +42,11 @@ No migrations, API endpoints, or frontend pages exist yet.
 
 - `docs/overview.md` - product and architecture overview
 - `docs/stages/01-foundation.md` - the first implementation stage
+- `docs/lessons/` - short beginner-friendly lessons
 - `docs/roadmap.md` - planned stages
 - `handoff.md` - the continuity file for future AI sessions
+
+## Local setup files
+
+- `.env.example` - root environment template
+- `backend/.env.example` - backend environment template
