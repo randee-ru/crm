@@ -8,7 +8,7 @@ That file tells Python which settings module to load and then hands control to D
 ## Start flow
 
 1. `manage.py` sets `DJANGO_SETTINGS_MODULE`
-2. Django loads settings from `backend/config/settings/dev.py`
+2. Django loads settings from `backend/config/settings/local.py`
 3. Django reads installed apps, middleware, database settings, and URLs
 4. Django runs the command you asked for
 
@@ -26,4 +26,3 @@ Most startup problems are caused by:
 
 If Django does not start, do not guess.
 Read the error, identify the file, and fix the smallest broken piece first.
-

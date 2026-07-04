@@ -12,6 +12,9 @@ The first vertical is fitness clubs.
 - Repository was empty after clone.
 - A base scaffold was created.
 - No business logic is implemented yet.
+- Stage 2 backend bootstrap has started.
+- PostgreSQL is the main database.
+- Docker Compose and backend bootstrap files were added.
 
 ## Repository structure
 
@@ -55,10 +58,8 @@ The first vertical is fitness clubs.
 
 ## Next recommended step
 
-Create the Django project skeleton inside `backend/`, then add:
+Finish backend bootstrap and continue with the first SaaS core modules, then add:
 
-- settings split by environment
-- base app structure
-- Docker Compose for PostgreSQL and Redis
-- first real module, likely `accounts` or `companies`
-
+- the first real module, likely `accounts` or `companies`
+- tenant-aware entities
+- admin integration with Unfold

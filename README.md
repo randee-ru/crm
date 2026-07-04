@@ -42,6 +42,7 @@ No migrations, API endpoints, or frontend pages exist yet.
 
 - `docs/overview.md` - product and architecture overview
 - `docs/stages/01-foundation.md` - the first implementation stage
+- `docs/stages/02-backend-bootstrap.md` - backend bootstrap stage
 - `docs/lessons/` - short beginner-friendly lessons
 - `docs/roadmap.md` - planned stages
 - `handoff.md` - the continuity file for future AI sessions
