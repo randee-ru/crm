@@ -10,3 +10,5 @@
 4. `04-why-env-files-matter.md`
 5. `05-postgres-and-docker.md`
 6. `06-how-to-run-local-project.md`
+7. `07-company-and-branch.md`
+8. `08-user-role-membership.md`
