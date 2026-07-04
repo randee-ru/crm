@@ -13,3 +13,4 @@
 7. `07-company-and-branch.md`
 8. `08-user-role-membership.md`
 9. `09-unfold-admin.md`
+10. `10-client-and-membership.md`
