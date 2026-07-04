@@ -1,11 +1,10 @@
 # Frontend
 
-This directory will contain the Next.js frontend for CRM Kit.
+В этом каталоге будет frontend CRM Kit на Next.js.
 
-The frontend will later include:
+Позже frontend будет включать:
 
-- auth screens
-- dashboards
-- customer-facing and admin interfaces
-- responsive UI for desktop and mobile
-
+- экраны авторизации
+- дашборды
+- интерфейсы для клиентов и админки
+- адаптивный UI для desktop и mobile

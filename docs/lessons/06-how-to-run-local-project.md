@@ -1,23 +1,22 @@
-# Lesson 06 - How to Run the Project Locally
+# Урок 06 - Как запускать проект локально
 
-## Simple explanation
+## Простое объяснение
 
-This lesson explains the safest first run for CRM Kit.
+Этот урок объясняет самый безопасный первый запуск CRM Kit.
 
-## What to do
+## Что нужно сделать
 
-1. copy `.env.example` to `.env`
-2. start Docker Compose
-3. open the healthcheck endpoint
+1. скопировать `.env.example` в `.env`
+2. запустить Docker Compose
+3. открыть healthcheck endpoint
 
-## Why this order matters
+## Почему важен именно такой порядок
 
-The database and Redis should be available before Django starts.
-That makes startup errors easier to understand.
+База данных и Redis должны быть доступны до старта Django.
+Так ошибки запуска проще понимать.
 
-## What success looks like
+## Как выглядит успех
 
-- PostgreSQL is running
-- Redis is running
-- Django responds at `/health/`
-
+- PostgreSQL запущен
+- Redis запущен
+- Django отвечает на `/health/`

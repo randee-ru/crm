@@ -1,7 +1,7 @@
-"""Test settings.
+"""Тестовые настройки.
 
-Tests should run with the smallest possible amount of external setup.
-SQLite is enough here because the current tests only verify the application boot path and health endpoint.
+Тесты должны запускаться с минимальным количеством внешней настройки.
+Здесь достаточно SQLite, потому что текущие тесты проверяют только путь запуска приложения и health endpoint.
 """
 
 from __future__ import annotations
@@ -20,4 +20,3 @@ DATABASES = {
 PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.MD5PasswordHasher",
 ]
-

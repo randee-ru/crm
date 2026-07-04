@@ -1,7 +1,7 @@
-"""ASGI config for CRM Kit.
+"""ASGI-конфигурация для CRM Kit.
 
-ASGI is the modern Python interface used for async-capable web servers.
-It will later support HTTP and real-time integrations if needed.
+ASGI - современный Python-интерфейс для асинхронных web-серверов.
+Позже он пригодится для HTTP и real-time интеграций, если это понадобится.
 """
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""Base Django settings shared by all environments."""
+"""Базовые настройки Django, общие для всех окружений."""
 
 from __future__ import annotations
 

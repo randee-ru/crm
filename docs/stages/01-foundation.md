@@ -1,32 +1,32 @@
-# Stage 1 - Foundation
+# Этап 1 - Основа
 
-## Goal
+## Цель
 
-Create the repository foundation so the project can evolve safely.
+Создать основу репозитория, чтобы проект мог безопасно развиваться.
 
-## What was done
+## Что сделано
 
-- added a project-level README
-- added `handoff.md`
-- added architecture overview documents
-- added initial `.gitignore`
-- added the backend and frontend scaffold folders
-- added Django settings skeleton
-- added placeholder domain apps for the modular monolith
-- added `.env.example` templates for safe local setup
-- added beginner-friendly lessons in `docs/lessons/`
+- добавлен корневой `README`
+- добавлен `handoff.md`
+- добавлены документы с обзором архитектуры
+- добавлен начальный `.gitignore`
+- добавлены папки-каркасы backend и frontend
+- добавлен скелет настроек Django
+- добавлены заглушки доменных приложений для модульного монолита
+- добавлены шаблоны `.env.example` для безопасной локальной настройки
+- добавлены уроки для новичка в `docs/lessons/`
 
-## Why this stage matters
+## Зачем нужен этот этап
 
-Without a clear structure, the project becomes hard to continue in a new session or by a new developer.
-This stage reduces future confusion by making the direction explicit before business logic starts.
+Без понятной структуры проект трудно продолжать в новой сессии или новому разработчику.
+Этот этап снижает будущую путаницу, потому что фиксирует направление до появления бизнес-логики.
 
-## How to verify
+## Как проверить
 
-- open `README.md`
-- open `handoff.md`
-- check that `docs/` explains the project direction
+- открыть `README.md`
+- открыть `handoff.md`
+- убедиться, что `docs/` объясняет направление проекта
 
-## Next step
+## Следующий шаг
 
-Install dependencies and validate the Django bootstrap, then add the first real domain models.
+Установить зависимости и проверить Django bootstrap, затем добавить первые реальные доменные модели.

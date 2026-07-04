@@ -1,31 +1,30 @@
-# CRM Kit Overview
+# Обзор CRM Kit
 
-## Product
+## Продукт
 
-CRM Kit is a cloud CRM/ERP platform designed for service businesses.
-The first target market is fitness clubs, but the architecture must support future expansion into:
+CRM Kit - это облачная CRM/ERP-платформа для сервисного бизнеса.
+Первый целевой рынок - фитнес-клубы, но архитектура должна поддерживать расширение в:
 
-- beauty salons
-- medical clinics
-- spa
-- education centers
-- hotels
-- other service businesses
+- салоны красоты
+- медицинские клиники
+- SPA
+- образовательные центры
+- гостиницы
+- другие сервисные компании
 
-## Architectural approach
+## Архитектурный подход
 
-- modular monolith
-- clean boundaries between modules
-- explicit configuration
-- simple local development
-- Docker-based deployment
+- модульный монолит
+- чёткие границы между модулями
+- явная конфигурация
+- простая локальная разработка
+- деплой через Docker
 
-## Why this structure
+## Зачем такая структура
 
-This product is intended to grow for years, so the codebase must stay understandable for a beginner while still being strong enough for commercial scale.
-The structure should make it easy to answer three questions at any time:
+Этот продукт рассчитан на долгий рост, поэтому кодовая база должна оставаться понятной для новичка и одновременно достаточно сильной для коммерческого масштаба.
+Структура должна в любой момент помогать ответить на три вопроса:
 
-1. What does this file do?
-2. Why does it exist?
-3. How do I safely change it?
-
+1. Что делает этот файл?
+2. Зачем он существует?
+3. Как безопасно его изменить?

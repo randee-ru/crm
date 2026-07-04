@@ -1,31 +1,30 @@
-# Lesson 01 - What Backend Bootstrap Means
+# Урок 01 - Что такое backend bootstrap
 
-## Simple explanation
+## Простое объяснение
 
-Bootstrap is the first working skeleton of a backend project.
-It is not the full product yet.
-It is the minimal structure that lets us start the application in a predictable way.
+Bootstrap - это первый рабочий скелет backend-проекта.
+Это ещё не весь продукт.
+Это минимальная структура, которая позволяет запускать приложение предсказуемо.
 
-## Why we do this first
+## Зачем мы делаем это первым
 
-If the project starts with no structure, every next feature becomes harder to place.
-Bootstrap gives us:
+Если проект начинается без структуры, каждую следующую фичу становится труднее куда-то правильно положить.
+Bootstrap даёт нам:
 
-- a clear project layout
-- a place for settings
-- a place for apps
-- a path to run the server
-- a path to add tests
+- понятную структуру проекта
+- место для настроек
+- место для приложений
+- способ запускать сервер
+- способ добавлять тесты
 
-## What exists in this repository now
+## Что уже есть в этом репозитории
 
-- `backend/manage.py` - command entry point
-- `backend/config/` - Django project configuration
-- `backend/core/` - shared code for the whole project
-- `backend/accounts/`, `backend/companies/`, and other domain apps - empty shells for future work
+- `backend/manage.py` - точка входа для команд
+- `backend/config/` - конфигурация Django-проекта
+- `backend/core/` - общий код для всего проекта
+- `backend/accounts/`, `backend/companies/` и другие доменные приложения - пустые заготовки для будущей работы
 
-## What to remember
+## Что важно запомнить
 
-Bootstrap is not business logic.
-It is the foundation that makes business logic easy to add later.
-
+Bootstrap - это не бизнес-логика.
+Это фундамент, который потом упрощает добавление бизнес-логики.

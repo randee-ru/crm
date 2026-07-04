@@ -1,25 +1,26 @@
-# Stage 2 - Backend Bootstrap
+# Этап 2 - Backend Bootstrap
 
-## Goal
+## Цель
 
-Make the Django backend start in a predictable and documented way.
+Сделать запуск Django backend предсказуемым и задокументированным.
 
-## What this stage adds
+## Что добавляет этот этап
 
-- Django project settings split by environment
-- `.env.example` files
-- PostgreSQL and Redis through Docker Compose
-- a Dockerfile for the backend
-- a test settings module
-- a healthcheck endpoint
-- local settings as the default boot target
+- настройки Django, разделённые по окружениям
+- файлы `.env.example`
+- PostgreSQL и Redis через Docker Compose
+- `Dockerfile` для backend
+- модуль настроек для тестов
+- healthcheck endpoint
+- API-документация с примерами и тестом
+- локальные настройки как цель запуска по умолчанию
 
-## Why this stage matters
+## Зачем нужен этот этап
 
-This stage turns the repository from a structure into a runnable backend foundation.
-Without it, every next feature would be built on guesswork.
+Этот этап превращает репозиторий из структуры в запускаемую основу backend.
+Без него следующая функциональность строилась бы на догадках.
 
-## Files that matter most
+## Самые важные файлы
 
 - `Dockerfile`
 - `docker-compose.yml`
@@ -30,14 +31,15 @@ Without it, every next feature would be built on guesswork.
 - `backend/config/settings/prod.py`
 - `backend/config/settings/test.py`
 - `backend/core/tests/test_healthcheck.py`
+- `docs/api/healthcheck.md`
 
-## How to verify
+## Как проверить
 
-1. copy `.env.example` to `.env`
-2. run `docker compose up --build`
-3. open `http://localhost:8000/health/`
+1. скопировать `.env.example` в `.env`
+2. запустить `docker compose up --build`
+3. открыть `http://localhost:8000/health/`
 
-## Beginner lesson
+## Урок для новичка
 
-Backend bootstrap is the process of making the backend start cleanly before business logic appears.
-That means settings, dependencies, containers, and a healthcheck come before features.
+Backend bootstrap - это процесс, при котором backend начинает запускаться чисто и предсказуемо ещё до появления бизнес-логики.
+Это значит, что настройки, зависимости, контейнеры и healthcheck идут раньше, чем фичи.

@@ -1,53 +1,54 @@
 # CRM Kit
 
-CRM Kit is a modular SaaS CRM/ERP platform for service businesses.
+CRM Kit — это модульная SaaS CRM/ERP-платформа для сервисного бизнеса.
 
-## What is in this repository
+## Что находится в этом репозитории
 
-- `backend/` - Django backend for the modular monolith.
-- `frontend/` - Next.js frontend for the public and admin UI.
-- `docs/` - project documentation, stage notes, and handoff context.
-- `handoff.md` - a compact context file that another AI or engineer can read and continue from.
+- `backend/` - backend на Django для модульного монолита.
+- `frontend/` - frontend на Next.js для публичного интерфейса и админки.
+- `docs/` - документация проекта, заметки по этапам и контекст для передачи между сессиями.
+- `handoff.md` - компактный файл контекста, который может прочитать другая нейросеть или разработчик и продолжить работу.
 
-## Current state
+## Текущее состояние
 
-This repository contains the base project scaffold only.
-The goal of this stage is to establish a stable structure before business logic is added.
+В этом репозитории пока только базовый каркас проекта.
+Цель этого этапа - создать стабильную структуру до появления бизнес-логики.
 
-## Local development
+## Локальная разработка
 
-The runtime dependencies are declared, but the environment still needs to be created.
-The planned local workflow is:
+Зависимости уже описаны, но окружение ещё нужно собрать.
+План локальной работы такой:
 
 - Python 3.13+
 - Django 5.x
 - PostgreSQL 17
 - Redis
-- Node.js for the frontend
+- Node.js для frontend
 - Docker / Docker Compose
 
-## Backend start order
+## Порядок запуска backend
 
-1. create a Python virtual environment
-2. install dependencies from `pyproject.toml`
-3. run PostgreSQL and Redis with Docker Compose
-4. start Django from `backend/manage.py`
+1. создать Python virtual environment
+2. установить зависимости из `pyproject.toml`
+3. поднять PostgreSQL и Redis через Docker Compose
+4. запустить Django через `backend/manage.py`
 
-## Important note
+## Важное замечание
 
-The repository currently contains scaffolding only.
-No migrations, API endpoints, or frontend pages exist yet.
+Сейчас в репозитории только каркас.
+Миграций, API-эндпоинтов и страниц frontend пока нет.
 
-## Documentation map
+## Карта документации
 
-- `docs/overview.md` - product and architecture overview
-- `docs/stages/01-foundation.md` - the first implementation stage
-- `docs/stages/02-backend-bootstrap.md` - backend bootstrap stage
-- `docs/lessons/` - short beginner-friendly lessons
-- `docs/roadmap.md` - planned stages
-- `handoff.md` - the continuity file for future AI sessions
+- `docs/overview.md` - обзор продукта и архитектуры
+- `docs/stages/01-foundation.md` - первый этап реализации
+- `docs/stages/02-backend-bootstrap.md` - этап backend bootstrap
+- `docs/api/` - API-документация с примерами и тестами
+- `docs/lessons/` - короткие уроки для новичка
+- `docs/roadmap.md` - план этапов
+- `handoff.md` - файл для продолжения работы в будущих AI-сессиях
 
-## Local setup files
+## Файлы локальной настройки
 
-- `.env.example` - root environment template
-- `backend/.env.example` - backend environment template
+- `.env.example` - шаблон переменных окружения для корня проекта
+- `backend/.env.example` - шаблон переменных окружения для backend

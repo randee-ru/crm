@@ -1,224 +1,224 @@
-# CRM Kit Roadmap
+# Дорожная карта CRM Kit
 
-This roadmap is the development map for CRM Kit.
-It is written in a simple order so a beginner can understand what we are building, why we are building it, and what must be ready before moving to the next stage.
+Этот roadmap - карта разработки CRM Kit.
+Он написан в простом порядке, чтобы новичок понимал, что мы строим, зачем это делаем и что должно быть готово перед переходом к следующему этапу.
 
-## Product direction
+## Направление продукта
 
-CRM Kit is a modular SaaS CRM/ERP platform.
-The first vertical is fitness clubs.
-Later the same platform must support:
+CRM Kit - это модульная SaaS CRM/ERP-платформа.
+Первая вертикаль - фитнес-клубы.
+Позже эта же платформа должна поддерживать:
 
-- beauty salons
-- medical clinics
-- spa
-- education centers
-- hotels
-- other service businesses
+- салоны красоты
+- медицинские клиники
+- SPA
+- образовательные центры
+- гостиницы
+- другие сервисные компании
 
-## Architecture direction
+## Архитектурное направление
 
-- modular monolith at the start
-- no microservices at the beginning
-- no Kubernetes at the beginning
-- each business module should stay as independent as possible
-- every important entity must belong to a company or branch
+- на старте модульный монолит
+- без микросервисов на первом этапе
+- без Kubernetes на первом этапе
+- каждый бизнес-модуль должен оставаться максимально независимым
+- каждая важная сущность должна принадлежать компании или филиалу
 
-## Roadmap Stages
+## Этапы roadmap
 
-### Stage 1 - Foundation
+### Этап 1 - Основа
 
-Goal:
-- create the repository structure
-- define the project direction
-- prepare documentation and handoff files
+Цель:
+- создать структуру репозитория
+- зафиксировать направление проекта
+- подготовить документацию и файлы для передачи контекста
 
-Deliverables:
-- root README
+Результаты:
+- корневой `README`
 - `handoff.md`
 - `docs/overview.md`
 - `docs/stages/01-foundation.md`
-- initial backend and frontend folders
+- начальные папки backend и frontend
 
-Exit criteria:
-- the repository is readable
-- a new contributor can understand the project goal
-- another AI session can continue from `handoff.md`
+Критерии готовности:
+- репозиторий читается без догадок
+- новому участнику понятна цель проекта
+- другая AI-сессия может продолжить работу по `handoff.md`
 
-### Stage 2 - Backend Bootstrap
+### Этап 2 - Основа backend
 
-Goal:
-- make the Django backend start in a predictable way
-- prepare the project for real development
+Цель:
+- сделать запуск Django backend предсказуемым
+- подготовить проект к реальной разработке
 
-Deliverables:
-- Django project settings split by environment
-- `.env.example` files
-- Docker Compose for PostgreSQL and Redis
+Результаты:
+- настройки Django, разделённые по окружениям
+- файлы `.env.example`
+- Docker Compose для PostgreSQL и Redis
 - healthcheck endpoint
-- base shared model utilities
+- API-документация с примерами и тестом
+- базовые общие модели и утилиты
 
-Exit criteria:
-- Django starts locally
-- configuration is clear
-- the backend can be tested without guessing where files belong
+Критерии готовности:
+- Django запускается локально
+- конфигурация понятна
+- backend можно тестировать без угадывания, где лежит какой файл
 
-### Stage 3 - SaaS Core
+### Этап 3 - SaaS-основа
 
-Goal:
-- build the base of multitenancy and shared business rules
+Цель:
+- построить основу мультитенантности и общих бизнес-правил
 
-Deliverables:
-- `core` module with common base classes
-- `companies` module
-- `branches` module
-- `accounts` module
-- user and role structure
-- company ownership rules
+Результаты:
+- модуль `core` с общими базовыми классами
+- модуль `companies`
+- модуль `branches`
+- модуль `accounts`
+- структура пользователей и ролей
+- правила принадлежности данных компании
 
-Exit criteria:
-- every core business entity is tied to a company or branch
-- there is no data mixing between tenants
-- the project has a clear foundation for SaaS behavior
+Критерии готовности:
+- каждая core-сущность привязана к компании или филиалу
+- данные разных tenant'ов не смешиваются
+- у проекта есть понятная SaaS-основа
 
-### Stage 4 - Admin Foundation with Unfold
+### Этап 4 - Основа админки с Unfold
 
-Goal:
-- use Unfold as the modern Django admin interface
-- give employees a useful internal control panel early
+Цель:
+- использовать Unfold как современный интерфейс Django admin
+- рано дать сотрудникам полезную внутреннюю панель управления
 
-Deliverables:
-- Unfold integration in Django admin
-- consistent admin theme and navigation
-- first admin pages for core entities
-- improved filters, actions, and forms where needed
+Результаты:
+- интеграция Unfold в Django admin
+- единая тема и навигация админки
+- первые страницы админки для core-сущностей
+- улучшенные фильтры, actions и формы там, где это нужно
 
-Exit criteria:
-- staff can manage core data from the admin interface
-- the admin is readable and not visually broken
-- the admin structure matches CRM Kit business modules
+Критерии готовности:
+- сотрудники могут управлять базовыми данными из админки
+- админка читаемая и визуально не сломана
+- структура админки соответствует бизнес-модулям CRM Kit
 
-### Stage 5 - Fitness Club MVP
+### Этап 5 - MVP для фитнес-клубов
 
-Goal:
-- build the first real product version for fitness clubs
+Цель:
+- собрать первую реальную версию продукта для фитнес-клубов
 
-Deliverables:
-- clients
-- memberships
-- schedule
-- bookings
-- attendance
-- sales
-- payments
+Результаты:
+- клиенты
+- абонементы
+- расписание
+- бронирования
+- посещаемость
+- продажи
+- платежи
 
-Exit criteria:
-- a fitness club can be onboarded
-- clients can be registered
-- bookings and memberships can be tracked
-- basic business flow works end to end
+Критерии готовности:
+- можно онбордить фитнес-клуб
+- можно регистрировать клиентов
+- можно отслеживать бронирования и абонементы
+- базовый бизнес-поток работает end-to-end
 
-### Stage 6 - Frontend Bootstrap
+### Этап 6 - Основа frontend
 
-Goal:
-- prepare the Next.js frontend for real product screens
+Цель:
+- подготовить frontend на Next.js к настоящим экранным формам продукта
 
-Deliverables:
-- app shell
-- auth screens
-- dashboard layout
-- API connection layer
-- shared UI conventions
+Результаты:
+- каркас приложения
+- экраны авторизации
+- layout для dashboard
+- слой подключения к API
+- единые UI-конвенции
 
-Exit criteria:
-- frontend can talk to backend
-- pages are structured consistently
-- the UI is ready for product work, not just mockups
+Критерии готовности:
+- frontend умеет общаться с backend
+- страницы структурированы единообразно
+- UI готов к продуктовой работе, а не только к мокапам
 
-### Stage 7 - Automation and Notifications
+### Этап 7 - Автоматизация и уведомления
 
-Goal:
-- add business automation around customer communication and internal tasks
+Цель:
+- добавить бизнес-автоматизацию вокруг общения с клиентами и внутренних задач
 
-Deliverables:
-- notifications module
-- automation module
-- Celery tasks
-- Redis queue usage
-- email and message triggers
+Результаты:
+- модуль notifications
+- модуль automation
+- задачи Celery
+- использование очереди Redis
+- триггеры email и сообщений
 
-Exit criteria:
-- the system can react to business events
-- task execution is separated from request handling
-- communication flows are extendable
+Критерии готовности:
+- система умеет реагировать на бизнес-события
+- выполнение задач отделено от обработки HTTP-запросов
+- коммуникационные сценарии легко расширяются
 
-### Stage 8 - Reporting and Analytics
+### Этап 8 - Отчёты и аналитика
 
-Goal:
-- give business owners useful data about operations and revenue
+Цель:
+- дать владельцам бизнеса полезные данные об операциях и выручке
 
-Deliverables:
-- reports module
-- analytics module
-- key business dashboards
-- aggregated metrics
+Результаты:
+- модуль reports
+- модуль analytics
+- ключевые бизнес-дашборды
+- агрегированные метрики
 
-Exit criteria:
-- users can see business performance
-- reports are based on reliable data
-- dashboards support decision making
+Критерии готовности:
+- пользователи видят показатели бизнеса
+- отчёты строятся на надёжных данных
+- дашборды помогают принимать решения
 
-### Stage 9 - Integrations
+### Этап 9 - Интеграции
 
-Goal:
-- connect CRM Kit with external business systems
+Цель:
+- подключить CRM Kit к внешним бизнес-системам
 
-Planned integrations:
+Планируемые интеграции:
 - Mango Office
 - Sigur
 - RFID
-- access gates and turnstiles
-- payment services
-- messaging services
-- future partner systems
+- турникеты и системы доступа
+- платёжные сервисы
+- сервисы сообщений
+- будущие партнёрские системы
 
-Exit criteria:
-- external systems can talk to CRM Kit through clear adapters
-- integrations stay isolated from core business logic
+Критерии готовности:
+- внешние системы могут общаться с CRM Kit через понятные адаптеры
+- интеграции остаются изолированными от core-бизнес-логики
 
-### Stage 10 - Production Hardening
+### Этап 10 - Укрепление production
 
-Goal:
-- prepare the product for stable commercial use
+Цель:
+- подготовить продукт к стабильному коммерческому использованию
 
-Deliverables:
-- deployment setup
-- logging
-- monitoring hooks
-- security review
-- backup and recovery plan
-- CI checks
+Результаты:
+- настройка деплоя
+- логирование
+- точки мониторинга
+- проверка безопасности
+- план резервного копирования и восстановления
+- CI-проверки
 
-Exit criteria:
-- the platform is safe to deploy
-- failures are easier to detect
-- support and maintenance are manageable
+Критерии готовности:
+- платформу безопасно деплоить
+- сбои проще обнаруживать
+- поддержку и сопровождение можно держать под контролем
 
-## Recommended order of work
+## Рекомендуемый порядок работы
 
-1. backend bootstrap
-2. SaaS core
-3. Unfold admin integration
-4. fitness club MVP
-5. frontend bootstrap
-6. automation and notifications
-7. reporting and analytics
-8. integrations
-9. production hardening
+1. основа backend
+2. SaaS-основа
+3. интеграция Unfold в админку
+4. MVP для фитнес-клубов
+5. основа frontend
+6. автоматизация и уведомления
+7. отчёты и аналитика
+8. интеграции
+9. укрепление production
 
-## How to use this roadmap
+## Как пользоваться этим roadmap
 
-- If you are a beginner, read the roadmap before changing code.
-- If you are an architect, use it to keep the project order stable.
-- If you are another AI session, read `handoff.md` first and then this file.
-
+- Если вы новичок, прочитайте roadmap перед изменением кода.
+- Если вы архитектор, используйте его, чтобы держать порядок работ стабильным.
+- Если вы другая AI-сессия, сначала прочитайте `handoff.md`, а потом этот файл.

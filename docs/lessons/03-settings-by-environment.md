@@ -1,27 +1,26 @@
-# Lesson 03 - Settings by Environment
+# Урок 03 - Настройки по окружениям
 
-## Simple explanation
+## Простое объяснение
 
-Different environments need different settings.
+Разным окружениям нужны разные настройки.
 
-- development settings are for local work
-- production settings are for deployed servers
-- local settings can be used for machine-specific tweaks
+- настройки разработки нужны для локальной работы
+- настройки production нужны для сервера
+- local-настройки можно использовать для особенностей конкретной машины
 
-## Why we split settings
+## Зачем мы делим настройки
 
-The project must be safe and easy to run in more than one place.
-If we keep one giant settings file, we later mix development behavior with production behavior.
+Проект должен быть безопасно и просто запускать в разных местах.
+Если держать один огромный settings-файл, потом легко смешать поведение разработки и production.
 
-## Current structure
+## Текущая структура
 
-- `backend/config/settings/base.py` - shared settings
-- `backend/config/settings/dev.py` - development settings
-- `backend/config/settings/prod.py` - production settings
-- `backend/config/settings/local.py` - optional local overrides
+- `backend/config/settings/base.py` - общие настройки
+- `backend/config/settings/dev.py` - настройки разработки
+- `backend/config/settings/prod.py` - настройки production
+- `backend/config/settings/local.py` - опциональные локальные переопределения
 
-## Beginner rule
+## Правило для новичка
 
-Shared settings should contain common logic.
-Environment-specific files should contain only what is special for that environment.
-
+В общих настройках должна быть только общая логика.
+Файлы конкретного окружения должны содержать только то, что отличается именно для этого окружения.

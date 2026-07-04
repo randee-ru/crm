@@ -1,35 +1,35 @@
-# CRM Kit Handoff
+# Handoff CRM Kit
 
-This file is the shortest reliable context summary for continuing the project in another AI session.
+Этот файл - самый короткий и надёжный контекст для продолжения проекта в другой AI-сессии.
 
-## Project goal
+## Цель проекта
 
-Build CRM Kit as a commercial SaaS platform for service businesses.
-The first vertical is fitness clubs.
+Собрать CRM Kit как коммерческую SaaS-платформу для сервисного бизнеса.
+Первая вертикаль - фитнес-клубы.
 
-## Current repository status
+## Текущее состояние репозитория
 
-- Repository was empty after clone.
-- A base scaffold was created.
-- No business logic is implemented yet.
-- Stage 2 backend bootstrap has started.
-- PostgreSQL is the main database.
-- Docker Compose and backend bootstrap files were added.
+- После клонирования репозиторий был пустым.
+- Создан базовый каркас проекта.
+- Бизнес-логики пока нет.
+- Начат этап Stage 2 backend bootstrap.
+- Основная база данных - PostgreSQL.
+- Добавлены Docker Compose и файлы bootstrap для backend.
 
-## Repository structure
+## Структура репозитория
 
-- `backend/` - Django backend
-- `frontend/` - Next.js frontend
-- `docs/` - project documentation
+- `backend/` - backend на Django
+- `frontend/` - frontend на Next.js
+- `docs/` - документация проекта
 
-## Architecture decisions
+## Архитектурные решения
 
-- Use a modular monolith, not microservices.
-- Keep modules isolated by business domain.
-- Prefer explicit structure over hidden framework magic.
-- Optimize for readability and long-term maintainability.
+- Используем модульный монолит, а не микросервисы.
+- Держим модули изолированными по бизнес-доменам.
+- Предпочитаем явную структуру скрытой магии фреймворка.
+- Оптимизируем проект под читаемость и долгую поддержку.
 
-## Planned backend modules
+## Планируемые backend-модули
 
 - `core`
 - `accounts`
@@ -48,18 +48,18 @@ The first vertical is fitness clubs.
 - `automation`
 - `notifications`
 
-## Development rules
+## Правила разработки
 
-- Explain changes in simple language.
-- Document every stage.
-- Add comments where the logic is not obvious.
-- Do not add dependencies without a reason.
-- Keep the project runnable from the start.
+- Объясняем изменения простым языком.
+- Документируем каждый этап.
+- Добавляем комментарии там, где логика неочевидна.
+- Не добавляем зависимости без причины.
+- Делаем проект запускаемым с самого начала.
 
-## Next recommended step
+## Следующий рекомендуемый шаг
 
-Finish backend bootstrap and continue with the first SaaS core modules, then add:
+Довести backend bootstrap до конца и перейти к первым SaaS core-модулям, затем добавить:
 
-- the first real module, likely `accounts` or `companies`
-- tenant-aware entities
-- admin integration with Unfold
+- первый реальный модуль, скорее всего `accounts` или `companies`
+- сущности, учитывающие tenant
+- интеграцию админки с Unfold

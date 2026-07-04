@@ -1,27 +1,26 @@
-# Lesson 05 - PostgreSQL and Docker
+# Урок 05 - PostgreSQL и Docker
 
-## Simple explanation
+## Простое объяснение
 
-PostgreSQL is the main database for CRM Kit.
-Docker lets us run PostgreSQL and Redis the same way on every machine.
+PostgreSQL - это основная база данных CRM Kit.
+Docker позволяет запускать PostgreSQL и Redis одинаково на любой машине.
 
-## Why we use Docker here
+## Почему мы используем Docker
 
-If everyone installs databases manually, the project becomes harder to support.
-Docker gives us a repeatable local environment.
+Если каждый будет вручную ставить базы данных, проект станет сложнее поддерживать.
+Docker даёт повторяемое локальное окружение.
 
-## Current infrastructure services
+## Текущие инфраструктурные сервисы
 
-- `postgres` - stores business data
-- `redis` - will later support background jobs and caching
-- `backend` - runs Django inside a container
+- `postgres` - хранит бизнес-данные
+- `redis` - позже будет поддерживать фоновые задачи и кэширование
+- `backend` - запускает Django внутри контейнера
 
-## Beginner rule
+## Правило для новичка
 
-If the backend cannot connect to PostgreSQL, check:
+Если backend не подключается к PostgreSQL, проверь:
 
-1. the host name
-2. the port
-3. the username and password
-4. whether the database container is healthy
-
+1. имя хоста
+2. порт
+3. имя пользователя и пароль
+4. здоров ли контейнер базы данных

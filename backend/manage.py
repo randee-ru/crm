@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Django management entry point.
+"""Точка входа для Django management-команд.
 
-This file exists so the project can be started and managed with standard
-Django commands such as `runserver`, `migrate`, and `createsuperuser`.
+Этот файл нужен, чтобы проект можно было запускать и обслуживать стандартными
+командами Django, такими как `runserver`, `migrate` и `createsuperuser`.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ import sys
 
 
 def main() -> None:
-    """Run Django's command-line utility."""
+    """Запустить командную утилиту Django."""
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.local")
     from django.core.management import execute_from_command_line
 

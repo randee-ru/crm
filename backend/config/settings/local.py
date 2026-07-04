@@ -1,10 +1,9 @@
-"""Local settings used on a developer machine.
+"""Локальные настройки для машины разработчика.
 
-This file exists to keep the development setup explicit.
-The base settings stay shared, while local settings can diverge later if needed.
+Этот файл нужен, чтобы setup разработки оставался явным.
+Базовые настройки остаются общими, а local-настройки позже можно будет менять отдельно, если понадобится.
 """
 
 from __future__ import annotations
 
 from .dev import *  # noqa: F401,F403
-

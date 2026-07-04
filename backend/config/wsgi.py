@@ -1,6 +1,6 @@
-"""WSGI config for CRM Kit.
+"""WSGI-конфигурация для CRM Kit.
 
-WSGI is the traditional Python web server interface used by Gunicorn.
+WSGI - традиционный Python-интерфейс web-сервера, который использует Gunicorn.
 """
 
 from __future__ import annotations
@@ -12,4 +12,3 @@ from django.core.wsgi import get_wsgi_application
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.prod")
 
 application = get_wsgi_application()
-

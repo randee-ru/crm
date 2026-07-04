@@ -1,28 +1,28 @@
 # Backend
 
-This directory will contain the Django-based backend for CRM Kit.
+В этом каталоге находится backend CRM Kit на Django.
 
-## Planned contents
+## Что здесь будет
 
-- Django project configuration
-- domain apps
-- API layer
-- Celery tasks
-- integration adapters
-- Docker bootstrap for local development
-- environment-based settings
-- test configuration
+- конфигурация Django-проекта
+- доменные приложения
+- слой API
+- задачи Celery
+- адаптеры для интеграций
+- Docker bootstrap для локальной разработки
+- настройки по окружениям
+- конфигурация для тестов
 
-## How to start thinking about this folder
+## Как думать об этом каталоге
 
-The backend is not just "Django code".
-It is the runtime foundation for the whole product:
+Backend - это не просто «код на Django».
+Это рабочая основа всего продукта:
 
-- it loads settings
-- it connects to PostgreSQL
-- it serves the API
-- it will later run background jobs
+- он загружает настройки
+- подключается к PostgreSQL
+- отдаёт API
+- позже будет запускать фоновые задачи
 
-## Important rule
+## Важное правило
 
-Keep business logic inside domain modules, not scattered across views or settings.
+Держим бизнес-логику внутри доменных модулей, а не размазываем её по views или settings.

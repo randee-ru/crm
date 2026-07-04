@@ -1,7 +1,7 @@
-"""Project URL configuration.
+"""Конфигурация URL проекта.
 
-The root router stays intentionally small.
-Business modules will register their own URLs later.
+Корневой роутер специально остаётся маленьким.
+Бизнес-модули позже зарегистрируют свои URL отдельно.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from django.urls import path
 
 
 def healthcheck(_: object) -> JsonResponse:
-    """Simple health endpoint for load balancers and local checks."""
+    """Простой healthcheck-эндпоинт для балансировщиков и локальной проверки."""
     return JsonResponse({"status": "ok", "service": "crm-kit"})
 
 
@@ -20,4 +20,3 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("health/", healthcheck),
 ]
-

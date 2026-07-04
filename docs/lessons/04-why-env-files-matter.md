@@ -1,22 +1,21 @@
-# Lesson 04 - Why .env Files Matter
+# Урок 04 - Зачем нужны .env-файлы
 
-## Simple explanation
+## Простое объяснение
 
-`.env` files store configuration outside source code.
-That keeps secrets and machine-specific values out of Git history.
+Файлы `.env` хранят конфигурацию вне исходного кода.
+Так секреты и значения, зависящие от машины, не попадают в Git-историю.
 
-## Why this matters
+## Почему это важно
 
-We do not want passwords or secret keys hardcoded in Python files.
-Instead, the code reads them from the environment.
+Мы не хотим хранить пароли и секретные ключи прямо в Python-файлах.
+Вместо этого код читает их из окружения.
 
-## Current files
+## Текущие файлы
 
-- `.env.example` - template for the whole project
-- `backend/.env.example` - backend template for local work
+- `.env.example` - шаблон для всего проекта
+- `backend/.env.example` - шаблон для backend и локальной работы
 
-## Beginner rule
+## Правило для новичка
 
-Check in examples, not real secrets.
-Real `.env` files should stay on your machine and stay out of Git.
-
+В Git коммитим шаблоны, а не реальные секреты.
+Настоящие `.env` файлы должны оставаться только на вашей машине.

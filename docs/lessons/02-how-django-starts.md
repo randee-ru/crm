@@ -1,28 +1,28 @@
-# Lesson 02 - How Django Starts
+# Урок 02 - Как запускается Django
 
-## Simple explanation
+## Простое объяснение
 
-Django starts from `manage.py`.
-That file tells Python which settings module to load and then hands control to Django's command-line runner.
+Django запускается из `manage.py`.
+Этот файл говорит Python, какой модуль настроек загрузить, а затем передаёт управление командному раннеру Django.
 
-## Start flow
+## Порядок запуска
 
 1. `manage.py` sets `DJANGO_SETTINGS_MODULE`
 2. Django loads settings from `backend/config/settings/local.py`
 3. Django reads installed apps, middleware, database settings, and URLs
 4. Django runs the command you asked for
 
-## Why this matters
+## Почему это важно
 
-When something breaks, start by checking the boot path.
-Most startup problems are caused by:
+Если что-то ломается, сначала проверь путь запуска.
+Большинство проблем при старте вызваны:
 
-- missing environment variables
-- wrong import paths
-- broken settings
-- missing dependencies
+- отсутствующими переменными окружения
+- неправильными путями импортов
+- сломанными настройками
+- отсутствующими зависимостями
 
-## Beginner rule
+## Правило для новичка
 
-If Django does not start, do not guess.
-Read the error, identify the file, and fix the smallest broken piece first.
+Если Django не запускается, не гадай.
+Прочитай ошибку, найди файл и сначала исправь самый маленький сломанный кусок.
