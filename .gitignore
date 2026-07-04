@@ -1,6 +1,9 @@
 .DS_Store
 .env
 .env.*
+!.env.example
+!backend/.env.example
+!frontend/.env.example
 __pycache__/
 *.py[cod]
 .pytest_cache/
@@ -16,4 +19,3 @@ coverage/
 htmlcov/
 *.sqlite3
 *.log
-

@@ -4,8 +4,11 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "CRM Kit",
-  description: "Modular SaaS CRM/ERP platform for service businesses",
+  title: {
+    default: "CRM Kit",
+    template: "%s · CRM Kit",
+  },
+  description: "CRM Kit - модульная SaaS CRM/ERP-платформа для сервисного бизнеса",
 };
 
 export default function RootLayout({

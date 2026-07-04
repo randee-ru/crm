@@ -14,3 +14,5 @@
 8. `08-user-role-membership.md`
 9. `09-unfold-admin.md`
 10. `10-client-and-membership.md`
+11. `11-frontend-bootstrap.md`
+12. `12-api-client.md`
