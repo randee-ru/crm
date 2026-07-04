@@ -14,6 +14,7 @@
 - Бизнес-логики пока нет.
 - Начат этап Stage 2 backend bootstrap.
 - Начат этап Stage 3 SaaS core.
+- Начат этап Stage 4 основы админки с Unfold.
 - Основная база данных - PostgreSQL.
 - Добавлены Docker Compose и файлы bootstrap для backend.
 - Добавлены модели Company и Branch.

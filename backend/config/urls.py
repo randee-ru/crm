@@ -10,6 +10,8 @@ from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import path
 
+from . import admin as admin_config  # noqa: F401
+
 
 def healthcheck(_: object) -> JsonResponse:
     """Простой healthcheck-эндпоинт для балансировщиков и локальной проверки."""
