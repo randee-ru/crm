@@ -53,7 +53,8 @@ CRM Kit — коммерческая SaaS CRM для сервисного биз
   - тип работы — `trains_gym_floor` / `trains_group_programs` (можно совмещать, минимум один обязателен)
   - фото (`ImageField`, до 3 МБ), заслуги/регалии и публичное описание (`bio`) — задел под будущую выгрузку на сайт/в приложение, публичного API пока нет
   - `TrainerRentPayment` — история оплат аренды тренажёрного зала по датам (`paid_at` хранит точный день, `period` нормализуется до месяца только для проверки «оплачено ли в этом месяце»)
-  - backend API и тесты покрывают list/create/detail/update/delete + rent-payments CRUD
+  - `TrainerAccessCard` — карты доступа (СКУД/RFID), у тренера может быть несколько (уникальность номера карты в рамках компании), статусы `active`/`blocked`/`lost`
+  - backend API и тесты покрывают list/create/detail/update/delete + rent-payments и access-cards CRUD
 - Остальные пункты Stage 5 ещё в очереди: бронирования, продажи, платежи, UX-полировка Bitrix24
 
 ### Stage 8-11 progress
