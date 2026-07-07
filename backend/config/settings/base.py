@@ -14,6 +14,8 @@ ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split("
 
 INSTALLED_APPS = [
     "unfold",
+    "rest_framework",
+    "rest_framework.authtoken",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -26,6 +28,7 @@ INSTALLED_APPS = [
     "branches.apps.BranchesConfig",
     "employees.apps.EmployeesConfig",
     "clients.apps.ClientsConfig",
+    "contracts.apps.ContractsConfig",
     "crm.apps.CrmConfig",
     "sales.apps.SalesConfig",
     "payments.apps.PaymentsConfig",
@@ -33,9 +36,15 @@ INSTALLED_APPS = [
     "schedule.apps.ScheduleConfig",
     "bookings.apps.BookingsConfig",
     "attendance.apps.AttendanceConfig",
+    "messaging.apps.MessagingConfig",
+    "drive.apps.DriveConfig",
+    "mailbox.apps.MailboxConfig",
     "marketing.apps.MarketingConfig",
+    "telephony.apps.TelephonyConfig",
     "automation.apps.AutomationConfig",
     "notifications.apps.NotificationsConfig",
+    "reports.apps.ReportsConfig",
+    "integrations.apps.IntegrationsConfig",
 ]
 
 MIDDLEWARE = [
@@ -95,4 +104,49 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+TELEPHONY_RECORDING_RETENTION_DAYS = int(os.getenv("TELEPHONY_RECORDING_RETENTION_DAYS", "365"))
+TELEPHONY_RECORDING_ARCHIVE_LIMIT = int(os.getenv("TELEPHONY_RECORDING_ARCHIVE_LIMIT", "25"))
+TELEPHONY_AUTO_ARCHIVE_RECORDINGS = os.getenv("TELEPHONY_AUTO_ARCHIVE_RECORDINGS", "true").lower() in {
+    "1",
+    "true",
+    "yes",
+}
+TELEPHONY_SYNC_LOOKBACK_DAYS = int(os.getenv("TELEPHONY_SYNC_LOOKBACK_DAYS", "2"))
+TELEPHONY_RECORDING_ARCHIVE_DELAY_SECONDS = float(os.getenv("TELEPHONY_RECORDING_ARCHIVE_DELAY_SECONDS", "0.3"))
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SESSION_COOKIE_SECURE = os.getenv("DJANGO_SESSION_COOKIE_SECURE", "false").lower() in {"1", "true", "yes"}
+CSRF_COOKIE_SECURE = os.getenv("DJANGO_CSRF_COOKIE_SECURE", "false").lower() in {"1", "true", "yes"}
+SECURE_SSL_REDIRECT = os.getenv("DJANGO_SECURE_SSL_REDIRECT", "false").lower() in {"1", "true", "yes"}
+SECURE_HSTS_SECONDS = int(os.getenv("DJANGO_SECURE_HSTS_SECONDS", "0"))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = os.getenv("DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS", "false").lower() in {
+    "1",
+    "true",
+    "yes",
+}
+SECURE_HSTS_PRELOAD = os.getenv("DJANGO_SECURE_HSTS_PRELOAD", "false").lower() in {"1", "true", "yes"}
+
+# Операционные CRM-модели в /admin/ только для dev-отладки.
+# В production сотрудники работают через frontend + REST API.
+ADMIN_ENABLE_BUSINESS_MODELS = False
+
+REST_FRAMEWORK = {
+    "DEFAULT_RENDERER_CLASSES": [
+        "rest_framework.renderers.JSONRenderer",
+    ],
+    "DEFAULT_PARSER_CLASSES": [
+        "rest_framework.parsers.JSONParser",
+    ],
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.TokenAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+}
+
+from config.unfold import get_unfold_settings  # noqa: E402
+
+UNFOLD = get_unfold_settings()

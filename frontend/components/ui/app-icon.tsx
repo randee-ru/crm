@@ -81,6 +81,7 @@ const navIcons: Record<NavIconName, LucideIcon> = {
   telephony: Phone,
   payments: CreditCard,
   report: BarChart3,
+  analytics: BarChart3,
   settings: Settings,
 };
 

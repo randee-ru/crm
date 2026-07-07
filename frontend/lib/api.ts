@@ -14,6 +14,7 @@ import type {
   MarketingCampaignRecord,
   MarketingIntegrationRecord,
   ContractRecord,
+  NotificationRecord,
   CallListFilters,
   CallLogRecord,
   ClientDetail,
@@ -39,6 +40,7 @@ import type {
   ScheduleListFilters,
   PaymentRecord,
   SaleRecord,
+  AnalyticsOverviewResponse,
   TrainerRecord,
   TaskDetail,
   TaskListFilters,
@@ -453,6 +455,25 @@ export async function getDailyReport(
   const params = new URLSearchParams({ company: slug });
   if (date) params.set("date", date);
   return request<DailyReportResponse>(`/api/v1/reports/daily/?${params.toString()}`);
+}
+
+export async function getAnalyticsOverview(
+  companySlug?: string,
+  days = 30,
+): Promise<AnalyticsOverviewResponse> {
+  const slug = companySlug ?? (await getCompanySlugFromCookie());
+  const params = new URLSearchParams({ company: slug, days: String(days) });
+  return request<AnalyticsOverviewResponse>(`/api/v1/reports/overview/?${params.toString()}`);
+}
+
+export async function getNotifications(
+  companySlug?: string,
+  unreadOnly = false,
+): Promise<NotificationRecord[]> {
+  const slug = companySlug ?? (await getCompanySlugFromCookie());
+  const params = new URLSearchParams({ company: slug });
+  if (unreadOnly) params.set("unread", "true");
+  return request<NotificationRecord[]>(`/api/v1/notifications/?${params.toString()}`);
 }
 
 export function getApiBaseUrl(): string {

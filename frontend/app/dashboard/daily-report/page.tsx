@@ -165,6 +165,7 @@ export default async function DailyReportPage({ searchParams }: DailyReportPageP
 const quickLinks: { label: string; href: ComponentProps<typeof Link>["href"] }[] = [
   { label: "Сегодня", href: "/dashboard/daily-report" },
   { label: "Вчера", href: `/dashboard/daily-report?date=${yesterdayIso}` },
+  { label: "Отчёты", href: "/dashboard/reports" },
   { label: "Телефония", href: "/dashboard/telephony" },
   { label: "Посещаемость", href: "/dashboard/attendance" },
 ];

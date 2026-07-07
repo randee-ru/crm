@@ -25,6 +25,10 @@ CRM Kit — коммерческая SaaS CRM для сервисного биз
 - `employees` — тренеры
 - `bookings`, `attendance`, `sales`, `payments`, `memberships`
 - `marketing` — интеграции (в т.ч. SMS для рассылок)
+- `automation` — очередь событий, правила, действия
+- `notifications` — уведомления для панели и automation actions
+- `reports` — daily report + analytics overview
+- `integrations` — реестр внешних интеграций и webhook log
 
 ### Stage 5 progress
 
@@ -49,6 +53,13 @@ CRM Kit — коммерческая SaaS CRM для сервисного биз
   - создание, редактирование и удаление
   - backend API и тесты покрывают list/create/detail/update/delete
 - Остальные пункты Stage 5 ещё в очереди: бронирования, продажи, платежи, UX-полировка Bitrix24
+
+### Stage 8-11 progress
+
+- `Stage 8` started: есть backend каркас `automation` и `notifications`, а уведомления уже подаются в UI из backend
+- `Stage 9` started: отдельный модуль `reports` и экран `/dashboard/reports`
+- `Stage 10` started: модуль `integrations` с реестром подключений и webhook log
+- `Stage 11` started: добавлен CI workflow и production checklist
 
 ### Frontend
 
@@ -175,6 +186,15 @@ cd backend && ../.venv/bin/python manage.py migrate schedule --settings=config.s
   - подключить отдельный модуль отзывов и оценок
   - точнее разделить источники Telegram / WhatsApp / MAX на уровне интеграций
   - добавить явный признак "продление" в продажах
+- Stage 8:
+  - расширять automation rules для продаж, бронирований, оплат и посещаемости
+  - добавлять реальные notification сценарии из бизнес-событий
+- Stage 9:
+  - расширить отчёты по менеджерам, филиалам и источникам
+- Stage 10:
+  - подключать реальные Sigur / RFID / платежи / турникеты
+- Stage 11:
+  - добавить monitoring, backup runbooks и security flags
 - Проверить и доработать UX списков тренеров, если потребуется более плотный Bitrix-вид карточек
 - Отправка SMS-напоминаний по cron (используя `ScheduleSettings.sms_reminder_hours` + `ScheduleSmsIntegration`)
 - Дублирование недели / шаблон расписания (массовое создание слотов на диапазон дат)

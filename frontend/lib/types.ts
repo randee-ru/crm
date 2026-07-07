@@ -948,6 +948,56 @@ export type DailyReportResponse = {
   plan_items: string[];
 };
 
+export type NotificationRecord = {
+  id: number;
+  kind: "info" | "success" | "warning" | "error" | "task" | "crm";
+  title: string;
+  body: string;
+  target_url: string;
+  is_read: boolean;
+  read_at: string | null;
+  source_app: string;
+  source_model: string;
+  source_object_id: string;
+  payload: Record<string, unknown>;
+  created_at: string;
+};
+
+export type AnalyticsOverviewResponse = {
+  generated_at: string;
+  company: {
+    id: number;
+    name: string;
+    slug: string;
+  };
+  range: {
+    days: number;
+    start_date: string;
+    end_date: string;
+  };
+  totals: {
+    clients_total: number;
+    clients_active: number;
+    bookings: number;
+    attendances: number;
+    sales_amount: string;
+    payments_amount: string;
+    unread_notifications: number;
+  };
+  series: {
+    date: string;
+    calls: number;
+    bookings: number;
+    attendances: number;
+    sales_amount: string;
+    payments_amount: string;
+  }[];
+  top_sources: {
+    channel: string;
+    total: number;
+  }[];
+};
+
 export type ScheduleListFilters = {
   search?: string;
   when?: "today" | "upcoming";

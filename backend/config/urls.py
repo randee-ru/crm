@@ -13,7 +13,6 @@ from django.http import JsonResponse
 from django.urls import include, path
 
 from . import admin as admin_config  # noqa: F401
-from core.report_views import DailyReportView
 from . import platform_auth_admin as platform_auth_admin_config  # noqa: F401
 
 
@@ -41,7 +40,10 @@ urlpatterns = [
     path("api/v1/", include("payments.urls")),
     path("api/v1/", include("crm.urls")),
     path("api/v1/", include("schedule.urls")),
-    path("api/v1/reports/daily/", DailyReportView.as_view(), name="daily-report"),
+    path("api/v1/", include("notifications.urls")),
+    path("api/v1/", include("automation.urls")),
+    path("api/v1/", include("reports.urls")),
+    path("api/v1/", include("integrations.urls")),
 ]
 
 if settings.DEBUG:

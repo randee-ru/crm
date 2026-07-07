@@ -8,3 +8,5 @@ class AutomationConfig(AppConfig):
     name = "automation"
     verbose_name = "Automation"
 
+    def ready(self) -> None:
+        from automation import signals  # noqa: F401

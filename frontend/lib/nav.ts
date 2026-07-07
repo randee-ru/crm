@@ -24,6 +24,7 @@ export const workspaceNavigation = [
   { id: "sales", label: "Продажи", href: "/dashboard/sales", icon: "sales" },
   { id: "payments", label: "Платежи", href: "/dashboard/payments", icon: "payments" },
   { id: "daily-report", label: "Дневной отчет", href: "/dashboard/daily-report", icon: "report" },
+  { id: "reports", label: "Отчёты", href: "/dashboard/reports", icon: "analytics" },
   { id: "settings", label: "Настройки", href: "/dashboard/settings", icon: "settings" },
 ] as const;
 
@@ -53,6 +54,7 @@ export const workspaceSidebarLayout = [
       "sales",
       "payments",
       "daily-report",
+      "reports",
     ] as const,
   },
   { type: "items", items: ["tasks", "crm", "marketing"] as const },
