@@ -11,6 +11,7 @@ class TrainerListSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(read_only=True)
     branch_name = serializers.CharField(source="branch.name", read_only=True, default=None)
     rent_paid_current_month = serializers.BooleanField(read_only=True, default=False)
+    photo_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Trainer
@@ -22,6 +23,7 @@ class TrainerListSerializer(serializers.ModelSerializer):
             "phone",
             "email",
             "specialization",
+            "photo_url",
             "trains_gym_floor",
             "trains_group_programs",
             "rent_paid_current_month",
@@ -29,6 +31,14 @@ class TrainerListSerializer(serializers.ModelSerializer):
             "branch_name",
             "created_at",
         ]
+
+    def get_photo_url(self, trainer: Trainer) -> str | None:
+        if not trainer.photo:
+            return None
+        request = self.context.get("request")
+        if request is not None:
+            return request.build_absolute_uri(trainer.photo.url)
+        return trainer.photo.url
 
 
 class TrainerRentPaymentSerializer(serializers.ModelSerializer):
@@ -42,7 +52,13 @@ class TrainerDetailSerializer(TrainerListSerializer):
     rent_payments = TrainerRentPaymentSerializer(many=True, read_only=True)
 
     class Meta(TrainerListSerializer.Meta):
-        fields = TrainerListSerializer.Meta.fields + ["branch_id", "updated_at", "rent_payments"]
+        fields = TrainerListSerializer.Meta.fields + [
+            "branch_id",
+            "achievements",
+            "bio",
+            "updated_at",
+            "rent_payments",
+        ]
 
 
 class TrainerWriteSerializer(serializers.ModelSerializer):
@@ -52,6 +68,7 @@ class TrainerWriteSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True,
     )
+    photo = serializers.ImageField(required=False, allow_null=True)
 
     class Meta:
         model = Trainer
@@ -61,6 +78,9 @@ class TrainerWriteSerializer(serializers.ModelSerializer):
             "phone",
             "email",
             "specialization",
+            "photo",
+            "achievements",
+            "bio",
             "trains_gym_floor",
             "trains_group_programs",
             "is_active",
@@ -72,6 +92,19 @@ class TrainerWriteSerializer(serializers.ModelSerializer):
         if branch and company and branch.company_id != company.id:
             raise serializers.ValidationError("Филиал должен принадлежать текущей компании.")
         return branch
+
+    def validate_photo(self, photo):
+        if photo is None:
+            return photo
+
+        if photo.size > 3 * 1024 * 1024:
+            raise serializers.ValidationError("Размер файла не должен превышать 3 МБ.")
+
+        content_type = getattr(photo, "content_type", "")
+        if content_type and not content_type.startswith("image/"):
+            raise serializers.ValidationError("Можно загрузить только изображение.")
+
+        return photo
 
     def validate_phone(self, phone: str) -> str:
         company = self.context.get("company")

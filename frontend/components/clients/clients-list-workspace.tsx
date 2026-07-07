@@ -21,6 +21,31 @@ const statusOptions = [
   ["rejected", "Отказ"],
 ] as const;
 
+const birthdayMonthOptions = [
+  ["", "Месяц ДР"],
+  ["1", "Январь"],
+  ["2", "Февраль"],
+  ["3", "Март"],
+  ["4", "Апрель"],
+  ["5", "Май"],
+  ["6", "Июнь"],
+  ["7", "Июль"],
+  ["8", "Август"],
+  ["9", "Сентябрь"],
+  ["10", "Октябрь"],
+  ["11", "Ноябрь"],
+  ["12", "Декабрь"],
+] as const;
+
+const expiryOptions = [
+  ["", "Абонемент"],
+  ["7", "7 дней"],
+  ["14", "14 дней"],
+  ["30", "30 дней"],
+  ["60", "60 дней"],
+  ["90", "90 дней"],
+] as const;
+
 type ClientsListWorkspaceProps = {
   totalCount: number;
   activeCount?: number;
@@ -33,6 +58,10 @@ export function ClientsListWorkspace({ totalCount, activeCount = 0 }: ClientsLis
   const page = Math.max(1, Number(searchParams.get("page") || "1") || 1);
   const clientStatus = searchParams.get("client_status") || searchParams.get("membership_status") || "";
   const urlSearch = searchParams.get("search") || "";
+  const birthDateFrom = searchParams.get("birth_date_from") || "";
+  const birthDateTo = searchParams.get("birth_date_to") || "";
+  const birthdayMonth = searchParams.get("birthday_month") || "";
+  const membershipExpiresInDays = searchParams.get("membership_expires_in_days") || "";
 
   const [searchInput, setSearchInput] = useState(urlSearch);
   const [clients, setClients] = useState<ClientRecord[]>([]);
@@ -45,7 +74,15 @@ export function ClientsListWorkspace({ totalCount, activeCount = 0 }: ClientsLis
     searchInput.trim().length > 0 && searchInput.trim().length < SEARCH_MIN_LENGTH;
 
   const updateUrl = useCallback(
-    (nextPage: number, nextSearch: string, nextClientStatus: string) => {
+    (
+      nextPage: number,
+      nextSearch: string,
+      nextClientStatus: string,
+      nextBirthDateFrom: string,
+      nextBirthDateTo: string,
+      nextBirthdayMonth: string,
+      nextMembershipExpiresInDays: string,
+    ) => {
       const params = new URLSearchParams();
       if (nextPage > 1) {
         params.set("page", String(nextPage));
@@ -55,6 +92,18 @@ export function ClientsListWorkspace({ totalCount, activeCount = 0 }: ClientsLis
       }
       if (nextClientStatus) {
         params.set("client_status", nextClientStatus);
+      }
+      if (nextBirthDateFrom) {
+        params.set("birth_date_from", nextBirthDateFrom);
+      }
+      if (nextBirthDateTo) {
+        params.set("birth_date_to", nextBirthDateTo);
+      }
+      if (nextBirthdayMonth) {
+        params.set("birthday_month", nextBirthdayMonth);
+      }
+      if (nextMembershipExpiresInDays) {
+        params.set("membership_expires_in_days", nextMembershipExpiresInDays);
       }
       const query = params.toString();
       router.replace(query ? `/dashboard/clients?${query}` : "/dashboard/clients", { scroll: false });
@@ -71,12 +120,20 @@ export function ClientsListWorkspace({ totalCount, activeCount = 0 }: ClientsLis
       const trimmed = searchInput.trim();
       const nextSearch = trimmed.length >= SEARCH_MIN_LENGTH ? trimmed : "";
       if (nextSearch !== urlSearch) {
-        updateUrl(1, nextSearch, clientStatus);
+        updateUrl(
+          1,
+          nextSearch,
+          clientStatus,
+          birthDateFrom,
+          birthDateTo,
+          birthdayMonth,
+          membershipExpiresInDays,
+        );
       }
     }, 350);
 
     return () => window.clearTimeout(timer);
-  }, [searchInput, clientStatus, urlSearch, updateUrl]);
+  }, [searchInput, clientStatus, urlSearch, updateUrl, birthDateFrom, birthDateTo, birthdayMonth, membershipExpiresInDays]);
 
   useEffect(() => {
     let cancelled = false;
@@ -90,6 +147,10 @@ export function ClientsListWorkspace({ totalCount, activeCount = 0 }: ClientsLis
           page,
           search: effectiveSearch || undefined,
           clientStatus: clientStatus || undefined,
+          birthDateFrom: birthDateFrom || undefined,
+          birthDateTo: birthDateTo || undefined,
+          birthdayMonth: birthdayMonth || undefined,
+          membershipExpiresInDays: membershipExpiresInDays || undefined,
         });
 
         if (!cancelled) {
@@ -113,10 +174,35 @@ export function ClientsListWorkspace({ totalCount, activeCount = 0 }: ClientsLis
     return () => {
       cancelled = true;
     };
-  }, [page, effectiveSearch, clientStatus]);
+  }, [page, effectiveSearch, clientStatus, birthDateFrom, birthDateTo, birthdayMonth, membershipExpiresInDays]);
 
   function handleClientStatusChange(value: string) {
-    updateUrl(1, effectiveSearch, value);
+    updateUrl(
+      1,
+      effectiveSearch,
+      value,
+      birthDateFrom,
+      birthDateTo,
+      birthdayMonth,
+      membershipExpiresInDays,
+    );
+  }
+
+  function handleFilterChange(nextValues: {
+    birthDateFrom?: string;
+    birthDateTo?: string;
+    birthdayMonth?: string;
+    membershipExpiresInDays?: string;
+  }) {
+    updateUrl(
+      1,
+      effectiveSearch,
+      clientStatus,
+      nextValues.birthDateFrom ?? birthDateFrom,
+      nextValues.birthDateTo ?? birthDateTo,
+      nextValues.birthdayMonth ?? birthdayMonth,
+      nextValues.membershipExpiresInDays ?? membershipExpiresInDays,
+    );
   }
 
   function handleReset() {
@@ -164,7 +250,53 @@ export function ClientsListWorkspace({ totalCount, activeCount = 0 }: ClientsLis
           ))}
         </select>
 
-        {(urlSearch || clientStatus) && (
+        <label className="flex items-center gap-2 rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-[13px]">
+          <span className="text-[var(--muted)]">ДР от</span>
+          <input
+            type="date"
+            value={birthDateFrom}
+            onChange={(event) => handleFilterChange({ birthDateFrom: event.target.value })}
+            className="w-[140px] border-0 bg-transparent p-0 outline-none"
+          />
+        </label>
+
+        <label className="flex items-center gap-2 rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-[13px]">
+          <span className="text-[var(--muted)]">до</span>
+          <input
+            type="date"
+            value={birthDateTo}
+            onChange={(event) => handleFilterChange({ birthDateTo: event.target.value })}
+            className="w-[140px] border-0 bg-transparent p-0 outline-none"
+          />
+        </label>
+
+        <select
+          value={birthdayMonth}
+          onChange={(event) => handleFilterChange({ birthdayMonth: event.target.value })}
+          className="form-field w-auto min-w-[140px] bg-white"
+          aria-label="Месяц рождения"
+        >
+          {birthdayMonthOptions.map(([value, label]) => (
+            <option key={value || "all-birthday-month"} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={membershipExpiresInDays}
+          onChange={(event) => handleFilterChange({ membershipExpiresInDays: event.target.value })}
+          className="form-field w-auto min-w-[160px] bg-white"
+          aria-label="Срок окончания абонемента"
+        >
+          {expiryOptions.map(([value, label]) => (
+            <option key={value || "all-expiry"} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+
+        {(urlSearch || clientStatus || birthDateFrom || birthDateTo || birthdayMonth || membershipExpiresInDays) && (
           <button
             type="button"
             onClick={handleReset}
@@ -202,7 +334,17 @@ export function ClientsListWorkspace({ totalCount, activeCount = 0 }: ClientsLis
         pageSize={PAGE_SIZE}
         total={count}
         disabled={loading}
-        onPageChange={(nextPage) => updateUrl(nextPage, effectiveSearch, clientStatus)}
+        onPageChange={(nextPage) =>
+          updateUrl(
+            nextPage,
+            effectiveSearch,
+            clientStatus,
+            birthDateFrom,
+            birthDateTo,
+            birthdayMonth,
+            membershipExpiresInDays,
+          )
+        }
       />
     </WorkspaceCard>
   );

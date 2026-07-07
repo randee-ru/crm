@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+
 from django.db.models import Q, QuerySet
+from django.utils import timezone
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.generics import ListAPIView, ListCreateAPIView, RetrieveAPIView, RetrieveUpdateAPIView
 from rest_framework.permissions import IsAuthenticated
@@ -24,6 +27,7 @@ from clients.serializers import (
 )
 from clients.profile_serializers import ClientProfileSerializer
 from core.pagination import ClientListPagination
+from memberships.models import Membership
 
 
 def get_company_from_request(request: Request):
@@ -99,6 +103,40 @@ class ClientListCreateView(ClientQuerysetMixin, ListCreateAPIView):
         is_active = self.request.query_params.get("is_active")
         if is_active in {"true", "false"}:
             queryset = queryset.filter(is_active=is_active == "true")
+
+        birth_date_from = self.request.query_params.get("birth_date_from", "").strip()
+        if birth_date_from:
+            try:
+                queryset = queryset.filter(birth_date__gte=datetime.strptime(birth_date_from, "%Y-%m-%d").date())
+            except ValueError:
+                pass
+
+        birth_date_to = self.request.query_params.get("birth_date_to", "").strip()
+        if birth_date_to:
+            try:
+                queryset = queryset.filter(birth_date__lte=datetime.strptime(birth_date_to, "%Y-%m-%d").date())
+            except ValueError:
+                pass
+
+        birthday_month = self.request.query_params.get("birthday_month", "").strip()
+        if birthday_month.isdigit():
+            month = int(birthday_month)
+            if 1 <= month <= 12:
+                queryset = queryset.filter(birth_date__month=month)
+
+        membership_expires_in_days = self.request.query_params.get("membership_expires_in_days", "").strip()
+        if membership_expires_in_days.isdigit():
+            days = int(membership_expires_in_days)
+            if days >= 0:
+                today = timezone.localdate()
+                cutoff = today + timedelta(days=days)
+                queryset = (
+                    queryset.filter(
+                        memberships__status=Membership.Status.ACTIVE,
+                        memberships__ends_at__range=(today, cutoff),
+                    )
+                    .distinct()
+                )
 
         return queryset
 

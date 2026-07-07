@@ -2,11 +2,20 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { DashboardShell } from "@/components/dashboard-shell";
+import { SettingsIntegrationsSection } from "@/components/settings/settings-integrations-section";
 import { SettingsLayout } from "@/components/settings/settings-layout";
 import { SettingsPipelinesSection } from "@/components/settings/settings-pipelines-section";
 import { SettingsScheduleSection } from "@/components/settings/settings-schedule-section";
 import { SettingsToolsSection } from "@/components/settings/settings-tools-section";
-import { getPipelines, getScheduleSettings, getScheduleSmsIntegrations } from "@/lib/api";
+import { getAuthSession } from "@/lib/auth";
+import {
+  getIntegrationConnections,
+  getMarketingIntegrations,
+  getPipelines,
+  getScheduleSettings,
+  getScheduleSmsIntegrations,
+  getTelephonyIntegration,
+} from "@/lib/api";
 import { settingsSectionMeta, type SettingsSectionId } from "@/lib/settings";
 
 export const metadata: Metadata = { title: "Настройки" };
@@ -30,6 +39,12 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
   let pipelines = [] as Awaited<ReturnType<typeof getPipelines>>;
   let scheduleSettings = null as Awaited<ReturnType<typeof getScheduleSettings>> | null;
   let scheduleSmsIntegrations = [] as Awaited<ReturnType<typeof getScheduleSmsIntegrations>>;
+  let disabledModules: string[] = [];
+
+  if (section === "tools") {
+    const session = await getAuthSession();
+    disabledModules = session?.company?.disabled_modules ?? [];
+  }
 
   if (section === "pipelines") {
     try {
@@ -39,12 +54,17 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
     }
   }
 
+  if (section === "schedule" || section === "integrations") {
+    try {
+      scheduleSmsIntegrations = await getScheduleSmsIntegrations();
+    } catch {
+      scheduleSmsIntegrations = [];
+    }
+  }
+
   if (section === "schedule") {
     try {
-      [scheduleSettings, scheduleSmsIntegrations] = await Promise.all([
-        getScheduleSettings(),
-        getScheduleSmsIntegrations(),
-      ]);
+      scheduleSettings = await getScheduleSettings();
     } catch {
       scheduleSettings = {
         default_max_participants: 20,
@@ -54,21 +74,39 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
         embed_token: "",
         updated_at: new Date().toISOString(),
       };
-      scheduleSmsIntegrations = [];
     }
+  }
+
+  let telephonyIntegration = null as Awaited<ReturnType<typeof getTelephonyIntegration>> | null;
+  let marketingIntegrations = [] as Awaited<ReturnType<typeof getMarketingIntegrations>>;
+  let integrationConnections = [] as Awaited<ReturnType<typeof getIntegrationConnections>>;
+
+  if (section === "integrations") {
+    [telephonyIntegration, marketingIntegrations, integrationConnections] = await Promise.all([
+      getTelephonyIntegration().catch(() => null),
+      getMarketingIntegrations().catch(() => []),
+      getIntegrationConnections().catch(() => []),
+    ]);
   }
 
   return (
     <DashboardShell>
       <SettingsLayout activeSection={section}>
         {section === "tools" ? (
-          <SettingsToolsSection />
+          <SettingsToolsSection initialDisabledModules={disabledModules} />
         ) : section === "pipelines" ? (
           <SettingsPipelinesSection initialPipelines={pipelines} />
         ) : section === "schedule" && scheduleSettings ? (
           <SettingsScheduleSection
             initialSettings={scheduleSettings}
             initialIntegrations={scheduleSmsIntegrations}
+          />
+        ) : section === "integrations" ? (
+          <SettingsIntegrationsSection
+            telephonyIntegration={telephonyIntegration}
+            scheduleSmsIntegrations={scheduleSmsIntegrations}
+            marketingIntegrations={marketingIntegrations}
+            initialConnections={integrationConnections}
           />
         ) : section === "employees" ? (
           <div className="settings-card settings-card--placeholder">

@@ -14,14 +14,14 @@ type TrainerRentPanelProps = {
 
 const initialState: ActionState = {};
 
-function currentMonthValue() {
+function todayValue() {
   const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
-function formatPeriod(period: string) {
-  const date = new Date(period);
-  return new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric" }).format(date);
+function formatPaidDate(paidAt: string) {
+  const date = new Date(paidAt);
+  return new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "long", year: "numeric" }).format(date);
 }
 
 function formatMoney(value: string) {
@@ -62,8 +62,8 @@ export function TrainerRentPanel({ trainerId, payments, rentPaidCurrentMonth }: 
         ) : null}
         <div className="grid grid-cols-2 gap-2">
           <label className="block">
-            <span className="mb-1 block text-[11px] font-medium text-[var(--muted)]">Месяц</span>
-            <input name="period" type="month" defaultValue={currentMonthValue()} required className="form-field bg-white text-[13px]" />
+            <span className="mb-1 block text-[11px] font-medium text-[var(--muted)]">Дата оплаты</span>
+            <input name="paid_at" type="date" defaultValue={todayValue()} required className="form-field bg-white text-[13px]" />
           </label>
           <label className="block">
             <span className="mb-1 block text-[11px] font-medium text-[var(--muted)]">Сумма</span>
@@ -88,7 +88,7 @@ export function TrainerRentPanel({ trainerId, payments, rentPaidCurrentMonth }: 
           payments.map((payment) => (
             <div key={payment.id} className="flex items-center justify-between gap-2 px-3 py-2 text-[13px]">
               <div>
-                <div className="font-medium capitalize text-[var(--text)]">{formatPeriod(payment.period)}</div>
+                <div className="font-medium capitalize text-[var(--text)]">{formatPaidDate(payment.paid_at)}</div>
                 <div className="text-[12px] text-[var(--muted)]">{payment.note || "Без комментария"}</div>
               </div>
               <div className="flex items-center gap-2">

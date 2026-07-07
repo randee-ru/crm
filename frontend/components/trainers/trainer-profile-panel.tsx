@@ -41,7 +41,14 @@ export function TrainerProfilePanel({ trainer, branches }: TrainerProfilePanelPr
 
         <div className="client-card-hero-main">
           <div className="client-card-avatar-wrap">
-            <div className="client-card-avatar">{getClientInitials(trainer.full_name)}</div>
+            <div className="client-card-avatar overflow-hidden">
+              {trainer.photo_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={trainer.photo_url} alt={trainer.full_name} className="h-full w-full object-cover" />
+              ) : (
+                getClientInitials(trainer.full_name)
+              )}
+            </div>
           </div>
           <div className="client-card-hero-info">
             <div className="client-card-hero-title-row">
@@ -120,7 +127,28 @@ export function TrainerProfilePanel({ trainer, branches }: TrainerProfilePanelPr
             </SidebarCard>
           </aside>
 
-          <section className="client-card-timeline">
+          <section className="client-card-timeline space-y-3">
+            <div className="client-card-section">
+              <h2>Публичный профиль</h2>
+              <p className="mb-3 text-[12px] text-[var(--muted)]">
+                Эти данные выгружаются на сайт клуба и в мобильное приложение.
+              </p>
+              <div className="space-y-3">
+                <div>
+                  <span className="client-card-contact-label">Заслуги и регалии</span>
+                  <p className="mt-1 whitespace-pre-wrap text-[13px] text-[var(--text)]">
+                    {trainer.achievements || "Не заполнено"}
+                  </p>
+                </div>
+                <div>
+                  <span className="client-card-contact-label">Описание</span>
+                  <p className="mt-1 whitespace-pre-wrap text-[13px] text-[var(--text)]">
+                    {trainer.bio || "Не заполнено"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {trainer.trains_gym_floor ? (
               <div className="client-card-section">
                 <h2>Аренда тренажёрного зала</h2>

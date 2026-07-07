@@ -124,9 +124,18 @@ export default async function TrainersPage({ searchParams }: TrainersPageProps) 
                     <tr key={trainer.id} className="hover:bg-[#f8fbfe]">
                       <td className="px-4 py-3">
                         <Link href={`/dashboard/trainers/${trainer.id}`} className="flex items-center gap-3">
-                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]/10 text-[12px] font-semibold text-[var(--accent-strong)]">
-                            {initials(trainer.full_name)}
-                          </span>
+                          {trainer.photo_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={trainer.photo_url}
+                              alt={trainer.full_name}
+                              className="h-9 w-9 shrink-0 rounded-full object-cover"
+                            />
+                          ) : (
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]/10 text-[12px] font-semibold text-[var(--accent-strong)]">
+                              {initials(trainer.full_name)}
+                            </span>
+                          )}
                           <span>
                             <span className="block font-semibold text-[var(--text)] hover:text-[var(--accent-strong)]">
                               {trainer.full_name}

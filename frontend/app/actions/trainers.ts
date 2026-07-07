@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 
 import { getAuthHeaders, getCompanySlugFromCookie } from "@/lib/auth";
 import { API_BASE_URL } from "@/lib/api-config";
-import type { ActionState, TrainerWriteInput } from "@/lib/types";
+import type { ActionState } from "@/lib/types";
 
 async function parseApiError(response: Response): Promise<string> {
   try {
@@ -24,20 +24,28 @@ async function parseApiError(response: Response): Promise<string> {
   return "Не удалось сохранить тренера.";
 }
 
-function readInput(formData: FormData): TrainerWriteInput {
+function buildTrainerFormData(formData: FormData): FormData {
+  const body = new FormData();
   const branchRaw = String(formData.get("branch_id") ?? "").trim();
 
-  return {
-    first_name: String(formData.get("first_name") ?? "").trim(),
-    last_name: String(formData.get("last_name") ?? "").trim(),
-    phone: String(formData.get("phone") ?? "").trim(),
-    email: String(formData.get("email") ?? "").trim(),
-    specialization: String(formData.get("specialization") ?? "").trim(),
-    trains_gym_floor: formData.get("trains_gym_floor") === "on",
-    trains_group_programs: formData.get("trains_group_programs") === "on",
-    is_active: formData.get("is_active") === "on",
-    branch_id: branchRaw ? Number(branchRaw) : null,
-  };
+  body.append("first_name", String(formData.get("first_name") ?? "").trim());
+  body.append("last_name", String(formData.get("last_name") ?? "").trim());
+  body.append("phone", String(formData.get("phone") ?? "").trim());
+  body.append("email", String(formData.get("email") ?? "").trim());
+  body.append("specialization", String(formData.get("specialization") ?? "").trim());
+  body.append("achievements", String(formData.get("achievements") ?? "").trim());
+  body.append("bio", String(formData.get("bio") ?? "").trim());
+  body.append("trains_gym_floor", formData.get("trains_gym_floor") === "on" ? "true" : "false");
+  body.append("trains_group_programs", formData.get("trains_group_programs") === "on" ? "true" : "false");
+  body.append("is_active", formData.get("is_active") === "on" ? "true" : "false");
+  body.append("branch_id", branchRaw);
+
+  const photo = formData.get("photo");
+  if (photo instanceof File && photo.size > 0) {
+    body.append("photo", photo);
+  }
+
+  return body;
 }
 
 export async function createTrainerAction(
@@ -45,9 +53,11 @@ export async function createTrainerAction(
   formData: FormData,
 ): Promise<ActionState> {
   const companySlug = await getCompanySlugFromCookie();
-  const payload = readInput(formData);
+  const firstName = String(formData.get("first_name") ?? "").trim();
+  const lastName = String(formData.get("last_name") ?? "").trim();
+  const phone = String(formData.get("phone") ?? "").trim();
 
-  if (!payload.first_name || !payload.last_name || !payload.phone) {
+  if (!firstName || !lastName || !phone) {
     return { error: "Укажите имя, фамилию и телефон тренера." };
   }
 
@@ -55,11 +65,8 @@ export async function createTrainerAction(
     `${API_BASE_URL}/api/v1/trainers/?company=${encodeURIComponent(companySlug)}`,
     {
       method: "POST",
-      headers: {
-        ...(await getAuthHeaders()),
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
+      headers: await getAuthHeaders(),
+      body: buildTrainerFormData(formData),
     },
   );
 
@@ -78,9 +85,11 @@ export async function updateTrainerAction(
   formData: FormData,
 ): Promise<ActionState> {
   const companySlug = await getCompanySlugFromCookie();
-  const payload = readInput(formData);
+  const firstName = String(formData.get("first_name") ?? "").trim();
+  const lastName = String(formData.get("last_name") ?? "").trim();
+  const phone = String(formData.get("phone") ?? "").trim();
 
-  if (!payload.first_name || !payload.last_name || !payload.phone) {
+  if (!firstName || !lastName || !phone) {
     return { error: "Укажите имя, фамилию и телефон тренера." };
   }
 
@@ -88,11 +97,8 @@ export async function updateTrainerAction(
     `${API_BASE_URL}/api/v1/trainers/${trainerId}/?company=${encodeURIComponent(companySlug)}`,
     {
       method: "PATCH",
-      headers: {
-        ...(await getAuthHeaders()),
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
+      headers: await getAuthHeaders(),
+      body: buildTrainerFormData(formData),
     },
   );
 
@@ -125,12 +131,12 @@ export async function createTrainerRentPaymentAction(
   formData: FormData,
 ): Promise<ActionState> {
   const companySlug = await getCompanySlugFromCookie();
-  const month = String(formData.get("period") ?? "").trim();
+  const paidOn = String(formData.get("paid_at") ?? "").trim();
   const amount = String(formData.get("amount") ?? "").trim();
   const note = String(formData.get("note") ?? "").trim();
 
-  if (!month || !amount) {
-    return { error: "Укажите месяц и сумму аренды." };
+  if (!paidOn || !amount) {
+    return { error: "Укажите дату и сумму аренды." };
   }
 
   const response = await fetch(
@@ -141,7 +147,12 @@ export async function createTrainerRentPaymentAction(
         ...(await getAuthHeaders()),
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ period: `${month}-01`, amount, note }),
+      body: JSON.stringify({
+        period: paidOn,
+        paid_at: `${paidOn}T12:00:00`,
+        amount,
+        note,
+      }),
     },
   );
 

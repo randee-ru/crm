@@ -1,54 +1,52 @@
 "use client";
 
-import Link from "next/link";
-import type { Route } from "next";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 
+import { updateModuleSettingsAction } from "@/app/actions/company";
 import { SettingsToggle } from "@/components/settings/settings-toggle";
-import {
-  SETTINGS_TOOLS_STORAGE_KEY,
-  settingsTools,
-  type SettingsToolId,
-} from "@/lib/settings";
+import { settingsTools } from "@/lib/settings";
+import { workspaceNavigation } from "@/lib/nav";
 
-function readStoredTools(): Record<SettingsToolId, boolean> {
-  const defaults = Object.fromEntries(
-    settingsTools.map((tool) => [tool.id, tool.defaultEnabled]),
-  ) as Record<SettingsToolId, boolean>;
+const labelById = Object.fromEntries(workspaceNavigation.map((item) => [item.id, item.label]));
 
-  if (typeof window === "undefined") return defaults;
+type SettingsToolsSectionProps = {
+  initialDisabledModules: string[];
+};
 
-  try {
-    const raw = window.localStorage.getItem(SETTINGS_TOOLS_STORAGE_KEY);
-    if (!raw) return defaults;
-    return { ...defaults, ...JSON.parse(raw) };
-  } catch {
-    return defaults;
-  }
-}
-
-export function SettingsToolsSection() {
-  const [enabledTools, setEnabledTools] = useState<Record<SettingsToolId, boolean>>(() =>
-    Object.fromEntries(settingsTools.map((tool) => [tool.id, tool.defaultEnabled])) as Record<
-      SettingsToolId,
-      boolean
-    >,
-  );
+export function SettingsToolsSection({ initialDisabledModules }: SettingsToolsSectionProps) {
+  const [disabledModules, setDisabledModules] = useState<string[]>(initialDisabledModules);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({ collaboration: true });
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
 
-  useEffect(() => {
-    setEnabledTools(readStoredTools());
-  }, []);
-
-  const persist = (next: Record<SettingsToolId, boolean>) => {
-    setEnabledTools(next);
-    window.localStorage.setItem(SETTINGS_TOOLS_STORAGE_KEY, JSON.stringify(next));
-  };
+  const isEnabled = (moduleIds: string[]) => moduleIds.every((id) => !disabledModules.includes(id));
 
   const enabledCount = useMemo(
-    () => Object.values(enabledTools).filter(Boolean).length,
-    [enabledTools],
+    () => settingsTools.filter((tool) => isEnabled(tool.moduleIds)).length,
+    [disabledModules],
   );
+
+  function persist(next: string[]) {
+    const previous = disabledModules;
+    setDisabledModules(next);
+    setError(null);
+    startTransition(async () => {
+      try {
+        const saved = await updateModuleSettingsAction(next);
+        setDisabledModules(saved);
+      } catch (err) {
+        setDisabledModules(previous);
+        setError(err instanceof Error ? err.message : "Не удалось сохранить настройки меню.");
+      }
+    });
+  }
+
+  function toggleTool(moduleIds: string[], enabled: boolean) {
+    const next = enabled
+      ? disabledModules.filter((id) => !moduleIds.includes(id))
+      : Array.from(new Set([...disabledModules, ...moduleIds]));
+    persist(next);
+  }
 
   return (
     <div className="settings-card">
@@ -63,15 +61,16 @@ export function SettingsToolsSection() {
 
       <div className="settings-info-banner">
         Выберите инструменты, которые будут доступны сотрудникам в левом меню. Сейчас включено{" "}
-        <strong>{enabledCount}</strong> из {settingsTools.length}.{" "}
-        <button type="button" className="settings-info-link">
-          Подробнее
-        </button>
+        <strong>{enabledCount}</strong> из {settingsTools.length}.
       </div>
+
+      {error ? (
+        <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-[12px] text-red-700">{error}</div>
+      ) : null}
 
       <div className="settings-tool-list">
         {settingsTools.map((tool) => {
-          const enabled = enabledTools[tool.id];
+          const enabled = isEnabled(tool.moduleIds);
 
           return (
             <div
@@ -81,7 +80,8 @@ export function SettingsToolsSection() {
               <SettingsToggle
                 enabled={enabled}
                 label={tool.label}
-                onChange={(value) => persist({ ...enabledTools, [tool.id]: value })}
+                disabled={isPending}
+                onChange={(value) => toggleTool(tool.moduleIds, value)}
               />
 
               <div className="settings-tool-main">
@@ -110,34 +110,12 @@ export function SettingsToolsSection() {
 
                 {tool.expandable && expanded[tool.id] ? (
                   <div className="settings-tool-sublist">
-                    <span>Мессенджер</span>
-                    <span>Лента</span>
-                    <span>Календарь</span>
+                    {tool.moduleIds.map((moduleId) => (
+                      <span key={moduleId}>{labelById[moduleId] ?? moduleId}</span>
+                    ))}
                   </div>
                 ) : null}
               </div>
-
-              {enabled && tool.links ? (
-                <div className="settings-tool-links">
-                  {tool.links.map((link) =>
-                    link.external ? (
-                      <a
-                        key={link.label}
-                        href={link.href}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="settings-tool-link"
-                      >
-                        {link.label}
-                      </a>
-                    ) : (
-                      <Link key={link.label} href={link.href as Route} className="settings-tool-link">
-                        {link.label}
-                      </Link>
-                    ),
-                  )}
-                </div>
-              ) : null}
             </div>
           );
         })}

@@ -1,13 +1,24 @@
 from __future__ import annotations
 
+import io
+
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client as DjangoClient, TestCase
+from PIL import Image
 from rest_framework.authtoken.models import Token
 
 from accounts.models import CompanyMembership
 from branches.models import Branch
 from companies.models import Company
 from employees.models import Trainer
+
+
+def _make_test_image() -> SimpleUploadedFile:
+    buffer = io.BytesIO()
+    Image.new("RGB", (10, 10), color="red").save(buffer, format="PNG")
+    buffer.seek(0)
+    return SimpleUploadedFile("photo.png", buffer.read(), content_type="image/png")
 
 
 class TrainerApiTest(TestCase):
@@ -103,6 +114,31 @@ class TrainerApiTest(TestCase):
         )
         self.assertEqual(delete_response.status_code, 204)
         self.assertFalse(Trainer.objects.filter(id=trainer.id).exists())
+
+    def test_trainer_create_with_photo_and_bio(self) -> None:
+        create_response = self.http.post(
+            "/api/v1/trainers/?company=sportmax",
+            data={
+                "first_name": "Анна",
+                "last_name": "Иванова",
+                "phone": "+79990000001",
+                "trains_gym_floor": "true",
+                "achievements": "МСМК по пауэрлифтингу",
+                "bio": "Тренирую 10 лет, специализация — силовые виды спорта.",
+                "photo": _make_test_image(),
+            },
+            **self.auth_headers(),
+        )
+        self.assertEqual(create_response.status_code, 201)
+
+        trainer = Trainer.objects.get()
+        self.assertTrue(trainer.photo)
+        self.assertEqual(trainer.achievements, "МСМК по пауэрлифтингу")
+
+        detail_response = self.http.get(f"/api/v1/trainers/{trainer.id}/?company=sportmax", **self.auth_headers())
+        payload = detail_response.json()
+        self.assertEqual(payload["achievements"], "МСМК по пауэрлифтингу")
+        self.assertIsNotNone(payload["photo_url"])
 
     def test_trainer_rent_payment_create_and_list(self) -> None:
         trainer = Trainer.objects.create(

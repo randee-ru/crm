@@ -7360,7 +7360,7 @@ button.schedule-hero-btn {
 .settings-schedule-field {
   display: grid;
   gap: 0.35rem;
-  margin-bottom: 0.85rem;
+  margin-bottom: 0;
   font-size: 12px;
   font-weight: 600;
   color: #667085;
@@ -7392,7 +7392,7 @@ button.schedule-hero-btn {
 .settings-schedule-integrations {
   display: grid;
   gap: 0.65rem;
-  margin-bottom: 1rem;
+  margin-bottom: 1.15rem;
 }
 
 .settings-schedule-integration {
@@ -7426,9 +7426,11 @@ button.schedule-hero-btn {
 
 .settings-schedule-new-integration {
   display: grid;
-  gap: 0.25rem;
+  gap: 0.85rem;
   border-top: 1px solid #edf1f6;
   padding-top: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  align-items: end;
 }
 
 .btn-secondary--active {

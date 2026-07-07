@@ -8,6 +8,7 @@ export type SettingsSectionId =
   | "automation"
   | "requisites"
   | "schedule"
+  | "integrations"
   | "security"
   | "more";
 
@@ -21,104 +22,65 @@ export const settingsSections = [
   { id: "automation", label: "Автоматизация" },
   { id: "requisites", label: "Реквизиты" },
   { id: "schedule", label: "Расписание" },
+  { id: "integrations", label: "Интеграции" },
   { id: "security", label: "Безопасность" },
   { id: "more", label: "Дополнительно" },
 ] as const satisfies ReadonlyArray<{ id: SettingsSectionId; label: string }>;
 
+/**
+ * Идентификатор пункта настроек "Инструменты" — соответствует одному или
+ * нескольким id из `workspaceNavigation` (lib/nav.ts), которые он скрывает/показывает.
+ */
 export type SettingsToolId =
   | "collaboration"
   | "tasks"
   | "crm"
-  | "booking"
-  | "inventory"
-  | "sites"
-  | "company"
-  | "signature"
-  | "automation"
-  | "bi";
+  | "marketing"
+  | "schedule"
+  | "clients"
+  | "contracts"
+  | "memberships"
+  | "trainers"
+  | "employees"
+  | "bookings"
+  | "attendance"
+  | "telephony"
+  | "sales"
+  | "payments"
+  | "daily-report"
+  | "reports";
 
 export type SettingsToolConfig = {
   id: SettingsToolId;
   label: string;
-  defaultEnabled: boolean;
+  /** id пунктов workspaceNavigation, которые включает/выключает этот тумблер. */
+  moduleIds: string[];
   expandable?: boolean;
-  links?: Array<{ label: string; href: string; external?: boolean }>;
 };
 
 export const settingsTools: SettingsToolConfig[] = [
   {
     id: "collaboration",
     label: "Совместная работа",
-    defaultEnabled: true,
+    moduleIds: ["messages", "disk", "mail"],
     expandable: true,
-    links: [
-      { label: "Перейти", href: "/" },
-      { label: "Права доступа", href: "/dashboard/settings?section=security" },
-    ],
   },
-  {
-    id: "tasks",
-    label: "Задачи и проекты",
-    defaultEnabled: true,
-    links: [
-      { label: "Перейти", href: "/dashboard/tasks" },
-      { label: "Права доступа", href: "/dashboard/settings?section=security" },
-    ],
-  },
-  {
-    id: "crm",
-    label: "CRM",
-    defaultEnabled: true,
-    links: [
-      { label: "Перейти", href: "/dashboard" },
-      { label: "Права доступа", href: "/dashboard/settings?section=security" },
-      { label: "Настройки", href: "/dashboard/settings?section=tools" },
-      { label: "Воронки", href: "/dashboard/settings?section=pipelines" },
-    ],
-  },
-  {
-    id: "booking",
-    label: "Онлайн-запись",
-    defaultEnabled: false,
-  },
-  {
-    id: "inventory",
-    label: "Складской учёт",
-    defaultEnabled: false,
-  },
-  {
-    id: "sites",
-    label: "Сайты и Магазины",
-    defaultEnabled: false,
-  },
-  {
-    id: "company",
-    label: "Компания",
-    defaultEnabled: true,
-    links: [
-      { label: "Перейти", href: "/dashboard/settings?section=employees" },
-      { label: "Права доступа", href: "/dashboard/settings?section=security" },
-    ],
-  },
-  {
-    id: "signature",
-    label: "Подпись",
-    defaultEnabled: false,
-  },
-  {
-    id: "automation",
-    label: "Автоматизация",
-    defaultEnabled: true,
-    links: [
-      { label: "Перейти", href: "/dashboard/settings?section=automation" },
-      { label: "Права доступа", href: "/dashboard/settings?section=security" },
-    ],
-  },
-  {
-    id: "bi",
-    label: "BI Конструктор",
-    defaultEnabled: false,
-  },
+  { id: "tasks", label: "Задачи и проекты", moduleIds: ["tasks"] },
+  { id: "crm", label: "CRM", moduleIds: ["crm"] },
+  { id: "marketing", label: "Маркетинг", moduleIds: ["marketing"] },
+  { id: "schedule", label: "Расписание", moduleIds: ["schedule"] },
+  { id: "clients", label: "Клиенты", moduleIds: ["clients"] },
+  { id: "contracts", label: "Договоры", moduleIds: ["contracts"] },
+  { id: "memberships", label: "Абонементы", moduleIds: ["memberships"] },
+  { id: "trainers", label: "Тренеры", moduleIds: ["trainers"] },
+  { id: "employees", label: "Сотрудники", moduleIds: ["employees"] },
+  { id: "bookings", label: "Бронирования", moduleIds: ["bookings"] },
+  { id: "attendance", label: "Посещаемость", moduleIds: ["attendance"] },
+  { id: "telephony", label: "Телефония", moduleIds: ["telephony"] },
+  { id: "sales", label: "Продажи", moduleIds: ["sales"] },
+  { id: "payments", label: "Платежи", moduleIds: ["payments"] },
+  { id: "daily-report", label: "Дневной отчет", moduleIds: ["daily-report"] },
+  { id: "reports", label: "Отчёты", moduleIds: ["reports"] },
 ];
 
 export const settingsSectionMeta: Record<
@@ -163,6 +125,10 @@ export const settingsSectionMeta: Record<
     title: "Расписание",
     description: "График работы, залы и слоты занятий.",
   },
+  integrations: {
+    title: "Интеграции",
+    description: "Телефония, SMS, маркетинг, СКУД и другие внешние сервисы компании.",
+  },
   security: {
     title: "Безопасность",
     description: "Политики доступа, сессии и аудит действий.",
@@ -172,5 +138,3 @@ export const settingsSectionMeta: Record<
     description: "Расширенные параметры и интеграции.",
   },
 };
-
-export const SETTINGS_TOOLS_STORAGE_KEY = "crm_settings_tools";

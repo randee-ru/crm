@@ -1,9 +1,11 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { getAuthSession } from "@/lib/auth";
+import { getAuthHeaders, getAuthSession, getCompanySlugFromCookie } from "@/lib/auth";
+import { API_BASE_URL } from "@/lib/api-config";
 import { AUTH_COMPANY_COOKIE } from "@/lib/auth-cookies";
 import type { ActionState } from "@/lib/types";
 
@@ -33,4 +35,29 @@ export async function switchCompanyAction(
   });
 
   redirect("/dashboard");
+}
+
+export async function updateModuleSettingsAction(disabledModules: string[]): Promise<string[]> {
+  const companySlug = await getCompanySlugFromCookie();
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/company/module-settings/?company=${encodeURIComponent(companySlug)}`,
+    {
+      method: "PATCH",
+      headers: {
+        ...(await getAuthHeaders()),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ disabled_modules: disabledModules }),
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("Не удалось сохранить настройки меню.");
+  }
+
+  const payload = (await response.json()) as { disabled_modules: string[] };
+  revalidatePath("/dashboard/settings");
+  return payload.disabled_modules;
 }

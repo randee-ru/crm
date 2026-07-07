@@ -36,6 +36,7 @@ export type CompanyContext = {
   clients_active_count?: number;
   role?: string;
   branch_name?: string | null;
+  disabled_modules?: string[];
 };
 
 export type AuthSession = {
@@ -52,12 +53,15 @@ export type ClientRecord = {
   last_name: string;
   phone: string;
   email: string;
+  birth_date: string | null;
   is_active: boolean;
   client_status?: string | null;
   client_status_label?: string | null;
   branch_name: string | null;
   membership_status: string | null;
   membership_title: string | null;
+  membership_start: string | null;
+  membership_end: string | null;
   visit_count?: number;
   ltv_total?: string;
   manager_name?: string | null;
@@ -342,6 +346,10 @@ export type PaginatedResponse<T> = {
 export type ClientListFilters = {
   search?: string;
   clientStatus?: string;
+  birthDateFrom?: string;
+  birthDateTo?: string;
+  birthdayMonth?: string;
+  membershipExpiresInDays?: string;
   page?: number;
 };
 
@@ -619,6 +627,7 @@ export type TrainerRecord = {
   phone: string;
   email: string;
   specialization: string;
+  photo_url: string | null;
   trains_gym_floor: boolean;
   trains_group_programs: boolean;
   rent_paid_current_month: boolean;
@@ -638,6 +647,8 @@ export type TrainerRentPayment = {
 
 export type TrainerDetail = TrainerRecord & {
   branch_id: number | null;
+  achievements: string;
+  bio: string;
   updated_at: string;
   rent_payments: TrainerRentPayment[];
 };
@@ -648,6 +659,8 @@ export type TrainerWriteInput = {
   phone: string;
   email?: string;
   specialization?: string;
+  achievements?: string;
+  bio?: string;
   trains_gym_floor?: boolean;
   trains_group_programs?: boolean;
   is_active?: boolean;
@@ -1029,4 +1042,36 @@ export type ScheduleListFilters = {
 export type ActionState = {
   error?: string;
   success?: string;
+};
+
+export type IntegrationProvider =
+  | "mango"
+  | "sigur"
+  | "rfid"
+  | "turnstile"
+  | "payment"
+  | "sms"
+  | "partner";
+
+export type IntegrationConnectionRecord = {
+  id: number;
+  company: number;
+  provider: IntegrationProvider;
+  provider_label: string;
+  name: string;
+  status: "draft" | "active" | "error" | "archived";
+  status_label: string;
+  external_id: string;
+  config: Record<string, unknown>;
+  last_synced_at: string | null;
+  last_error: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type IntegrationConnectionWriteInput = {
+  provider: IntegrationProvider;
+  name: string;
+  status?: string;
+  external_id?: string;
 };

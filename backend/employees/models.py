@@ -30,6 +30,13 @@ class Trainer(TimeStampedModel):
     phone = models.CharField("Телефон", max_length=32)
     email = models.EmailField("Email", blank=True)
     specialization = models.CharField("Специализация", max_length=255, blank=True)
+    photo = models.ImageField("Фото", upload_to="trainers/%Y/%m/", null=True, blank=True)
+    achievements = models.TextField("Заслуги и регалии", blank=True)
+    bio = models.TextField(
+        "Описание",
+        blank=True,
+        help_text="Публичное описание тренера — выгружается на сайт и в приложение.",
+    )
     trains_gym_floor = models.BooleanField("Тренажёрный зал", default=False)
     trains_group_programs = models.BooleanField("Групповые программы", default=False)
     is_active = models.BooleanField("Активен", default=True)

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { createTrainerAction, updateTrainerAction } from "@/app/actions/trainers";
@@ -14,8 +14,18 @@ type TrainerFormProps = {
 
 const initialState: ActionState = {};
 
+function initials(fullName: string) {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
 export function TrainerForm({ branches, trainer, submitLabel }: TrainerFormProps) {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const action = trainer ? updateTrainerAction.bind(null, trainer.id) : createTrainerAction;
   const [state, formAction, isPending] = useActionState(action, initialState);
 
@@ -24,6 +34,16 @@ export function TrainerForm({ branches, trainer, submitLabel }: TrainerFormProps
       router.refresh();
     }
   }, [router, state.success]);
+
+  useEffect(() => {
+    return () => {
+      if (photoPreview) {
+        URL.revokeObjectURL(photoPreview);
+      }
+    };
+  }, [photoPreview]);
+
+  const previewSrc = photoPreview ?? trainer?.photo_url ?? null;
 
   return (
     <form action={formAction} className="space-y-3">
@@ -37,6 +57,45 @@ export function TrainerForm({ branches, trainer, submitLabel }: TrainerFormProps
           {state.success}
         </div>
       ) : null}
+
+      <div className="flex items-center gap-4">
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--accent)]/10 text-[16px] font-semibold text-[var(--accent-strong)] ring-1 ring-[var(--line)] transition hover:ring-[var(--accent)]"
+        >
+          {previewSrc ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={previewSrc} alt="Фото тренера" className="h-full w-full object-cover" />
+          ) : (
+            initials(trainer?.full_name || "Тренер") || "?"
+          )}
+        </button>
+        <div>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="text-[13px] font-medium text-[var(--accent-strong)] hover:underline"
+          >
+            Загрузить фото
+          </button>
+          <p className="text-[12px] text-[var(--muted)]">JPG или PNG, до 3 МБ</p>
+        </div>
+        <input
+          ref={fileInputRef}
+          name="photo"
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (photoPreview) {
+              URL.revokeObjectURL(photoPreview);
+            }
+            setPhotoPreview(file ? URL.createObjectURL(file) : null);
+          }}
+        />
+      </div>
 
       <div className="grid gap-3 md:grid-cols-2">
         <label className="block">
@@ -91,6 +150,28 @@ export function TrainerForm({ branches, trainer, submitLabel }: TrainerFormProps
           defaultValue={trainer?.specialization ?? ""}
           className="form-field"
           placeholder="Йога, силовые, пилатес"
+        />
+      </label>
+
+      <label className="block">
+        <span className="mb-1 block text-[12px] font-medium text-[var(--muted)]">Заслуги и регалии</span>
+        <textarea
+          name="achievements"
+          defaultValue={trainer?.achievements ?? ""}
+          rows={2}
+          className="form-field resize-y"
+          placeholder="МСМК по пауэрлифтингу, чемпион России 2022"
+        />
+      </label>
+
+      <label className="block">
+        <span className="mb-1 block text-[12px] font-medium text-[var(--muted)]">Описание</span>
+        <textarea
+          name="bio"
+          defaultValue={trainer?.bio ?? ""}
+          rows={4}
+          className="form-field resize-y"
+          placeholder="Публичное описание тренера — попадёт на сайт и в приложение"
         />
       </label>
 

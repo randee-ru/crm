@@ -51,6 +51,8 @@ export function ClientsTable({ clients, emptyMessage }: ClientsTableProps) {
             </th>
             <th className="px-3">Статус</th>
             <th className="px-3">Абонемент</th>
+            <th className="px-3">ДР</th>
+            <th className="px-3">Абонемент до</th>
             <th className="px-3">Филиал</th>
             <th className="px-3">Создан</th>
             <th className="px-3">Путь клиента</th>
@@ -94,6 +96,12 @@ export function ClientsTable({ clients, emptyMessage }: ClientsTableProps) {
                 ) : (
                   <span className="text-[var(--muted)]">{getMembershipDealLabel(client)}</span>
                 )}
+              </td>
+              <td className="px-3 py-3 text-[var(--muted)]">
+                {client.birth_date ? formatClientDate(client.birth_date) : "—"}
+              </td>
+              <td className="px-3 py-3 text-[var(--muted)]">
+                {client.membership_end ? formatClientDate(client.membership_end) : "—"}
               </td>
               <td className="px-3 py-3 text-[var(--text)]">{client.branch_name ?? "—"}</td>
               <td className="px-3 py-3 text-[var(--muted)]">{formatClientDate(client.created_at)}</td>

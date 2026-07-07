@@ -19,6 +19,9 @@ class ClientListSerializer(serializers.ModelSerializer):
     branch_name = serializers.CharField(source="branch.name", read_only=True, default=None)
     membership_status = serializers.SerializerMethodField()
     membership_title = serializers.SerializerMethodField()
+    birth_date = serializers.DateField(read_only=True, default=None)
+    membership_start = serializers.SerializerMethodField()
+    membership_end = serializers.SerializerMethodField()
 
     class Meta:
         model = Client
@@ -29,12 +32,15 @@ class ClientListSerializer(serializers.ModelSerializer):
             "last_name",
             "phone",
             "email",
+            "birth_date",
             "is_active",
             "client_status",
             "client_status_label",
             "branch_name",
             "membership_status",
             "membership_title",
+            "membership_start",
+            "membership_end",
             "visit_count",
             "ltv_total",
             "manager_name",
@@ -49,6 +55,14 @@ class ClientListSerializer(serializers.ModelSerializer):
     def get_membership_title(self, client: Client) -> str | None:
         membership = client.memberships.order_by("-starts_at").first()
         return membership.title if membership else None
+
+    def get_membership_start(self, client: Client) -> str | None:
+        membership = client.memberships.order_by("-starts_at").first()
+        return membership.starts_at.isoformat() if membership and membership.starts_at else None
+
+    def get_membership_end(self, client: Client) -> str | None:
+        membership = client.memberships.order_by("-starts_at").first()
+        return membership.ends_at.isoformat() if membership and membership.ends_at else None
 
 
 class ClientDetailSerializer(ClientListSerializer):

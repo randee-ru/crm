@@ -27,6 +27,29 @@ class IntegrationsApiTest(TestCase):
     def auth_headers(self) -> dict[str, str]:
         return {"HTTP_AUTHORIZATION": f"Token {self.token.key}"}
 
+    def test_connection_create_list_and_delete(self) -> None:
+        create_response = self.http.post(
+            "/api/v1/integrations/?company=sportmax",
+            data={"provider": "sigur", "name": "Главный вход"},
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+        self.assertEqual(create_response.status_code, 201)
+        payload = create_response.json()
+        self.assertEqual(payload["provider_label"], "Sigur")
+        self.assertEqual(payload["status_label"], "Черновик")
+
+        list_response = self.http.get("/api/v1/integrations/?company=sportmax", **self.auth_headers())
+        self.assertEqual(list_response.status_code, 200)
+        self.assertEqual(len(list_response.json()), 1)
+
+        connection_id = payload["id"]
+        delete_response = self.http.delete(
+            f"/api/v1/integrations/{connection_id}/?company=sportmax",
+            **self.auth_headers(),
+        )
+        self.assertEqual(delete_response.status_code, 204)
+
     def test_webhook_creates_event(self) -> None:
         response = self.http.post(
             "/api/v1/integrations/webhooks/sigur/?company=sportmax",

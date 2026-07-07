@@ -19,6 +19,7 @@ type WorkspaceChromeProps = {
   companyName?: string;
   role?: string;
   notifications?: NotificationRecord[];
+  disabledModules?: string[];
 };
 
 export function WorkspaceChrome({
@@ -29,13 +30,14 @@ export function WorkspaceChrome({
   companyName,
   role,
   notifications = [],
+  disabledModules = [],
 }: WorkspaceChromeProps) {
   return (
     <WorkspaceShellProvider>
       <NotificationsProvider initialNotifications={notifications}>
         <UserPanelProvider user={user} companyName={companyName} role={role}>
           <div className="workspace-bg flex min-h-screen">
-            <Sidebar user={user} />
+            <Sidebar user={user} disabledModules={disabledModules} />
             <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
               <SiteHeader
                 variant="workspace"

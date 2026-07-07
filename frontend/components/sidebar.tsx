@@ -39,7 +39,13 @@ function isActivePath(pathname: string, href: string) {
   return pathname === base || pathname.startsWith(`${base}/`);
 }
 
-export function Sidebar({ user }: { user?: AuthUser | null }) {
+export function Sidebar({
+  user,
+  disabledModules = [],
+}: {
+  user?: AuthUser | null;
+  disabledModules?: string[];
+}) {
   const pathname = usePathname();
   const userPanel = useUserPanelOptional();
   const { sidebarCollapsed, toggleSidebar, openSections, toggleSection } = useWorkspaceShell();
@@ -49,7 +55,24 @@ export function Sidebar({ user }: { user?: AuthUser | null }) {
     avatar_url: null,
   };
 
-  const flatItems = useMemo(() => workspaceNavigation, []);
+  const isModuleEnabled = (id: string) => id === "settings" || !disabledModules.includes(id);
+
+  const flatItems = useMemo(
+    () => workspaceNavigation.filter((item) => isModuleEnabled(item.id)),
+    [disabledModules],
+  );
+
+  const sidebarLayout = useMemo(
+    () =>
+      workspaceSidebarLayout
+        .map((block) =>
+          block.type === "section"
+            ? { ...block, items: block.items.filter(isModuleEnabled) }
+            : { ...block, items: block.items.filter(isModuleEnabled) },
+        )
+        .filter((block) => block.items.length > 0),
+    [disabledModules],
+  );
 
   return (
     <aside
@@ -97,7 +120,7 @@ export function Sidebar({ user }: { user?: AuthUser | null }) {
                   </Link>
                 );
               })
-            : workspaceSidebarLayout.map((block, index) => {
+            : sidebarLayout.map((block, index) => {
                 if (block.type === "section") {
                   const isOpen = openSections[block.id] ?? true;
                   return (
@@ -147,7 +170,7 @@ export function Sidebar({ user }: { user?: AuthUser | null }) {
                   <div
                     key={`items-${index}`}
                     className={`sidebar-standalone-items ${
-                      index === workspaceSidebarLayout.length - 1 ? "mt-auto" : ""
+                      index === sidebarLayout.length - 1 ? "mt-auto" : ""
                     }`}
                   >
                     {block.items.map((itemId) => {

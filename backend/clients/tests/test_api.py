@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
 from django.test import Client as DjangoClient, TestCase
+from django.utils import timezone
 from rest_framework.authtoken.models import Token
 
 from accounts.models import CompanyMembership
@@ -32,6 +35,7 @@ class ClientListApiTest(TestCase):
             first_name="Иван",
             last_name="Петров",
             phone="+79991112233",
+            birth_date="1990-05-12",
         )
         Membership.objects.create(
             company=self.company,
@@ -39,8 +43,8 @@ class ClientListApiTest(TestCase):
             client=self.client_record,
             title="Пробный месяц",
             status=Membership.Status.ACTIVE,
-            starts_at="2026-07-01",
-            ends_at="2026-07-31",
+            starts_at=timezone.localdate(),
+            ends_at=timezone.localdate() + timedelta(days=10),
         )
         self.token = Token.objects.create(user=self.user)
 
@@ -62,6 +66,8 @@ class ClientListApiTest(TestCase):
         self.assertEqual(len(payload["results"]), 1)
         self.assertEqual(payload["results"][0]["full_name"], "Иван Петров")
         self.assertEqual(payload["results"][0]["membership_status"], "active")
+        self.assertEqual(payload["results"][0]["birth_date"], "1990-05-12")
+        self.assertIsNotNone(payload["results"][0]["membership_end"])
 
     def test_client_list_supports_search_filter(self) -> None:
         Client.objects.create(
@@ -115,6 +121,52 @@ class ClientListApiTest(TestCase):
         payload = response.json()
         self.assertEqual(payload["count"], 1)
         self.assertEqual(payload["results"][0]["client_status"], "active")
+
+    def test_client_list_supports_birth_date_range_filter(self) -> None:
+        Client.objects.create(
+            company=self.company,
+            branch=self.branch,
+            first_name="Мария",
+            last_name="Орлова",
+            phone="+79992223344",
+            birth_date="1985-03-02",
+        )
+
+        response = self.http.get(
+            "/api/v1/clients/?company=sportmax&birth_date_from=1989-01-01&birth_date_to=1991-12-31",
+            **self.auth_headers(),
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["results"][0]["full_name"], "Иван Петров")
+
+    def test_client_list_supports_membership_expiry_filter(self) -> None:
+        Client.objects.create(
+            company=self.company,
+            branch=self.branch,
+            first_name="Светлана",
+            last_name="Кузнецова",
+            phone="+79994445566",
+        )
+        Membership.objects.create(
+            company=self.company,
+            branch=self.branch,
+            client=Client.objects.get(phone="+79994445566"),
+            title="Долгий абонемент",
+            status=Membership.Status.ACTIVE,
+            starts_at=timezone.localdate(),
+            ends_at=timezone.localdate() + timedelta(days=90),
+        )
+
+        response = self.http.get(
+            "/api/v1/clients/?company=sportmax&membership_expires_in_days=30",
+            **self.auth_headers(),
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["results"][0]["full_name"], "Иван Петров")
 
     def test_client_list_pagination(self) -> None:
         for index in range(5):

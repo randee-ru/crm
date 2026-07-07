@@ -110,6 +110,10 @@ export async function listClientsAction(filters: {
   page?: number;
   search?: string;
   clientStatus?: string;
+  birthDateFrom?: string;
+  birthDateTo?: string;
+  birthdayMonth?: string;
+  membershipExpiresInDays?: string;
 }) {
   const { getClientsPaginated } = await import("@/lib/api");
   return getClientsPaginated(undefined, filters);

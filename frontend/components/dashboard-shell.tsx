@@ -21,6 +21,7 @@ export async function DashboardShell({ children }: DashboardShellProps) {
       companyName={session?.company?.name}
       role={session?.company?.role}
       notifications={notifications}
+      disabledModules={session?.company?.disabled_modules ?? []}
     >
       {children}
     </WorkspaceChrome>
