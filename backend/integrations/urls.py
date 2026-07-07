@@ -7,6 +7,7 @@ from integrations.views import (
     IntegrationConnectionListCreateView,
     IntegrationEventListView,
     IntegrationWebhookView,
+    SigurInboundEventsView,
 )
 
 
@@ -15,4 +16,5 @@ urlpatterns = [
     path("integrations/<int:connection_id>/", IntegrationConnectionDetailView.as_view(), name="integration-detail"),
     path("integrations/events/", IntegrationEventListView.as_view(), name="integration-event-list"),
     path("integrations/webhooks/<str:provider>/", IntegrationWebhookView.as_view(), name="integration-webhook"),
+    path("integrations/sigur/inbound/events/", SigurInboundEventsView.as_view(), name="sigur-inbound-events"),
 ]

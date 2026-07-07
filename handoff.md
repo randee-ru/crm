@@ -136,6 +136,11 @@ GET/POST /api/v1/schedule/group-slots/<id>/enrollments/?company=<slug>
 - `frontend/lib/settings.ts` → `settingsTools` — список тумблеров 1:1 с реальными пунктами меню (группа «Совместная работа» скрывает разом messages/disk/mail, остальное — по одному пункту).
 - `components/sidebar.tsx` фильтрует `workspaceNavigation`/`workspaceSidebarLayout` по `disabledModules`, которые прокидываются через `DashboardShell → WorkspaceChrome → Sidebar` (данные берутся из `getAuthSession()`, эндпоинт `/api/v1/auth/me/`).
 - Настройки → «Интеграции»: верхний блок — реальный статус телефонии/SMS-расписания/маркетинга со ссылками на их настоящие разделы; нижний блок — CRUD поверх ранее не используемого `backend/integrations` (`IntegrationConnection`) для Sigur/RFID/турникетов/платёжных/партнёрских адаптеров. Синхронизации с реальными системами пока нет — это просто учёт подключений.
+- Sigur доведён на один шаг дальше:
+  - при создании подключения для `SIGUR` автоматически генерируется `proxy_inbound_key`
+  - добавлен endpoint `POST /api/v1/integrations/sigur/inbound/events/`
+  - в `scripts/sigur-proxy/` лежит локальный proxy-скрипт и пример `.env` для копирования проходов из локальной сети в backend
+  - это ещё не полноценная двусторонняя синхронизация, но уже есть безопасный входящий канал и заготовка для локального агента
 - Попутно закрыт баг: `clients/contracts/sales/payments/bookings/attendance/marketing/telephony/employees/integrations` регистрировали свои модели в Django admin напрямую через `@admin.register`, игнорируя `ADMIN_ENABLE_BUSINESS_MODELS=False` — теперь везде используется `register_business_admin` из `config/admin_registry.py`.
 - И ещё один: `REST_FRAMEWORK.DEFAULT_PARSER_CLASSES` содержал только `JSONParser` — загрузка файлов (аватар пользователя, фото тренера) падала с 415. Добавлены `MultiPartParser`/`FormParser`.
 
