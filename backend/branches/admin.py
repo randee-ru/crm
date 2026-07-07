@@ -8,7 +8,7 @@ from .models import Branch
 
 @admin.register(Branch)
 class BranchAdmin(ModelAdmin):
-    # Показываем компанию рядом с филиалом, чтобы сотрудник сразу видел контекст.
+    # Филиалы внутри компании-тенанта.
     list_display = ("name", "company", "slug", "is_primary", "is_active", "city")
     list_filter = ("company", "is_primary", "is_active", "city")
     search_fields = ("name", "slug", "company__name")

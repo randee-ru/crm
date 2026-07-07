@@ -1,60 +1,63 @@
 # CRM Kit
 
-CRM Kit — это модульная SaaS CRM/ERP-платформа для сервисного бизнеса.
+CRM Kit — модульная SaaS CRM/ERP-платформа для сервисного бизнеса. Первая вертикаль — **фитнес-клубы**.
 
-## Что находится в этом репозитории
+## Что в репозитории
 
-- `backend/` - backend на Django для модульного монолита.
-- `frontend/` - frontend на Next.js для публичного интерфейса и админки.
-- `docs/` - документация проекта, заметки по этапам и контекст для передачи между сессиями.
-- `handoff.md` - компактный файл контекста, который может прочитать другая нейросеть или разработчик и продолжить работу.
+| Каталог | Содержание |
+|---------|------------|
+| `backend/` | Django API, модели, тесты, `seed_demo` |
+| `frontend/` | Next.js — dashboard, CRM UI, настройки |
+| `docs/` | Документация, уроки, API-справка |
+| `handoff.md` | Краткий контекст для продолжения работы |
 
 ## Текущее состояние
 
-В этом репозитории пока только базовый каркас проекта.
-Цель этого этапа - создать стабильную структуру до появления бизнес-логики.
+- Multi-tenant: компании, филиалы, роли, token-auth
+- Клиенты: CRUD, поиск, фильтры
+- CRM: задачи, **канбан сделок с воронками из PostgreSQL**
+- Расписание: API и экран
+- Frontend: Bitrix24-style shell, профиль, настройки
+- Документация: уроки 01–21, API, этапы 01–08
 
-## Локальная разработка
+## Локальный запуск
 
-Зависимости уже описаны, но окружение ещё нужно собрать.
-План локальной работы такой:
+```bash
+docker compose up -d postgres
 
-- Python 3.13+
-- Django 5.x
-- PostgreSQL 17
-- Redis
-- Node.js для frontend
-- Docker / Docker Compose
+cd backend
+../.venv/bin/python manage.py migrate --settings=config.settings.dev
+../.venv/bin/python manage.py seed_demo --settings=config.settings.dev
+../.venv/bin/python manage.py runserver 127.0.0.1:8000 --settings=config.settings.dev
 
-## Порядок запуска backend
+cd frontend
+npm run dev
+```
 
-1. создать Python virtual environment
-2. установить зависимости из `pyproject.toml`
-3. поднять PostgreSQL и Redis через Docker Compose
-4. запустить Django через `backend/manage.py`
+- Frontend: http://localhost:3000
+- Backend: http://127.0.0.1:8000
+- Логин: `admin` / `121351` (после `seed_demo`)
 
-## Важное замечание
+## Документация
 
-Сейчас в репозитории только каркас.
-Миграций, API-эндпоинтов и страниц frontend пока нет.
+**Полный указатель:** [`docs/README.md`](docs/README.md)
 
-## Карта документации
+| Документ | Описание |
+|----------|----------|
+| [`docs/overview.md`](docs/overview.md) | Обзор продукта |
+| [`docs/roadmap.md`](docs/roadmap.md) | Дорожная карта |
+| [`docs/lessons/`](docs/lessons/) | Уроки для разработчиков |
+| [`docs/api/`](docs/api/) | Справка по HTTP API |
+| [`docs/stages/`](docs/stages/) | Этапы разработки |
+| [`handoff.md`](handoff.md) | Контекст для AI / новой сессии |
 
-- `docs/overview.md` - обзор продукта и архитектуры
-- `docs/stages/01-foundation.md` - первый этап реализации
-- `docs/stages/02-backend-bootstrap.md` - этап backend bootstrap
-- `docs/stages/03-saas-core.md` - этап SaaS-основы
-- `docs/stages/04-admin-unfold.md` - этап админки с Unfold
-- `docs/stages/05-fitness-club-mvp.md` - первый MVP для фитнес-клубов
-- `docs/stages/06-frontend-bootstrap.md` - основа frontend
-- `docs/api/` - API-документация с примерами и тестами
-- `docs/admin/` - документация по внутренней админке
-- `docs/lessons/` - короткие уроки для новичка
-- `docs/roadmap.md` - план этапов
-- `handoff.md` - файл для продолжения работы в будущих AI-сессиях
+**Новый разработчик:** начните с [Урока 06](docs/lessons/06-how-to-run-local-project.md) и [Урока 13](docs/lessons/13-how-to-develop-full-feature.md).
 
-## Файлы локальной настройки
+**Канбан CRM:** [Урок 21](docs/lessons/21-real-example-fitness-kanban-pipelines.md).
 
-- `.env.example` - шаблон переменных окружения для корня проекта
-- `backend/.env.example` - шаблон переменных окружения для backend
-- `frontend/.env.example` - шаблон переменных окружения для frontend
+## Стек
+
+- Python 3.13+, Django 5.x, DRF, PostgreSQL 17
+- Next.js, TypeScript, Tailwind CSS
+- Docker Compose (PostgreSQL)
+- django-unfold (admin платформы)

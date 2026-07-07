@@ -94,6 +94,30 @@ export function TrainerForm({ branches, trainer, submitLabel }: TrainerFormProps
         />
       </label>
 
+      <div className="block">
+        <span className="mb-1 block text-[12px] font-medium text-[var(--muted)]">Тип работы</span>
+        <div className="flex flex-wrap gap-4 rounded-lg border border-[var(--line)] bg-[var(--panel-muted)] px-3 py-2.5">
+          <label className="flex items-center gap-2 text-[13px] text-[var(--text)]">
+            <input
+              name="trains_gym_floor"
+              type="checkbox"
+              defaultChecked={trainer?.trains_gym_floor ?? false}
+              className="h-4 w-4 accent-[var(--accent)]"
+            />
+            Тренажёрный зал
+          </label>
+          <label className="flex items-center gap-2 text-[13px] text-[var(--text)]">
+            <input
+              name="trains_group_programs"
+              type="checkbox"
+              defaultChecked={trainer?.trains_group_programs ?? false}
+              className="h-4 w-4 accent-[var(--accent)]"
+            />
+            Групповые программы
+          </label>
+        </div>
+      </div>
+
       <div className="grid gap-3 md:grid-cols-2">
         <label className="block">
           <span className="mb-1 block text-[12px] font-medium text-[var(--muted)]">Филиал</span>

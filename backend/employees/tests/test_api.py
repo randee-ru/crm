@@ -35,6 +35,8 @@ class TrainerApiTest(TestCase):
                 "last_name": "Иванова",
                 "phone": "+79990000001",
                 "specialization": "Йога",
+                "trains_gym_floor": False,
+                "trains_group_programs": True,
                 "branch_id": self.branch.id,
             },
             content_type="application/json",
@@ -46,6 +48,24 @@ class TrainerApiTest(TestCase):
         self.assertEqual(list_response.status_code, 200)
         self.assertEqual(len(list_response.json()), 1)
         self.assertEqual(list_response.json()[0]["full_name"], "Анна Иванова")
+        self.assertFalse(list_response.json()[0]["trains_gym_floor"])
+        self.assertTrue(list_response.json()[0]["trains_group_programs"])
+        self.assertFalse(list_response.json()[0]["rent_paid_current_month"])
+
+    def test_trainer_create_requires_at_least_one_type(self) -> None:
+        response = self.http.post(
+            "/api/v1/trainers/?company=sportmax",
+            data={
+                "first_name": "Анна",
+                "last_name": "Иванова",
+                "phone": "+79990000001",
+                "trains_gym_floor": False,
+                "trains_group_programs": False,
+            },
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+        self.assertEqual(response.status_code, 400)
 
     def test_trainer_update_and_delete(self) -> None:
         trainer = Trainer.objects.create(
@@ -55,6 +75,7 @@ class TrainerApiTest(TestCase):
             last_name="Иванова",
             phone="+79990000001",
             specialization="Йога",
+            trains_gym_floor=True,
         )
 
         update_response = self.http.patch(
@@ -65,6 +86,8 @@ class TrainerApiTest(TestCase):
                 "phone": "+79990000001",
                 "email": "anna@club.ru",
                 "specialization": "Пилатес",
+                "trains_gym_floor": True,
+                "trains_group_programs": False,
                 "is_active": False,
                 "branch_id": self.branch.id,
             },
@@ -80,3 +103,27 @@ class TrainerApiTest(TestCase):
         )
         self.assertEqual(delete_response.status_code, 204)
         self.assertFalse(Trainer.objects.filter(id=trainer.id).exists())
+
+    def test_trainer_rent_payment_create_and_list(self) -> None:
+        trainer = Trainer.objects.create(
+            company=self.company,
+            branch=self.branch,
+            first_name="Анна",
+            last_name="Иванова",
+            phone="+79990000001",
+            trains_gym_floor=True,
+        )
+
+        create_response = self.http.post(
+            f"/api/v1/trainers/{trainer.id}/rent-payments/?company=sportmax",
+            data={"period": "2026-07-01", "amount": "15000.00", "note": "Июль"},
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+        self.assertEqual(create_response.status_code, 201)
+
+        trainer_response = self.http.get(f"/api/v1/trainers/{trainer.id}/?company=sportmax", **self.auth_headers())
+        self.assertEqual(trainer_response.status_code, 200)
+        payload = trainer_response.json()
+        self.assertEqual(len(payload["rent_payments"]), 1)
+        self.assertEqual(payload["rent_payments"][0]["amount"], "15000.00")

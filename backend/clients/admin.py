@@ -1,19 +1,26 @@
 from __future__ import annotations
 
-from django.contrib import admin
 from unfold.admin import ModelAdmin
 
-from .models import Client
+from .models import Client, ClientLead, ClientMessage
 
 
-@admin.register(Client)
+class ClientMessageAdmin(ModelAdmin):
+    list_display = ("client", "channel", "message_type", "sent_at", "company")
+    search_fields = ("client__first_name", "client__last_name", "body", "phone")
+
+
+class ClientLeadAdmin(ModelAdmin):
+    list_display = ("client", "title", "status", "lead_date", "company")
+    search_fields = ("client__first_name", "client__last_name", "title")
+
+
 class ClientAdmin(ModelAdmin):
-    # Список должен быстро показывать, кто клиент и к какому клубу он относится.
-    list_display = ("full_name", "phone", "company", "branch", "is_active", "created_at")
+    # Dev-only: операционные клиенты управляются через CRM frontend.
+    list_display = ("full_name", "phone", "client_status", "company", "branch", "is_active", "created_at")
     list_filter = ("company", "branch", "is_active")
     search_fields = ("first_name", "last_name", "phone", "email")
     autocomplete_fields = ("company", "branch")
     list_fullwidth = True
     warn_unsaved_form = True
     compressed_fields = True
-

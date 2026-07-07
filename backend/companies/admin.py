@@ -8,7 +8,7 @@ from .models import Company
 
 @admin.register(Company)
 class CompanyAdmin(ModelAdmin):
-    # Делаем список компактным и удобным для внутренних сотрудников.
+    # Тенанты SaaS-платформы: каждый фитнес-клуб — отдельная компания.
     list_display = ("name", "slug", "is_active", "created_at")
     list_filter = ("is_active",)
     search_fields = ("name", "slug")

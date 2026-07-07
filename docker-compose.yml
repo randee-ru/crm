@@ -23,6 +23,7 @@ services:
       - "6379:6379"
 
   backend:
+    profiles: ["docker-backend"]
     build:
       context: .
       dockerfile: Dockerfile

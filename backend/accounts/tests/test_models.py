@@ -27,6 +27,6 @@ class CompanyMembershipModelTest(TestCase):
         )
 
         self.assertEqual(str(membership), f"{user} -> {company} (admin)")
-        self.assertEqual(company.memberships.count(), 1)
+        self.assertEqual(company.user_memberships.count(), 1)
         self.assertEqual(user.company_memberships.count(), 1)
 

@@ -6,9 +6,8 @@ from unfold.admin import ModelAdmin
 from .models import Membership
 
 
-@admin.register(Membership)
 class MembershipAdmin(ModelAdmin):
-    # В списке абонементов важнее всего видеть клиента, статус и срок действия.
+    # Dev-only: абонементы будут вестись в CRM frontend.
     list_display = (
         "title",
         "client",
@@ -25,4 +24,3 @@ class MembershipAdmin(ModelAdmin):
     list_fullwidth = True
     warn_unsaved_form = True
     compressed_fields = True
-

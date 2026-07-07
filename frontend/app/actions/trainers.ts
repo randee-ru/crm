@@ -33,6 +33,8 @@ function readInput(formData: FormData): TrainerWriteInput {
     phone: String(formData.get("phone") ?? "").trim(),
     email: String(formData.get("email") ?? "").trim(),
     specialization: String(formData.get("specialization") ?? "").trim(),
+    trains_gym_floor: formData.get("trains_gym_floor") === "on",
+    trains_group_programs: formData.get("trains_group_programs") === "on",
     is_active: formData.get("is_active") === "on",
     branch_id: branchRaw ? Number(branchRaw) : null,
   };
@@ -115,4 +117,53 @@ export async function deleteTrainerAction(trainerId: number): Promise<void> {
 
   revalidatePath("/dashboard/trainers");
   redirect("/dashboard/trainers");
+}
+
+export async function createTrainerRentPaymentAction(
+  trainerId: number,
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const companySlug = await getCompanySlugFromCookie();
+  const month = String(formData.get("period") ?? "").trim();
+  const amount = String(formData.get("amount") ?? "").trim();
+  const note = String(formData.get("note") ?? "").trim();
+
+  if (!month || !amount) {
+    return { error: "Укажите месяц и сумму аренды." };
+  }
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/trainers/${trainerId}/rent-payments/?company=${encodeURIComponent(companySlug)}`,
+    {
+      method: "POST",
+      headers: {
+        ...(await getAuthHeaders()),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ period: `${month}-01`, amount, note }),
+    },
+  );
+
+  if (!response.ok) {
+    return { error: await parseApiError(response) };
+  }
+
+  revalidatePath("/dashboard/trainers");
+  revalidatePath(`/dashboard/trainers/${trainerId}`);
+  return { success: "Оплата аренды отмечена." };
+}
+
+export async function deleteTrainerRentPaymentAction(trainerId: number, paymentId: number): Promise<void> {
+  const companySlug = await getCompanySlugFromCookie();
+  await fetch(
+    `${API_BASE_URL}/api/v1/trainers/${trainerId}/rent-payments/${paymentId}/?company=${encodeURIComponent(companySlug)}`,
+    {
+      method: "DELETE",
+      headers: await getAuthHeaders(),
+    },
+  );
+
+  revalidatePath("/dashboard/trainers");
+  revalidatePath(`/dashboard/trainers/${trainerId}`);
 }

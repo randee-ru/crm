@@ -45,6 +45,7 @@ class DailyReportApiTest(TestCase):
             first_name="Анна",
             last_name="Иванова",
             phone="+79990000001",
+            trains_gym_floor=True,
         )
         self.membership = Membership.objects.create(
             company=self.company,

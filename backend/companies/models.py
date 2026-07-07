@@ -16,6 +16,12 @@ class Company(TimeStampedModel):
     name = models.CharField("Название", max_length=255, unique=True)
     slug = models.SlugField("URL-идентификатор", max_length=255, unique=True)
     is_active = models.BooleanField("Активна", default=True)
+    disabled_modules = models.JSONField(
+        "Скрытые модули меню",
+        default=list,
+        blank=True,
+        help_text="Идентификаторы пунктов бокового меню, скрытых для сотрудников компании.",
+    )
 
     class Meta:
         verbose_name = "Компания"

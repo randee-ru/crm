@@ -5,14 +5,12 @@ from django.contrib import admin
 from integrations.models import IntegrationConnection, IntegrationEvent
 
 
-@admin.register(IntegrationConnection)
 class IntegrationConnectionAdmin(admin.ModelAdmin):
     list_display = ("name", "company", "provider", "status", "last_synced_at")
     list_filter = ("company", "provider", "status")
     search_fields = ("name", "external_id")
 
 
-@admin.register(IntegrationEvent)
 class IntegrationEventAdmin(admin.ModelAdmin):
     list_display = ("provider", "event_type", "company", "status", "created_at")
     list_filter = ("company", "provider", "status", "direction")

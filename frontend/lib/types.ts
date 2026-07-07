@@ -619,14 +619,27 @@ export type TrainerRecord = {
   phone: string;
   email: string;
   specialization: string;
+  trains_gym_floor: boolean;
+  trains_group_programs: boolean;
+  rent_paid_current_month: boolean;
   is_active: boolean;
   branch_name: string | null;
+  created_at: string;
+};
+
+export type TrainerRentPayment = {
+  id: number;
+  period: string;
+  amount: string;
+  paid_at: string;
+  note: string;
   created_at: string;
 };
 
 export type TrainerDetail = TrainerRecord & {
   branch_id: number | null;
   updated_at: string;
+  rent_payments: TrainerRentPayment[];
 };
 
 export type TrainerWriteInput = {
@@ -635,8 +648,17 @@ export type TrainerWriteInput = {
   phone: string;
   email?: string;
   specialization?: string;
+  trains_gym_floor?: boolean;
+  trains_group_programs?: boolean;
   is_active?: boolean;
   branch_id?: number | null;
+};
+
+export type TrainerRentPaymentWriteInput = {
+  period: string;
+  amount: string;
+  paid_at?: string;
+  note?: string;
 };
 
 export type BookingRecord = {

@@ -8,3 +8,10 @@ class ScheduleConfig(AppConfig):
     name = "schedule"
     verbose_name = "Schedule"
 
+    def ready(self) -> None:
+        from config.admin_registry import register_business_admin
+
+        from .admin import ScheduleEventAdmin
+        from .models import ScheduleEvent
+
+        register_business_admin(ScheduleEvent, ScheduleEventAdmin)

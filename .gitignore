@@ -19,3 +19,6 @@ coverage/
 htmlcov/
 *.sqlite3
 *.log
+*.egg-info/
+*.tsbuildinfo
+/media/
