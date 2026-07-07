@@ -47,11 +47,13 @@ CRM Kit — коммерческая SaaS CRM для сервисного биз
   - собирает телефонию, мессенджеры, заявки сайта, посещения, продажи и платежи
   - работает по дате и использует backend-агрегатор
   - план и источники отображаются в боковой колонке
-- `Тренеры` переведены на CRUD:
-  - список с поиском и фильтром по активности
-  - карточка тренера
-  - создание, редактирование и удаление
-  - backend API и тесты покрывают list/create/detail/update/delete
+- `Тренеры` переведены на CRUD и доведены до полноценного профиля:
+  - список с поиском, фильтром по активности, типу работы и статусу аренды
+  - карточка тренера в стиле карточки клиента (hero, статы, сайдбар, toggle-редактирование)
+  - тип работы — `trains_gym_floor` / `trains_group_programs` (можно совмещать, минимум один обязателен)
+  - фото (`ImageField`, до 3 МБ), заслуги/регалии и публичное описание (`bio`) — задел под будущую выгрузку на сайт/в приложение, публичного API пока нет
+  - `TrainerRentPayment` — история оплат аренды тренажёрного зала по датам (`paid_at` хранит точный день, `period` нормализуется до месяца только для проверки «оплачено ли в этом месяце»)
+  - backend API и тесты покрывают list/create/detail/update/delete + rent-payments CRUD
 - Остальные пункты Stage 5 ещё в очереди: бронирования, продажи, платежи, UX-полировка Bitrix24
 
 ### Stage 8-11 progress
@@ -68,7 +70,7 @@ CRM Kit — коммерческая SaaS CRM для сервисного биз
 - **Расписание групповых программ** — `/dashboard/schedule`
 - **Телефония** — `/dashboard/telephony` (вынесена в секцию «Фитнес»)
 - **Сотрудники** — `/dashboard/employees`, приглашения, карточка доступа, настройки ролей/филиалов
-- Настройки: инструменты, воронки CRM, **расписание** (лимиты, SMS-напоминания, SMS-сервисы)
+- Настройки: **инструменты** (реально скрывают/показывают пункты меню, не localStorage-заглушка), воронки CRM, **расписание** (лимиты, SMS-напоминания, SMS-сервисы), **интеграции** (сводка по телефонии/SMS/маркетингу + CRUD для Sigur/RFID/турникетов/платёжных/партнёрских адаптеров)
 - UI в стиле Bitrix24, иконки lucide-react
 - Локальный dev: `http://127.0.0.1:3000`
 
@@ -120,6 +122,16 @@ GET/POST /api/v1/schedule/group-slots/<id>/enrollments/?company=<slug>
 - Авто-архивация новых звонков (signal + sync)
 - Sticky sidebar, прокрутка только списка звонков
 
+### Настройки меню и интеграции
+
+- `Company.disabled_modules` (JSONField, список id пунктов `workspaceNavigation` из `frontend/lib/nav.ts`) — единственный источник правды о том, что скрыто в боковом меню.
+- API: `GET/PATCH /api/v1/company/module-settings/` (`backend/companies/views.py`).
+- `frontend/lib/settings.ts` → `settingsTools` — список тумблеров 1:1 с реальными пунктами меню (группа «Совместная работа» скрывает разом messages/disk/mail, остальное — по одному пункту).
+- `components/sidebar.tsx` фильтрует `workspaceNavigation`/`workspaceSidebarLayout` по `disabledModules`, которые прокидываются через `DashboardShell → WorkspaceChrome → Sidebar` (данные берутся из `getAuthSession()`, эндпоинт `/api/v1/auth/me/`).
+- Настройки → «Интеграции»: верхний блок — реальный статус телефонии/SMS-расписания/маркетинга со ссылками на их настоящие разделы; нижний блок — CRUD поверх ранее не используемого `backend/integrations` (`IntegrationConnection`) для Sigur/RFID/турникетов/платёжных/партнёрских адаптеров. Синхронизации с реальными системами пока нет — это просто учёт подключений.
+- Попутно закрыт баг: `clients/contracts/sales/payments/bookings/attendance/marketing/telephony/employees/integrations` регистрировали свои модели в Django admin напрямую через `@admin.register`, игнорируя `ADMIN_ENABLE_BUSINESS_MODELS=False` — теперь везде используется `register_business_admin` из `config/admin_registry.py`.
+- И ещё один: `REST_FRAMEWORK.DEFAULT_PARSER_CLASSES` содержал только `JSONParser` — загрузка файлов (аватар пользователя, фото тренера) падала с 415. Добавлены `MultiPartParser`/`FormParser`.
+
 ### Сотрудники / приглашения
 
 - модель `EmployeeInvitation`
@@ -163,6 +175,9 @@ cd backend && ../.venv/bin/python manage.py migrate schedule --settings=config.s
 | Телефония | `backend/telephony/`, `frontend/components/telephony/` |
 | Канбан | `frontend/components/crm-kanban-board.tsx` |
 | Навигация | `frontend/lib/nav.ts` |
+| Тренеры (профиль, аренда) | `backend/employees/models.py`, `frontend/components/trainers/trainer-profile-panel.tsx`, `trainer-rent-panel.tsx` |
+| Настройки меню | `backend/companies/views.py`, `frontend/lib/settings.ts`, `frontend/components/sidebar.tsx` |
+| Интеграции | `backend/integrations/`, `frontend/components/settings/settings-integrations-section.tsx` |
 
 ## Документация
 
@@ -178,7 +193,6 @@ cd backend && ../.venv/bin/python manage.py migrate schedule --settings=config.s
   - посещаемость
   - продажи
   - платежи
-  - тренеры и связанные карточки/настройки
 - Доработать UX под Bitrix24: выровнять меню, верхние панели, таблицы и карточки
 - Добить документацию и уроки на русском
 - История приглашений и действия: повторная отправка, отмена, деактивация, журнал изменений
@@ -192,10 +206,11 @@ cd backend && ../.venv/bin/python manage.py migrate schedule --settings=config.s
 - Stage 9:
   - расширить отчёты по менеджерам, филиалам и источникам
 - Stage 10:
-  - подключать реальные Sigur / RFID / платежи / турникеты
+  - подключать реальные Sigur / RFID / платежи / турникеты (сейчас в `integrations` только учёт подключений, без реальной синхронизации)
 - Stage 11:
   - добавить monitoring, backup runbooks и security flags
-- Проверить и доработать UX списков тренеров, если потребуется более плотный Bitrix-вид карточек
+- Публичный API для карточек тренеров (сайт/приложение) — поля `photo`, `achievements`, `bio` уже есть в модели, но наружу (без токена компании) пока не отдаются
+- Известный фоновый баг: `GET /api/v1/notifications/?company=<slug>` отдаёт 500 (чинится в отдельной сессии/фоновой задаче на момент написания)
 - Отправка SMS-напоминаний по cron (используя `ScheduleSettings.sms_reminder_hours` + `ScheduleSmsIntegration`)
 - Дублирование недели / шаблон расписания (массовое создание слотов на диапазон дат)
 - Привязка `Booking` к `GroupScheduleSlot`
