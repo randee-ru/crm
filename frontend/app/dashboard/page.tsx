@@ -22,6 +22,7 @@ export const metadata: Metadata = {
 type DashboardPageProps = {
   searchParams: Promise<{
     search?: string;
+    client_status?: string;
     pipeline?: string;
     deal?: string;
   }>;
@@ -42,7 +43,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   try {
     const [clientRows, branchRows, pipelineRows] = await Promise.all([
-      getClients(companySlug, { search: params.search }),
+      getClients(companySlug, { search: params.search, clientStatus: params.client_status }),
       getBranches(companySlug),
       getPipelines(companySlug),
     ]);
@@ -91,9 +92,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             }
             toolbar={
               <ClientFilters
-                variant="crm"
                 view="kanban"
                 search={params.search}
+                clientStatus={params.client_status}
                 resetHref="/dashboard"
               />
             }

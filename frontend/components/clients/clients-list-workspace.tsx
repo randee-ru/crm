@@ -63,11 +63,16 @@ export function ClientsListWorkspace({ totalCount, activeCount = 0 }: ClientsLis
   const birthdayMonth = searchParams.get("birthday_month") || "";
   const membershipExpiresInDays = searchParams.get("membership_expires_in_days") || "";
 
+  const hasAdvancedFilters = Boolean(
+    birthDateFrom || birthDateTo || birthdayMonth || membershipExpiresInDays,
+  );
+
   const [searchInput, setSearchInput] = useState(urlSearch);
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [count, setCount] = useState(totalCount);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(hasAdvancedFilters);
 
   const effectiveSearch = searchInput.trim().length >= SEARCH_MIN_LENGTH ? searchInput.trim() : "";
   const searchPending =
@@ -207,6 +212,7 @@ export function ClientsListWorkspace({ totalCount, activeCount = 0 }: ClientsLis
 
   function handleReset() {
     setSearchInput("");
+    setShowAdvanced(false);
     router.replace("/dashboard/clients", { scroll: false });
   }
 
@@ -250,62 +256,103 @@ export function ClientsListWorkspace({ totalCount, activeCount = 0 }: ClientsLis
           ))}
         </select>
 
-        <label className="flex items-center gap-2 rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-[13px]">
-          <span className="text-[var(--muted)]">ДР от</span>
-          <input
-            type="date"
-            value={birthDateFrom}
-            onChange={(event) => handleFilterChange({ birthDateFrom: event.target.value })}
-            className="w-[140px] border-0 bg-transparent p-0 outline-none"
-          />
-        </label>
-
-        <label className="flex items-center gap-2 rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-[13px]">
-          <span className="text-[var(--muted)]">до</span>
-          <input
-            type="date"
-            value={birthDateTo}
-            onChange={(event) => handleFilterChange({ birthDateTo: event.target.value })}
-            className="w-[140px] border-0 bg-transparent p-0 outline-none"
-          />
-        </label>
-
-        <select
-          value={birthdayMonth}
-          onChange={(event) => handleFilterChange({ birthdayMonth: event.target.value })}
-          className="form-field w-auto min-w-[140px] bg-white"
-          aria-label="Месяц рождения"
+        <button
+          type="button"
+          onClick={() => setShowAdvanced((value) => !value)}
+          className={`inline-flex items-center gap-1.5 rounded-lg border px-4 py-2 text-[13px] font-medium transition ${
+            showAdvanced || hasAdvancedFilters
+              ? "border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent-strong)]"
+              : "border-[var(--line)] bg-white text-[var(--text)] hover:bg-[var(--panel-muted)]"
+          }`}
+          aria-expanded={showAdvanced}
         >
-          {birthdayMonthOptions.map(([value, label]) => (
-            <option key={value || "all-birthday-month"} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
+          Ещё фильтры
+          {hasAdvancedFilters ? (
+            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[var(--accent)] text-[10px] font-semibold text-white">
+              {[birthDateFrom, birthDateTo, birthdayMonth, membershipExpiresInDays].filter(Boolean).length}
+            </span>
+          ) : (
+            <span aria-hidden="true">{showAdvanced ? "▲" : "▼"}</span>
+          )}
+        </button>
 
-        <select
-          value={membershipExpiresInDays}
-          onChange={(event) => handleFilterChange({ membershipExpiresInDays: event.target.value })}
-          className="form-field w-auto min-w-[160px] bg-white"
-          aria-label="Срок окончания абонемента"
-        >
-          {expiryOptions.map(([value, label]) => (
-            <option key={value || "all-expiry"} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-
-        {(urlSearch || clientStatus || birthDateFrom || birthDateTo || birthdayMonth || membershipExpiresInDays) && (
+        {(urlSearch || clientStatus || hasAdvancedFilters) && (
           <button
             type="button"
             onClick={handleReset}
             className="inline-flex items-center rounded-lg border border-[var(--line)] bg-white px-4 py-2 text-[13px] font-medium text-[var(--text)] hover:bg-[var(--panel-muted)]"
           >
-            Сбросить
+            Сбросить всё
           </button>
         )}
       </div>
+
+      {showAdvanced ? (
+        <div className="flex flex-wrap items-center gap-2 border-b border-[var(--line)] bg-[var(--panel-muted)] px-4 py-3">
+          <label className="flex items-center gap-2 rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-[13px]">
+            <span className="text-[var(--muted)]">Дата рождения от</span>
+            <input
+              type="date"
+              value={birthDateFrom}
+              onChange={(event) => handleFilterChange({ birthDateFrom: event.target.value })}
+              className="w-[140px] border-0 bg-transparent p-0 outline-none"
+            />
+          </label>
+
+          <label className="flex items-center gap-2 rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-[13px]">
+            <span className="text-[var(--muted)]">до</span>
+            <input
+              type="date"
+              value={birthDateTo}
+              onChange={(event) => handleFilterChange({ birthDateTo: event.target.value })}
+              className="w-[140px] border-0 bg-transparent p-0 outline-none"
+            />
+          </label>
+
+          <select
+            value={birthdayMonth}
+            onChange={(event) => handleFilterChange({ birthdayMonth: event.target.value })}
+            className="form-field w-auto min-w-[140px] bg-white"
+            aria-label="Месяц рождения"
+          >
+            {birthdayMonthOptions.map(([value, label]) => (
+              <option key={value || "all-birthday-month"} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={membershipExpiresInDays}
+            onChange={(event) => handleFilterChange({ membershipExpiresInDays: event.target.value })}
+            className="form-field w-auto min-w-[220px] bg-white"
+            aria-label="Срок окончания абонемента"
+          >
+            {expiryOptions.map(([value, label]) => (
+              <option key={value || "all-expiry"} value={value}>
+                {value === "" ? label : `Абонемент истекает через ${label}`}
+              </option>
+            ))}
+          </select>
+
+          {hasAdvancedFilters ? (
+            <button
+              type="button"
+              onClick={() =>
+                handleFilterChange({
+                  birthDateFrom: "",
+                  birthDateTo: "",
+                  birthdayMonth: "",
+                  membershipExpiresInDays: "",
+                })
+              }
+              className="text-[13px] font-medium text-[var(--muted)] hover:text-[var(--text)]"
+            >
+              Очистить эти фильтры
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       {searchPending ? (
         <p className="clients-search-hint">Введите минимум 3 символа для поиска</p>

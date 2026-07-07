@@ -267,6 +267,11 @@ export function ClientProfilePanel({ profile, client, branches, canManageBlocks 
               <SidebarCard title="Контакты">
                 <ContactField icon={<IconPhone size={16} />} label="Телефон" value={profile.phone} />
                 <ContactField icon={<IconMail size={16} />} label="Email" value={profile.email} />
+                <ContactField
+                  icon={<Cake size={16} />}
+                  label="Дата рождения"
+                  value={profile.birth_date ? formatClientDate(profile.birth_date) : ""}
+                />
                 <ContactField icon={<IconIdCard size={16} />} label="Паспорт" value={profile.passport} />
               </SidebarCard>
 
