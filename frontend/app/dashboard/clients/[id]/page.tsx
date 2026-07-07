@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ClientProfilePanel } from "@/components/clients/client-profile-panel";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { WorkspaceCard } from "@/components/workspace-card";
+import { getAuthSession } from "@/lib/auth";
 import { getBranches, getClient, getClientProfile } from "@/lib/api";
 
 type ClientDetailPageProps = {
@@ -24,6 +25,8 @@ export async function generateMetadata({ params }: ClientDetailPageProps): Promi
 export default async function ClientDetailPage({ params }: ClientDetailPageProps) {
   const { id } = await params;
   const clientId = Number(id);
+  const session = await getAuthSession();
+  const canManageBlocks = ["owner", "admin", "manager"].includes(session?.company?.role ?? "");
 
   if (Number.isNaN(clientId)) {
     notFound();
@@ -47,7 +50,7 @@ export default async function ClientDetailPage({ params }: ClientDetailPageProps
     <DashboardShell>
       <div className="workspace-content min-h-0 flex-1">
         <WorkspaceCard className="clients-workspace-card min-w-0 flex-1">
-          <ClientProfilePanel profile={profile} client={client} branches={branches} />
+          <ClientProfilePanel profile={profile} client={client} branches={branches} canManageBlocks={canManageBlocks} />
         </WorkspaceCard>
       </div>
     </DashboardShell>

@@ -27,15 +27,19 @@ async function parseApiError(response: Response): Promise<string> {
 
 function readClientInput(formData: FormData): ClientWriteInput {
   const branchRaw = String(formData.get("branch_id") ?? "").trim();
+  const birthDateRaw = String(formData.get("birth_date") ?? "").trim();
 
   return {
     first_name: String(formData.get("first_name") ?? "").trim(),
     last_name: String(formData.get("last_name") ?? "").trim(),
     phone: String(formData.get("phone") ?? "").trim(),
     email: String(formData.get("email") ?? "").trim(),
+    birth_date: birthDateRaw || null,
     notes: String(formData.get("notes") ?? "").trim(),
     branch_id: branchRaw ? Number(branchRaw) : null,
     is_active: formData.get("is_active") === "on",
+    club_access_blocked: formData.get("club_access_blocked") === "on",
+    group_programs_blocked: formData.get("group_programs_blocked") === "on",
   };
 }
 
@@ -110,6 +114,7 @@ export async function listClientsAction(filters: {
   page?: number;
   search?: string;
   clientStatus?: string;
+  isActive?: boolean;
   birthDateFrom?: string;
   birthDateTo?: string;
   birthdayMonth?: string;

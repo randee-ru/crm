@@ -74,6 +74,12 @@ export function ClientsTable({ clients, emptyMessage }: ClientsTableProps) {
                       {client.full_name}
                     </span>
                     <span className="block truncate text-[12px] text-[var(--muted)]">{client.phone}</span>
+                    {client.club_access_blocked || client.group_programs_blocked ? (
+                      <span className="mt-1 flex flex-wrap gap-1">
+                        {client.club_access_blocked ? <span className="crm-chip crm-chip--danger">Блок входа</span> : null}
+                        {client.group_programs_blocked ? <span className="crm-chip crm-chip--danger">Блок групп</span> : null}
+                      </span>
+                    ) : null}
                   </span>
                 </Link>
               </td>

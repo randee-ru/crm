@@ -28,6 +28,34 @@ class GroupProgramSerializer(serializers.ModelSerializer):
         ]
 
 
+class GroupProgramWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GroupProgram
+        fields = [
+            "title",
+            "code",
+            "description",
+            "color",
+            "sort_order",
+            "is_active",
+        ]
+
+    def validate_title(self, value: str) -> str:
+        company = self.context.get("company")
+        queryset = GroupProgram.objects.filter(title=value)
+        if company is not None:
+            queryset = queryset.filter(company=company)
+        if self.instance is not None:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise serializers.ValidationError("Программа с таким названием уже существует.")
+        return value
+
+    def create(self, validated_data: dict) -> GroupProgram:
+        validated_data["company"] = self.context["company"]
+        return super().create(validated_data)
+
+
 class GroupScheduleSlotSerializer(serializers.ModelSerializer):
     program_title = serializers.CharField(source="program.title", read_only=True)
     program_code = serializers.CharField(source="program.code", read_only=True)
@@ -87,7 +115,9 @@ class GroupScheduleSlotSerializer(serializers.ModelSerializer):
     def get_enrollment_count(self, slot: GroupScheduleSlot) -> int:
         if hasattr(slot, "enrollment_count_annotated"):
             return int(slot.enrollment_count_annotated)
-        return slot.enrollments.filter(status=GroupSlotEnrollment.Status.CONFIRMED).count()
+        return slot.enrollments.filter(
+            status__in=[GroupSlotEnrollment.Status.CONFIRMED, GroupSlotEnrollment.Status.COMPLETED],
+        ).count()
 
     def get_max_participants_effective(self, slot: GroupScheduleSlot) -> int:
         if slot.max_participants:
@@ -273,18 +303,24 @@ class GroupSlotEnrollmentWriteSerializer(serializers.ModelSerializer):
         company = self.context.get("company")
         if company and client.company_id != company.id:
             raise serializers.ValidationError("Клиент должен принадлежать текущей компании.")
+        if client.club_access_blocked:
+            raise serializers.ValidationError("Клиент заблокирован для прохода в клуб.")
+        if client.group_programs_blocked:
+            raise serializers.ValidationError("Клиент заблокирован для групповых программ.")
         return client
 
     def create(self, validated_data: dict) -> GroupSlotEnrollment:
         slot: GroupScheduleSlot = self.context["slot"]
         validated_data["slot"] = slot
         validated_data["company"] = slot.company
-        confirmed = slot.enrollments.filter(status=GroupSlotEnrollment.Status.CONFIRMED).count()
+        occupied = slot.enrollments.filter(
+            status__in=[GroupSlotEnrollment.Status.CONFIRMED, GroupSlotEnrollment.Status.COMPLETED],
+        ).count()
         max_participants = slot.max_participants
         if not max_participants:
             settings = getattr(slot.company, "schedule_settings", None)
             max_participants = settings.default_max_participants if settings else 20
-        if confirmed >= max_participants:
+        if occupied >= max_participants:
             raise serializers.ValidationError({"client": "На занятие больше нет свободных мест."})
         return super().create(validated_data)
 

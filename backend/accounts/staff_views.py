@@ -13,6 +13,7 @@ from accounts.permissions import HasCompanyAccess, resolve_company_slug
 from accounts.staff_serializers import (
     StaffInvitationSerializer,
     StaffInvitationWriteSerializer,
+    StaffMembershipCreateSerializer,
     StaffMembershipSerializer,
     StaffMembershipWriteSerializer,
 )
@@ -83,6 +84,22 @@ class StaffDashboardView(StaffQuerysetMixin, APIView):
                 },
             }
         )
+
+
+class StaffMembershipCreateView(StaffQuerysetMixin, APIView):
+    """Создание сотрудника сразу с паролем, без письма-приглашения."""
+
+    def post(self, request: Request) -> Response:
+        company = self.get_company()
+        if company is None:
+            return Response({"detail": "Company not found."}, status=404)
+
+        write_serializer = StaffMembershipCreateSerializer(data=request.data, context={"company": company})
+        write_serializer.is_valid(raise_exception=True)
+        membership = write_serializer.save()
+
+        read_serializer = StaffMembershipSerializer(membership)
+        return Response(read_serializer.data, status=201)
 
 
 class StaffMembershipDetailView(StaffQuerysetMixin, RetrieveUpdateAPIView):

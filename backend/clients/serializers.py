@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
+from accounts.models import CompanyMembership
 from branches.models import Branch
 from clients.models import Client
 
@@ -37,6 +38,8 @@ class ClientListSerializer(serializers.ModelSerializer):
             "client_status",
             "client_status_label",
             "branch_name",
+            "club_access_blocked",
+            "group_programs_blocked",
             "membership_status",
             "membership_title",
             "membership_start",
@@ -95,6 +98,8 @@ class ClientWriteSerializer(serializers.ModelSerializer):
             "birth_date",
             "notes",
             "is_active",
+            "club_access_blocked",
+            "group_programs_blocked",
             "branch_id",
         ]
 
@@ -103,6 +108,34 @@ class ClientWriteSerializer(serializers.ModelSerializer):
         if branch and company and branch.company_id != company.id:
             raise serializers.ValidationError("Филиал должен принадлежать текущей компании.")
         return branch
+
+    def _can_manage_blocks(self) -> bool:
+        request = self.context.get("request")
+        company = self.context.get("company")
+        if request is None or company is None or not request.user.is_authenticated:
+            return False
+        return CompanyMembership.objects.filter(
+            user=request.user,
+            company=company,
+            is_active=True,
+            role__in=[
+                CompanyMembership.Role.OWNER,
+                CompanyMembership.Role.ADMIN,
+                CompanyMembership.Role.MANAGER,
+            ],
+        ).exists()
+
+    def validate(self, attrs):
+        if not self._can_manage_blocks():
+            blocked_fields = {"club_access_blocked", "group_programs_blocked"} & set(self.initial_data.keys())
+            if blocked_fields:
+                raise serializers.ValidationError(
+                    {
+                        "club_access_blocked": "Изменять блокировки могут только администратор, менеджер или руководитель.",
+                        "group_programs_blocked": "Изменять блокировки могут только администратор, менеджер или руководитель.",
+                    }
+                )
+        return super().validate(attrs)
 
     def validate_phone(self, phone: str) -> str:
         return phone.strip()

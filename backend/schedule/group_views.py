@@ -13,6 +13,7 @@ from clients.views import get_company_from_request
 from schedule.group_programs import ensure_default_group_programs
 from schedule.group_serializers import (
     GroupProgramSerializer,
+    GroupProgramWriteSerializer,
     GroupScheduleSlotSerializer,
     GroupScheduleSlotWriteSerializer,
     GroupSlotEnrollmentSerializer,
@@ -33,15 +34,83 @@ from schedule.services import ensure_embed_token, get_schedule_settings
 from schedule.views import ScheduleQuerysetMixin
 
 
-class GroupProgramListView(ScheduleQuerysetMixin, APIView):
-    def get(self, request: Request) -> Response:
-        company = get_company_from_request(request)
-        if company is None:
-            return Response({"detail": "Company not found."}, status=404)
-        if not GroupProgram.objects.filter(company=company, is_active=True).exists():
-            ensure_default_group_programs(company)
-        programs = GroupProgram.objects.filter(company=company, is_active=True).order_by("sort_order", "title")
-        return Response(GroupProgramSerializer(programs, many=True).data)
+class GroupProgramListView(ScheduleQuerysetMixin, ListCreateAPIView):
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return GroupProgramWriteSerializer
+        return GroupProgramSerializer
+
+    def get_queryset(self) -> QuerySet[GroupProgram]:
+        from accounts.permissions import resolve_company_slug
+
+        company_slug = resolve_company_slug(self.request, required=True)
+        if not company_slug:
+            return GroupProgram.objects.none()
+        if not GroupProgram.objects.filter(company__slug=company_slug, is_active=True).exists():
+            company = get_company_from_request(self.request)
+            if company is not None:
+                ensure_default_group_programs(company)
+        return GroupProgram.objects.filter(
+            company__slug=company_slug,
+            company__is_active=True,
+            is_active=True,
+        ).order_by("sort_order", "title")
+
+    def get(self, request: Request, *args, **kwargs) -> Response:
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    def get_serializer_context(self) -> dict:
+        context = super().get_serializer_context()
+        company = get_company_from_request(self.request)
+        context["company"] = company
+        return context
+
+    def create(self, request: Request, *args, **kwargs) -> Response:
+        write_serializer = GroupProgramWriteSerializer(data=request.data, context=self.get_serializer_context())
+        write_serializer.is_valid(raise_exception=True)
+        instance = write_serializer.save()
+        return Response(GroupProgramSerializer(instance).data, status=status.HTTP_201_CREATED)
+
+
+class GroupProgramDetailView(ScheduleQuerysetMixin, RetrieveUpdateDestroyAPIView):
+    lookup_url_kwarg = "program_id"
+
+    def get_serializer_class(self):
+        if self.request.method in {"PUT", "PATCH"}:
+            return GroupProgramWriteSerializer
+        return GroupProgramSerializer
+
+    def get_queryset(self) -> QuerySet[GroupProgram]:
+        from accounts.permissions import resolve_company_slug
+
+        company_slug = resolve_company_slug(self.request, required=True)
+        return GroupProgram.objects.filter(company__slug=company_slug, company__is_active=True)
+
+    def get_serializer_context(self) -> dict:
+        context = super().get_serializer_context()
+        context["company"] = get_company_from_request(self.request)
+        return context
+
+    def update(self, request: Request, *args, **kwargs) -> Response:
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        write_serializer = GroupProgramWriteSerializer(
+            instance,
+            data=request.data,
+            partial=partial,
+            context=self.get_serializer_context(),
+        )
+        write_serializer.is_valid(raise_exception=True)
+        instance = write_serializer.save()
+        return Response(GroupProgramSerializer(instance).data)
+
+    def destroy(self, request: Request, *args, **kwargs) -> Response:
+        instance = self.get_object()
+        instance.is_active = False
+        instance.save(update_fields=["is_active", "updated_at"])
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class GroupScheduleSlotListCreateView(ScheduleQuerysetMixin, ListCreateAPIView):
@@ -72,7 +141,12 @@ class GroupScheduleSlotListCreateView(ScheduleQuerysetMixin, ListCreateAPIView):
         queryset = queryset.annotate(
             enrollment_count_annotated=Count(
                 "enrollments",
-                filter=Q(enrollments__status=GroupSlotEnrollment.Status.CONFIRMED),
+                filter=Q(
+                    enrollments__status__in=[
+                        GroupSlotEnrollment.Status.CONFIRMED,
+                        GroupSlotEnrollment.Status.COMPLETED,
+                    ]
+                ),
             )
         )
         date_from = self.request.query_params.get("from")
@@ -122,10 +196,15 @@ class GroupScheduleSlotDetailView(ScheduleQuerysetMixin, RetrieveUpdateDestroyAP
             .select_related("program", "trainer", "branch", "company__schedule_settings")
             .annotate(
                 enrollment_count_annotated=Count(
-                    "enrollments",
-                    filter=Q(enrollments__status=GroupSlotEnrollment.Status.CONFIRMED),
-                )
+                "enrollments",
+                filter=Q(
+                    enrollments__status__in=[
+                        GroupSlotEnrollment.Status.CONFIRMED,
+                        GroupSlotEnrollment.Status.COMPLETED,
+                    ]
+                ),
             )
+        )
         )
 
     def update(self, request: Request, *args, **kwargs) -> Response:

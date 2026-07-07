@@ -17,7 +17,7 @@ class TrainerAdmin(ModelAdmin):
         "is_active",
     )
     list_filter = ("company", "branch", "is_active", "trains_gym_floor", "trains_group_programs")
-    search_fields = ("first_name", "last_name", "phone", "email", "specialization")
+    search_fields = ("first_name", "middle_name", "last_name", "phone", "email", "specialization")
     autocomplete_fields = ("company", "branch")
     list_fullwidth = True
     warn_unsaved_form = True
@@ -27,7 +27,7 @@ class TrainerAdmin(ModelAdmin):
 class TrainerRentPaymentAdmin(ModelAdmin):
     list_display = ("trainer", "company", "period", "amount", "paid_at")
     list_filter = ("company", "period")
-    search_fields = ("trainer__first_name", "trainer__last_name")
+    search_fields = ("trainer__first_name", "trainer__middle_name", "trainer__last_name")
     autocomplete_fields = ("company", "trainer")
     list_fullwidth = True
 
@@ -35,6 +35,6 @@ class TrainerRentPaymentAdmin(ModelAdmin):
 class TrainerAccessCardAdmin(ModelAdmin):
     list_display = ("trainer", "company", "card_number", "status", "issued_at")
     list_filter = ("company", "status")
-    search_fields = ("card_number", "trainer__first_name", "trainer__last_name")
+    search_fields = ("card_number", "trainer__first_name", "trainer__middle_name", "trainer__last_name")
     autocomplete_fields = ("company", "trainer")
     list_fullwidth = True

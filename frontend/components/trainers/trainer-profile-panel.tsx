@@ -23,6 +23,7 @@ export function TrainerProfilePanel({ trainer, branches }: TrainerProfilePanelPr
     trainer.trains_gym_floor ? "Тренажёрный зал" : null,
     trainer.trains_group_programs ? "Групповые программы" : null,
   ].filter(Boolean) as string[];
+  const specializationItems = splitTrainerTraits(trainer.specialization);
 
   return (
     <div className="client-card">
@@ -82,7 +83,7 @@ export function TrainerProfilePanel({ trainer, branches }: TrainerProfilePanelPr
 
         <div className="client-card-stats">
           <StatCard label="Филиал" value={trainer.branch_name || "—"} />
-          <StatCard label="Специализация" value={trainer.specialization || "—"} />
+          <SpecializationCard items={specializationItems} />
           <StatCard label="В команде с" value={formatClientDate(trainer.created_at)} />
           <StatCard
             label="Аренда зала"
@@ -98,6 +99,23 @@ export function TrainerProfilePanel({ trainer, branches }: TrainerProfilePanelPr
         </div>
       </header>
 
+      {showEdit ? (
+        <section className="client-card-edit">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2>Редактирование тренера</h2>
+              <p className="mt-1 text-[12px] text-[var(--muted)]">
+                Изменяйте ФИО, контакты, специализацию, тип работы и статус в одном месте.
+              </p>
+            </div>
+            <button type="button" className="client-card-save" onClick={() => setShowEdit(false)}>
+              Скрыть редактирование
+            </button>
+          </div>
+          <TrainerForm trainer={trainer} branches={branches} submitLabel="Сохранить изменения" />
+        </section>
+      ) : null}
+
       <div className="client-card-body">
         <div className="client-card-main-layout">
           <aside className="client-card-sidebar">
@@ -109,7 +127,7 @@ export function TrainerProfilePanel({ trainer, branches }: TrainerProfilePanelPr
             <SidebarCard title="Работа">
               <InfoLine label="Филиал" value={trainer.branch_name || "—"} />
               <InfoLine label="Тип" value={typeLabels.join(", ") || "—"} />
-              <InfoLine label="Специализация" value={trainer.specialization || "—"} />
+              <SpecializationField items={specializationItems} />
               <InfoLine label="Статус" value={trainer.is_active ? "Активен" : "Неактивен"} />
             </SidebarCard>
 
@@ -169,13 +187,6 @@ export function TrainerProfilePanel({ trainer, branches }: TrainerProfilePanelPr
             )}
           </section>
         </div>
-
-        {showEdit ? (
-          <section className="client-card-edit">
-            <h2>Редактирование тренера</h2>
-            <TrainerForm trainer={trainer} branches={branches} submitLabel="Сохранить изменения" />
-          </section>
-        ) : null}
       </div>
     </div>
   );
@@ -192,6 +203,34 @@ function StatCard({ label, value, tone = "neutral" }: { label: string; value: st
   );
 }
 
+function SpecializationCard({ items }: { items: string[] }) {
+  return (
+    <div className="client-card-stat">
+      <span>Специализация</span>
+      {items.length > 0 ? (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {items.slice(0, 4).map((item) => (
+            <span
+              key={item}
+              className="inline-flex items-center rounded-full border border-[var(--line)] bg-[var(--panel-muted)] px-2.5 py-1 text-[12px] font-medium text-[var(--text)]"
+            >
+              {item}
+            </span>
+          ))}
+          {items.length > 4 ? (
+            <span className="inline-flex items-center rounded-full bg-[var(--accent-soft)] px-2.5 py-1 text-[12px] font-semibold text-[var(--accent-strong)]">
+              +{items.length - 4}
+            </span>
+          ) : null}
+        </div>
+      ) : (
+        <strong>—</strong>
+      )}
+      {items.length > 0 ? <div className="mt-2 text-[12px] text-[var(--muted)]">{items.length} направлений</div> : null}
+    </div>
+  );
+}
+
 function SidebarCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="client-card-section">
@@ -201,7 +240,7 @@ function SidebarCard({ title, children }: { title: string; children: ReactNode }
   );
 }
 
-function ContactField({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+function ContactField({ icon, label, value }: { icon: ReactNode; label: string; value: string | null | undefined }) {
   return (
     <div className="client-card-contact">
       <span className="client-card-contact-icon" aria-hidden>
@@ -222,4 +261,40 @@ function InfoLine({ label, value }: { label: string; value: string }) {
       <strong>{value || "—"}</strong>
     </div>
   );
+}
+
+function SpecializationField({ items }: { items: string[] }) {
+  if (items.length === 0) {
+    return <InfoLine label="Специализация" value="—" />;
+  }
+
+  return (
+    <div className="client-card-info-line">
+      <span>Специализация</span>
+      <div className="flex min-w-0 flex-wrap gap-1.5">
+        {items.slice(0, 3).map((item) => (
+          <span
+            key={item}
+            className="inline-flex max-w-full items-center rounded-full border border-[var(--line)] bg-[var(--panel-muted)] px-2 py-0.5 text-[12px] font-medium text-[var(--text)]"
+          >
+            {item}
+          </span>
+        ))}
+        {items.length > 3 ? (
+          <span className="inline-flex items-center rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[12px] font-semibold text-[var(--accent-strong)]">
+            +{items.length - 3}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function splitTrainerTraits(value: string): string[] {
+  return value
+    .split(/[,;•\n]/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => item.replace(/\s+/g, " "))
+    .filter((item, index, list) => list.indexOf(item) === index);
 }

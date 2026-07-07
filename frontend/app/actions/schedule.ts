@@ -6,6 +6,7 @@ import { getAuthHeaders, getCompanySlugFromCookie } from "@/lib/auth";
 import { API_BASE_URL } from "@/lib/api-config";
 import type {
   GroupProgramRecord,
+  GroupProgramWriteInput,
   GroupScheduleSlotRecord,
   GroupScheduleSlotWriteInput,
   GroupSlotEnrollmentRecord,
@@ -82,6 +83,34 @@ async function scheduleFetch<T>(path: string, init?: RequestInit): Promise<T> {
 
 export async function listGroupProgramsAction(): Promise<GroupProgramRecord[]> {
   return scheduleFetch<GroupProgramRecord[]>("/api/v1/schedule/programs/");
+}
+
+export async function createGroupProgramAction(payload: GroupProgramWriteInput): Promise<GroupProgramRecord> {
+  const result = await scheduleFetch<GroupProgramRecord>("/api/v1/schedule/programs/", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  revalidatePath("/dashboard/schedule");
+  return result;
+}
+
+export async function updateGroupProgramAction(
+  programId: number,
+  payload: Partial<GroupProgramWriteInput>,
+): Promise<GroupProgramRecord> {
+  const result = await scheduleFetch<GroupProgramRecord>(`/api/v1/schedule/programs/${programId}/`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+  revalidatePath("/dashboard/schedule");
+  return result;
+}
+
+export async function deleteGroupProgramAction(programId: number): Promise<void> {
+  await scheduleFetch<void>(`/api/v1/schedule/programs/${programId}/`, {
+    method: "DELETE",
+  });
+  revalidatePath("/dashboard/schedule");
 }
 
 export async function listGroupScheduleSlotsAction(from?: string, to?: string): Promise<GroupScheduleSlotRecord[]> {
@@ -184,7 +213,7 @@ export async function listSlotEnrollmentsAction(slotId: number): Promise<GroupSl
 
 export async function createSlotEnrollmentAction(
   slotId: number,
-  payload: { client: number; notes?: string },
+  payload: { client: number; status?: "confirmed" | "completed" | "cancelled" | "waitlist"; notes?: string },
 ): Promise<GroupSlotEnrollmentRecord> {
   const result = await scheduleFetch<GroupSlotEnrollmentRecord>(
     `/api/v1/schedule/group-slots/${slotId}/enrollments/`,

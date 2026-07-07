@@ -58,6 +58,7 @@ class TrainerListCreateView(TrainerQuerysetMixin, ListCreateAPIView):
         if search:
             queryset = queryset.filter(
                 Q(first_name__icontains=search)
+                | Q(middle_name__icontains=search)
                 | Q(last_name__icontains=search)
                 | Q(phone__icontains=search)
                 | Q(email__icontains=search)
@@ -80,6 +81,15 @@ class TrainerListCreateView(TrainerQuerysetMixin, ListCreateAPIView):
         if company is None:
             raise ValueError("Company context is required.")
         serializer.save(company=company)
+
+    def create(self, request: Request, *args, **kwargs) -> Response:
+        write_serializer = self.get_serializer(data=request.data)
+        write_serializer.is_valid(raise_exception=True)
+        self.perform_create(write_serializer)
+        trainer = write_serializer.instance
+        read_serializer = TrainerDetailSerializer(trainer, context=self.get_serializer_context())
+        headers = self.get_success_headers(read_serializer.data)
+        return Response(read_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
 class TrainerDetailView(TrainerQuerysetMixin, RetrieveUpdateDestroyAPIView):

@@ -1,4 +1,27 @@
 const WEEKDAY_SHORT = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"] as const;
+const WEEKDAY_FULL = [
+  "воскресенье",
+  "понедельник",
+  "вторник",
+  "среда",
+  "четверг",
+  "пятница",
+  "суббота",
+] as const;
+const MONTHS_GENITIVE = [
+  "января",
+  "февраля",
+  "марта",
+  "апреля",
+  "мая",
+  "июня",
+  "июля",
+  "августа",
+  "сентября",
+  "октября",
+  "ноября",
+  "декабря",
+] as const;
 
 export function getMonday(date: Date): Date {
   const monday = new Date(date);
@@ -49,7 +72,7 @@ export function parseLocalDate(value: string): Date {
 }
 
 export function formatDayDate(date: Date): string {
-  return date.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+  return `${date.getDate()} ${MONTHS_GENITIVE[date.getMonth()]}`;
 }
 
 export function formatDayWeekday(date: Date): string {
@@ -58,21 +81,16 @@ export function formatDayWeekday(date: Date): string {
 
 export function formatWeekRange(weekStart: Date): string {
   const weekEnd = addDays(weekStart, 6);
-  const monthOpts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
-  const endWithYear = weekEnd.toLocaleDateString("ru-RU", { ...monthOpts, year: "numeric" });
+  const endWithYear = `${weekEnd.getDate()} ${MONTHS_GENITIVE[weekEnd.getMonth()]} ${weekEnd.getFullYear()} г.`;
 
   if (weekStart.getMonth() === weekEnd.getMonth()) {
     return `${weekStart.getDate()}–${endWithYear}`;
   }
 
-  const startLabel = weekStart.toLocaleDateString("ru-RU", monthOpts);
+  const startLabel = `${weekStart.getDate()} ${MONTHS_GENITIVE[weekStart.getMonth()]}`;
   return `${startLabel} — ${endWithYear}`;
 }
 
 export function formatFullDate(date: Date): string {
-  return date.toLocaleDateString("ru-RU", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
+  return `${WEEKDAY_FULL[weekdayIndex(date)]}, ${date.getDate()} ${MONTHS_GENITIVE[date.getMonth()]}`;
 }

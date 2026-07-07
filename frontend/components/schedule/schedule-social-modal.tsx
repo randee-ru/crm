@@ -10,6 +10,7 @@ import {
   renderScheduleStoryImage,
   type ScheduleExportData,
 } from "@/lib/schedule-export";
+import { formatLocalDate } from "@/lib/schedule-week";
 import type { GroupScheduleSlotRecord } from "@/lib/types";
 
 type ScheduleSocialModalProps = {
@@ -24,6 +25,16 @@ export function ScheduleSocialModal({ companyName, weekStart, slots, onClose }: 
     () => buildScheduleExportData(companyName, weekStart, slots),
     [companyName, weekStart, slots],
   );
+  const storyExportData = useMemo(() => {
+    const today = formatLocalDate(new Date());
+    const todayDay = exportData.days.find((day) => day.date === today && day.slots.length > 0);
+    const firstFilledDay = exportData.days.find((day) => day.slots.length > 0);
+    const selectedDay = todayDay ?? firstFilledDay ?? exportData.days[0];
+    return {
+      ...exportData,
+      days: selectedDay ? [selectedDay] : [],
+    };
+  }, [exportData]);
 
   const [storyPreview, setStoryPreview] = useState("");
   const [horizontalPreview, setHorizontalPreview] = useState("");
@@ -31,18 +42,18 @@ export function ScheduleSocialModal({ companyName, weekStart, slots, onClose }: 
 
   useEffect(() => {
     try {
-      const storyCanvas = renderScheduleStoryImage(exportData);
+      const storyCanvas = renderScheduleStoryImage(storyExportData);
       const horizontalCanvas = renderScheduleHorizontalImage(exportData);
       setStoryPreview(storyCanvas.toDataURL("image/png"));
       setHorizontalPreview(horizontalCanvas.toDataURL("image/png"));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось сгенерировать изображения");
     }
-  }, [exportData]);
+  }, [exportData, storyExportData]);
 
   function handleDownloadStory() {
     try {
-      const canvas = renderScheduleStoryImage(exportData);
+      const canvas = renderScheduleStoryImage(storyExportData);
       downloadCanvas(canvas, `schedule-story-${exportData.weekLabel.replace(/\s+/g, "-")}.png`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось скачать Stories");
@@ -66,7 +77,7 @@ export function ScheduleSocialModal({ companyName, weekStart, slots, onClose }: 
             <span className="schedule-embed-badge">Соцсети</span>
             <h2>Картинки для публикации</h2>
             <p>
-              Вертикальная — Stories. Горизонтальная — Telegram, VK, Instagram. Неделя: {exportData.weekLabel}
+              Вертикальная — Stories, только один день. Горизонтальная — Telegram, VK, Instagram. Неделя: {exportData.weekLabel}
             </p>
           </div>
           <button type="button" className="schedule-modal-close schedule-publish-close" onClick={onClose} aria-label="Закрыть">

@@ -29,6 +29,7 @@ function buildTrainerFormData(formData: FormData): FormData {
   const branchRaw = String(formData.get("branch_id") ?? "").trim();
 
   body.append("first_name", String(formData.get("first_name") ?? "").trim());
+  body.append("middle_name", String(formData.get("middle_name") ?? "").trim());
   body.append("last_name", String(formData.get("last_name") ?? "").trim());
   body.append("phone", String(formData.get("phone") ?? "").trim());
   body.append("email", String(formData.get("email") ?? "").trim());
@@ -38,7 +39,9 @@ function buildTrainerFormData(formData: FormData): FormData {
   body.append("trains_gym_floor", formData.get("trains_gym_floor") === "on" ? "true" : "false");
   body.append("trains_group_programs", formData.get("trains_group_programs") === "on" ? "true" : "false");
   body.append("is_active", formData.get("is_active") === "on" ? "true" : "false");
-  body.append("branch_id", branchRaw);
+  if (branchRaw) {
+    body.append("branch_id", branchRaw);
+  }
 
   const photo = formData.get("photo");
   if (photo instanceof File && photo.size > 0) {
@@ -55,10 +58,9 @@ export async function createTrainerAction(
   const companySlug = await getCompanySlugFromCookie();
   const firstName = String(formData.get("first_name") ?? "").trim();
   const lastName = String(formData.get("last_name") ?? "").trim();
-  const phone = String(formData.get("phone") ?? "").trim();
 
-  if (!firstName || !lastName || !phone) {
-    return { error: "Укажите имя, фамилию и телефон тренера." };
+  if (!firstName || !lastName) {
+    return { error: "Укажите имя и фамилию тренера." };
   }
 
   const response = await fetch(
@@ -74,9 +76,12 @@ export async function createTrainerAction(
     return { error: await parseApiError(response) };
   }
 
-  const trainer = (await response.json()) as { id: number };
+  const trainer = (await response.json()) as { id?: number };
   revalidatePath("/dashboard/trainers");
-  redirect(`/dashboard/trainers/${trainer.id}`);
+  if (trainer.id) {
+    redirect(`/dashboard/trainers/${trainer.id}`);
+  }
+  redirect("/dashboard/trainers");
 }
 
 export async function updateTrainerAction(
@@ -87,10 +92,9 @@ export async function updateTrainerAction(
   const companySlug = await getCompanySlugFromCookie();
   const firstName = String(formData.get("first_name") ?? "").trim();
   const lastName = String(formData.get("last_name") ?? "").trim();
-  const phone = String(formData.get("phone") ?? "").trim();
 
-  if (!firstName || !lastName || !phone) {
-    return { error: "Укажите имя, фамилию и телефон тренера." };
+  if (!firstName || !lastName) {
+    return { error: "Укажите имя и фамилию тренера." };
   }
 
   const response = await fetch(

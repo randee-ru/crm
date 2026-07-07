@@ -243,6 +243,6 @@ class CompanyContextView(APIView):
                 "branch_name": membership.branch.name if membership.branch else None,
                 "clients_count": company.clients.count(),
                 "clients_active_count": company.clients.filter(is_active=True).count(),
-                "disabled_modules": company.disabled_modules,
+                "disabled_modules": company.effective_disabled_modules(membership.role),
             }
         )

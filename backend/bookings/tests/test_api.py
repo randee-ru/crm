@@ -81,6 +81,33 @@ class BookingApiTest(TestCase):
         self.assertEqual(list_response.status_code, 200)
         self.assertEqual(len(list_response.json()), 1)
 
+    def test_booking_rejects_blocked_client(self) -> None:
+        blocked_client = Client.objects.create(
+            company=self.company,
+            branch=self.branch,
+            first_name="Мария",
+            last_name="Блокова",
+            phone="+79994443322",
+            club_access_blocked=True,
+        )
+
+        response = self.http.post(
+            "/api/v1/bookings/?company=sportmax",
+            data={
+                "title": "Персональная тренировка",
+                "starts_at": (timezone.now() + timedelta(hours=1)).isoformat(),
+                "ends_at": (timezone.now() + timedelta(hours=2)).isoformat(),
+                "status": Booking.Status.CONFIRMED,
+                "client_id": blocked_client.id,
+                "trainer_id": self.trainer.id,
+                "branch_id": self.branch.id,
+            },
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Клиент заблокирован для бронирований и прохода в клуб.", response.json()["client_id"][0])
+
     def test_booking_detail_update_and_delete(self) -> None:
         booking = Booking.objects.create(
             company=self.company,

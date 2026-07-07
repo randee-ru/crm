@@ -278,6 +278,7 @@ class GroupSlotEnrollment(TimeStampedModel):
 
     class Status(models.TextChoices):
         CONFIRMED = "confirmed", "Подтверждена"
+        COMPLETED = "completed", "Проведена"
         CANCELLED = "cancelled", "Отменена"
         WAITLIST = "waitlist", "Лист ожидания"
 

@@ -19,6 +19,7 @@ class TrainerListSerializer(serializers.ModelSerializer):
             "id",
             "full_name",
             "first_name",
+            "middle_name",
             "last_name",
             "phone",
             "email",
@@ -72,6 +73,7 @@ class TrainerDetailSerializer(TrainerListSerializer):
 
 
 class TrainerWriteSerializer(serializers.ModelSerializer):
+    phone = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=32)
     branch_id = serializers.PrimaryKeyRelatedField(
         queryset=Branch.objects.all(),
         source="branch",
@@ -84,6 +86,7 @@ class TrainerWriteSerializer(serializers.ModelSerializer):
         model = Trainer
         fields = [
             "first_name",
+            "middle_name",
             "last_name",
             "phone",
             "email",
@@ -103,6 +106,17 @@ class TrainerWriteSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Филиал должен принадлежать текущей компании.")
         return branch
 
+    def validate_phone(self, phone: str | None) -> str | None:
+        normalized = (phone or "").strip()
+        if not normalized:
+            return None
+
+        company = self.context.get("company")
+        trainer_id = self.instance.id if self.instance else None
+        if company and Trainer.objects.filter(company=company, phone=normalized).exclude(id=trainer_id).exists():
+            raise serializers.ValidationError("Тренер с таким телефоном уже существует.")
+        return normalized
+
     def validate_photo(self, photo):
         if photo is None:
             return photo
@@ -115,13 +129,6 @@ class TrainerWriteSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Можно загрузить только изображение.")
 
         return photo
-
-    def validate_phone(self, phone: str) -> str:
-        company = self.context.get("company")
-        trainer_id = self.instance.id if self.instance else None
-        if company and Trainer.objects.filter(company=company, phone=phone).exclude(id=trainer_id).exists():
-            raise serializers.ValidationError("Тренер с таким телефоном уже существует.")
-        return phone
 
     def validate(self, attrs: dict) -> dict:
         trains_gym_floor = attrs.get(

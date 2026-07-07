@@ -130,6 +130,8 @@ class AttendanceRecordWriteSerializer(serializers.ModelSerializer):
         company = self.context.get("company")
         if client and company and client.company_id != company.id:
             raise serializers.ValidationError("Клиент должен принадлежать текущей компании.")
+        if client and client.club_access_blocked:
+            raise serializers.ValidationError("Клиент заблокирован для прохода в клуб.")
         return client
 
     def validate_membership_id(self, membership):

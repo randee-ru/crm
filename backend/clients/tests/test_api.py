@@ -29,6 +29,16 @@ class ClientListApiTest(TestCase):
             branch=self.branch,
             role=CompanyMembership.Role.MANAGER,
         )
+        self.employee_user = get_user_model().objects.create_user(
+            username="employee",
+            password="admin12345",
+        )
+        CompanyMembership.objects.create(
+            user=self.employee_user,
+            company=self.company,
+            branch=self.branch,
+            role=CompanyMembership.Role.EMPLOYEE,
+        )
         self.client_record = Client.objects.create(
             company=self.company,
             branch=self.branch,
@@ -68,6 +78,8 @@ class ClientListApiTest(TestCase):
         self.assertEqual(payload["results"][0]["membership_status"], "active")
         self.assertEqual(payload["results"][0]["birth_date"], "1990-05-12")
         self.assertIsNotNone(payload["results"][0]["membership_end"])
+        self.assertIn("club_access_blocked", payload["results"][0])
+        self.assertIn("group_programs_blocked", payload["results"][0])
 
     def test_client_list_supports_search_filter(self) -> None:
         Client.objects.create(
@@ -223,6 +235,8 @@ class ClientListApiTest(TestCase):
         )
         self.assertEqual(detail_response.status_code, 200)
         self.assertEqual(detail_response.json()["phone"], "+79991112233")
+        self.assertFalse(detail_response.json()["club_access_blocked"])
+        self.assertFalse(detail_response.json()["group_programs_blocked"])
 
         update_response = self.http.patch(
             f"/api/v1/clients/{self.client_record.id}/?company=sportmax",
@@ -233,6 +247,29 @@ class ClientListApiTest(TestCase):
         self.assertEqual(update_response.status_code, 200)
         self.client_record.refresh_from_db()
         self.assertEqual(self.client_record.notes, "Нужен повторный звонок")
+
+    def test_client_block_fields_can_be_updated_only_by_manage_roles(self) -> None:
+        manager_response = self.http.patch(
+            f"/api/v1/clients/{self.client_record.id}/?company=sportmax",
+            data={"club_access_blocked": True, "group_programs_blocked": True},
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+        self.assertEqual(manager_response.status_code, 200)
+        self.client_record.refresh_from_db()
+        self.assertTrue(self.client_record.club_access_blocked)
+        self.assertTrue(self.client_record.group_programs_blocked)
+
+        employee_token = Token.objects.create(user=self.employee_user)
+        employee_response = self.http.patch(
+            f"/api/v1/clients/{self.client_record.id}/?company=sportmax",
+            data={"club_access_blocked": False},
+            content_type="application/json",
+            **{"HTTP_AUTHORIZATION": f"Token {employee_token.key}"},
+        )
+        self.assertEqual(employee_response.status_code, 400)
+        self.client_record.refresh_from_db()
+        self.assertTrue(self.client_record.club_access_blocked)
 
     def test_branch_list_returns_company_branches(self) -> None:
         response = self.http.get(

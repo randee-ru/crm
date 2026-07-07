@@ -17,8 +17,18 @@ class ClientLeadAdmin(ModelAdmin):
 
 class ClientAdmin(ModelAdmin):
     # Dev-only: операционные клиенты управляются через CRM frontend.
-    list_display = ("full_name", "phone", "client_status", "company", "branch", "is_active", "created_at")
-    list_filter = ("company", "branch", "is_active")
+    list_display = (
+        "full_name",
+        "phone",
+        "client_status",
+        "company",
+        "branch",
+        "is_active",
+        "club_access_blocked",
+        "group_programs_blocked",
+        "created_at",
+    )
+    list_filter = ("company", "branch", "is_active", "club_access_blocked", "group_programs_blocked")
     search_fields = ("first_name", "last_name", "phone", "email")
     autocomplete_fields = ("company", "branch")
     list_fullwidth = True

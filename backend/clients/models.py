@@ -81,6 +81,8 @@ class Client(TimeStampedModel):
     interests = models.JSONField("Интересы", default=list, blank=True)
     notes = models.TextField("Комментарий", blank=True)
     is_active = models.BooleanField("Активен", default=True)
+    club_access_blocked = models.BooleanField("Блок доступа в клуб", default=False)
+    group_programs_blocked = models.BooleanField("Блок групповых программ", default=False)
     is_deleted = models.BooleanField("Удалён в 1С", default=False)
 
     class Meta:
@@ -110,6 +112,14 @@ class Client(TimeStampedModel):
     def full_name(self) -> str:
         parts = [self.first_name, self.last_name, self.middle_name]
         return " ".join(part for part in parts if part and part != "-").strip() or self.phone
+
+    @property
+    def is_blocked_for_club_access(self) -> bool:
+        return self.club_access_blocked
+
+    @property
+    def is_blocked_for_group_programs(self) -> bool:
+        return self.club_access_blocked or self.group_programs_blocked
 
     def __str__(self) -> str:
         return f"{self.full_name} ({self.phone})"

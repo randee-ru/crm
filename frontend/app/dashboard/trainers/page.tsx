@@ -42,16 +42,22 @@ export default async function TrainersPage({ searchParams }: TrainersPageProps) 
   const type = params.type?.trim() ?? "";
   const rent = params.rent?.trim() ?? "";
 
-  const [trainers, branches] = await Promise.all([
-    getTrainers().catch(() => [] as TrainerRecord[]),
-    getBranches().catch(() => [] as BranchOption[]),
-  ]);
+  let trainers: TrainerRecord[] = [];
+  let branches: BranchOption[] = [];
+  let loadError = false;
+
+  try {
+    [trainers, branches] = await Promise.all([getTrainers(), getBranches()]);
+  } catch {
+    loadError = true;
+  }
 
   const filteredTrainers = trainers.filter((trainer) => {
+    const phone = trainer.phone || "";
     const matchesSearch =
       !search ||
       trainer.full_name.toLowerCase().includes(search.toLowerCase()) ||
-      trainer.phone.toLowerCase().includes(search.toLowerCase()) ||
+      phone.toLowerCase().includes(search.toLowerCase()) ||
       (trainer.email || "").toLowerCase().includes(search.toLowerCase()) ||
       (trainer.specialization || "").toLowerCase().includes(search.toLowerCase());
     const matchesActive = !active || String(trainer.is_active) === active;
@@ -76,6 +82,12 @@ export default async function TrainersPage({ searchParams }: TrainersPageProps) 
       <div className="workspace-content min-h-0 flex-1">
         <WorkspaceCard className="trainers-workspace-card min-w-0 flex-1">
           <TrainersModuleHeader total={trainers.length} activeCount={activeCount} branchesCount={branches.length} />
+
+          {loadError ? (
+            <div className="mx-5 mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+              Не удалось загрузить список тренеров. Проверьте, что backend и база данных запущены.
+            </div>
+          ) : null}
 
           <TrainersFilters search={search} active={active} type={type} rent={rent} />
 
@@ -146,7 +158,7 @@ export default async function TrainersPage({ searchParams }: TrainersPageProps) 
                           </span>
                         </Link>
                       </td>
-                      <td className="px-4 py-3 text-[var(--muted)]">{trainer.phone}</td>
+                      <td className="px-4 py-3 text-[var(--muted)]">{trainer.phone || "—"}</td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1.5">
                           {trainer.trains_gym_floor ? (

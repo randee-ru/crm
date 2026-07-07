@@ -58,20 +58,20 @@ export function ScheduleWeekSwiper({ weekStart, onWeekChange, children }: Schedu
   return (
     <div className="schedule-week-swiper">
       <div className="schedule-week-toolbar">
-        <button
-          type="button"
-          className="schedule-week-nav"
-          aria-label="Предыдущая неделя"
-          onClick={() => swiperRef.current?.slidePrev()}
-        >
-          <IconChevronLeft size={18} />
-        </button>
-        <div className="schedule-week-range">
-          <strong>{formatWeekRange(weekStart)}</strong>
+        <div className="schedule-week-toolbar-actions">
+          <button
+            type="button"
+            className="schedule-week-nav"
+            aria-label="Предыдущая неделя"
+            onClick={() => swiperRef.current?.slidePrev()}
+          >
+            <IconChevronLeft size={18} />
+          </button>
           <button type="button" className="schedule-week-today" onClick={goToday}>
             Сегодня
           </button>
         </div>
+        <strong className="schedule-week-range">{formatWeekRange(weekStart)}</strong>
         <button
           type="button"
           className="schedule-week-nav"

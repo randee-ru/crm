@@ -55,6 +55,8 @@ export type ClientRecord = {
   email: string;
   birth_date: string | null;
   is_active: boolean;
+  club_access_blocked: boolean;
+  group_programs_blocked: boolean;
   client_status?: string | null;
   client_status_label?: string | null;
   branch_name: string | null;
@@ -326,14 +328,31 @@ export type StaffInvitationWriteInput = {
   branch_id?: number | null;
 };
 
+export type StaffMembershipCreateInput = {
+  first_name: string;
+  last_name: string;
+  email: string;
+  password: string;
+  role: string;
+  branch_id?: number | null;
+};
+
+export type CompanyModuleSettings = {
+  disabled_modules: string[];
+  role_disabled_modules: Record<string, string[]>;
+};
+
 export type ClientWriteInput = {
   first_name: string;
   last_name: string;
   phone: string;
   email?: string;
+  birth_date?: string | null;
   notes?: string;
   branch_id?: number | null;
   is_active?: boolean;
+  club_access_blocked?: boolean;
+  group_programs_blocked?: boolean;
 };
 
 export type PaginatedResponse<T> = {
@@ -346,6 +365,7 @@ export type PaginatedResponse<T> = {
 export type ClientListFilters = {
   search?: string;
   clientStatus?: string;
+  isActive?: boolean;
   birthDateFrom?: string;
   birthDateTo?: string;
   birthdayMonth?: string;
@@ -503,6 +523,15 @@ export type GroupProgramRecord = {
   is_active: boolean;
 };
 
+export type GroupProgramWriteInput = {
+  title: string;
+  code?: string;
+  description?: string;
+  color?: string;
+  sort_order?: number;
+  is_active?: boolean;
+};
+
 export type GroupScheduleSlotRecord = {
   id: number;
   program: number;
@@ -614,7 +643,7 @@ export type GroupSlotEnrollmentRecord = {
   client: number;
   client_name: string;
   client_phone: string;
-  status: "confirmed" | "cancelled" | "waitlist";
+  status: "confirmed" | "completed" | "cancelled" | "waitlist";
   notes: string;
   created_at: string;
 };
@@ -623,8 +652,9 @@ export type TrainerRecord = {
   id: number;
   full_name: string;
   first_name: string;
+  middle_name: string;
   last_name: string;
-  phone: string;
+  phone: string | null;
   email: string;
   specialization: string;
   photo_url: string | null;
@@ -668,8 +698,9 @@ export type TrainerDetail = TrainerRecord & {
 
 export type TrainerWriteInput = {
   first_name: string;
+  middle_name?: string;
   last_name: string;
-  phone: string;
+  phone?: string | null;
   email?: string;
   specialization?: string;
   achievements?: string;

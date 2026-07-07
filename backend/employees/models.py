@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Q
 
 from branches.models import Branch
 from companies.models import Company
@@ -26,8 +27,9 @@ class Trainer(TimeStampedModel):
         verbose_name="Филиал",
     )
     first_name = models.CharField("Имя", max_length=100)
+    middle_name = models.CharField("Отчество", max_length=100, blank=True)
     last_name = models.CharField("Фамилия", max_length=100)
-    phone = models.CharField("Телефон", max_length=32)
+    phone = models.CharField("Телефон", max_length=32, blank=True, null=True)
     email = models.EmailField("Email", blank=True)
     specialization = models.CharField("Специализация", max_length=255, blank=True)
     photo = models.ImageField("Фото", upload_to="trainers/%Y/%m/", null=True, blank=True)
@@ -48,6 +50,7 @@ class Trainer(TimeStampedModel):
         constraints = [
             models.UniqueConstraint(
                 fields=["company", "phone"],
+                condition=Q(phone__isnull=False),
                 name="uniq_trainer_phone_per_company",
             )
         ]
@@ -62,15 +65,17 @@ class Trainer(TimeStampedModel):
             raise ValidationError(errors)
 
     def save(self, *args: object, **kwargs: object) -> None:
+        if self.phone is not None:
+            self.phone = self.phone.strip() or None
         self.full_clean()
         super().save(*args, **kwargs)
 
     @property
     def full_name(self) -> str:
-        return f"{self.first_name} {self.last_name}".strip()
+        return " ".join(part for part in [self.first_name, self.middle_name, self.last_name] if part).strip()
 
     def __str__(self) -> str:
-        return f"{self.full_name} ({self.phone})"
+        return f"{self.full_name} ({self.phone or 'без телефона'})"
 
 
 class TrainerRentPayment(TimeStampedModel):

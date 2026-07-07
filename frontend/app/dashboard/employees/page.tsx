@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { EmployeeInviteForm } from "@/components/employees/employee-invite-form";
 import { cancelInvitationAction } from "@/app/actions/employees";
 import { DashboardShell } from "@/components/dashboard-shell";
-import { ModulePageLayout } from "@/components/module-page-layout";
-import { WidgetCard } from "@/components/widget-card";
+import { RoleMenuSettings } from "@/components/employees/role-menu-settings";
 import { WorkspaceCard } from "@/components/workspace-card";
+import { getModuleSettingsAction } from "@/app/actions/company";
 import { getEmployeesDashboard } from "@/lib/api";
-import type { StaffDashboardResponse, StaffMembershipRecord } from "@/lib/types";
+import type { CompanyModuleSettings, StaffDashboardResponse, StaffMembershipRecord } from "@/lib/types";
 
 export const metadata: Metadata = {
   title: "Сотрудники",
@@ -31,6 +30,11 @@ const emptyDashboard: StaffDashboardResponse = {
     admins: 0,
     pending_invites: 0,
   },
+};
+
+const emptyModuleSettings: CompanyModuleSettings = {
+  disabled_modules: [],
+  role_disabled_modules: {},
 };
 
 const roleLabels: Record<string, string> = {
@@ -71,6 +75,7 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
   const search = params.search?.trim() ?? "";
 
   let dashboard = emptyDashboard;
+  let moduleSettings = emptyModuleSettings;
 
   try {
     dashboard = await getEmployeesDashboard(undefined, search || undefined);
@@ -78,71 +83,18 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
     dashboard = emptyDashboard;
   }
 
+  try {
+    moduleSettings = await getModuleSettingsAction();
+  } catch {
+    moduleSettings = emptyModuleSettings;
+  }
+
   const pendingInvitations = dashboard.invitations.filter((item) => item.status === "pending");
 
   return (
     <DashboardShell>
-      <ModulePageLayout
-        sidebar={
-          <>
-            <WidgetCard title="Компания" className="bg-white">
-              <div className="space-y-2 text-[13px]">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-[var(--muted)]">Организация</span>
-                  <span className="font-semibold text-[var(--text)]">{dashboard.company.name}</span>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-[var(--muted)]">Сотрудников</span>
-                  <span className="font-semibold text-[var(--text)]">{dashboard.stats.total_members}</span>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-[var(--muted)]">Активных</span>
-                  <span className="font-semibold text-[var(--text)]">{dashboard.stats.active_members}</span>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-[var(--muted)]">Приглашений</span>
-                  <span className="font-semibold text-[var(--text)]">{dashboard.stats.pending_invites}</span>
-                </div>
-              </div>
-            </WidgetCard>
-
-            <div id="invite">
-              <WidgetCard
-                title="Пригласить"
-                action={
-                  <Link href="#invite" className="text-[12px] font-medium text-[var(--accent-strong)] hover:underline">
-                    К форме
-                  </Link>
-                }
-                className="bg-white"
-              >
-                <EmployeeInviteForm branches={dashboard.branches} />
-              </WidgetCard>
-            </div>
-
-            <WidgetCard title="Доступы" className="bg-white">
-              <p className="text-[13px] leading-6 text-[var(--muted)]">
-                Роли, филиалы и карточки сотрудников настраиваются в этом разделе. Для системных
-                доступов используйте настройки компании.
-              </p>
-              <div className="mt-3 flex flex-col gap-2">
-                <Link href="/dashboard/settings?section=employees" className="bitrix-link text-[13px] font-medium">
-                  Открыть настройки
-                </Link>
-                <a
-                  href="http://127.0.0.1:8000/admin/accounts/companymembership/"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="bitrix-link text-[13px] font-medium"
-                >
-                  Админка доступов
-                </a>
-              </div>
-            </WidgetCard>
-          </>
-        }
-      >
-        <WorkspaceCard className="crm-workspace-card min-w-0 overflow-hidden">
+      <div className="workspace-content min-h-0 flex-1">
+        <WorkspaceCard className="crm-workspace-card min-w-0 flex-1 overflow-hidden">
           <div className="border-b border-[var(--line)] bg-[linear-gradient(180deg,#2b71bf_0%,#1f5e9e_100%)] px-5 py-5 text-white">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
@@ -151,22 +103,16 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
                 </p>
                 <h1 className="mt-2 text-[30px] font-semibold leading-none">Сотрудники</h1>
                 <p className="mt-3 max-w-3xl text-[13px] leading-6 text-white/75">
-                  Приглашайте сотрудников, назначайте роли и филиалы, управляйте доступом в одном
-                  рабочем экране в стиле Bitrix24.
+                  Приглашайте или создавайте сотрудников сразу, назначайте роли и филиалы, настраивайте,
+                  какие разделы меню видит каждая роль.
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Link
-                  href="#invite"
+                  href="/dashboard/employees/new"
                   className="inline-flex items-center gap-2 rounded-full bg-[#27c56c] px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-[#1fb15f]"
                 >
-                  + Пригласить
-                </Link>
-                <Link
-                  href="/dashboard/settings?section=employees"
-                  className="inline-flex items-center rounded-full border border-white/25 bg-white/10 px-4 py-2.5 text-[13px] font-medium text-white transition hover:bg-white/15"
-                >
-                  Настройки
+                  + Добавить сотрудника
                 </Link>
               </div>
             </div>
@@ -236,10 +182,7 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
                   <th className="px-4 py-3 font-medium">Сотрудник</th>
                   <th className="px-4 py-3 font-medium">Подразделение</th>
                   <th className="px-4 py-3 font-medium">E-mail</th>
-                  <th className="px-4 py-3 font-medium">Мобильный телефон</th>
                   <th className="px-4 py-3 font-medium">Дата последней активности</th>
-                  <th className="px-4 py-3 font-medium">Мобильное приложение</th>
-                  <th className="px-4 py-3 font-medium">Приложение для ПК</th>
                   <th className="px-4 py-3 font-medium text-right">Действия</th>
                 </tr>
               </thead>
@@ -264,10 +207,7 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
                         {membership.branch_name || "Без филиала"}
                       </td>
                       <td className="px-4 py-3 text-[var(--muted)]">{membership.email}</td>
-                      <td className="px-4 py-3 text-[var(--muted)]">—</td>
                       <td className="px-4 py-3 text-[var(--muted)]">{formatLastActivity(membership)}</td>
-                      <td className="px-4 py-3 text-[var(--muted)]">Не установлено</td>
-                      <td className="px-4 py-3 text-[var(--muted)]">Не установлено</td>
                       <td className="px-4 py-3 text-right">
                         <Link
                           href={`/dashboard/employees/${membership.id}`}
@@ -280,8 +220,8 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
                   ))
                 ) : (
                   <tr>
-                    <td className="px-4 py-10 text-center text-[13px] text-[var(--muted)]" colSpan={8}>
-                      {search ? "Сотрудники не найдены." : "Пока нет сотрудников. Пригласите первого."}
+                    <td className="px-4 py-10 text-center text-[13px] text-[var(--muted)]" colSpan={5}>
+                      {search ? "Сотрудники не найдены." : "Пока нет сотрудников. Добавьте первого."}
                     </td>
                   </tr>
                 )}
@@ -342,12 +282,6 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
                       >
                         Открыть ссылку
                       </a>
-                      <Link
-                        href="/dashboard/settings?section=employees"
-                        className="rounded-full border border-[var(--line)] px-3 py-1.5 text-[12px] font-semibold text-[var(--text)] hover:bg-[#f8fbfe]"
-                      >
-                        Настройка
-                      </Link>
                       {invitation.status === "pending" ? (
                         <form action={cancelInvitationAction.bind(null, invitation.id)}>
                           <button
@@ -368,8 +302,12 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
               )}
             </div>
           </div>
+
+          <div className="border-t border-[var(--line)] bg-white px-5 py-5">
+            <RoleMenuSettings initialSettings={moduleSettings} />
+          </div>
         </WorkspaceCard>
-      </ModulePageLayout>
+      </div>
     </DashboardShell>
   );
 }

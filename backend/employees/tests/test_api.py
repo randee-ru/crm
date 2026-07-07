@@ -43,6 +43,7 @@ class TrainerApiTest(TestCase):
             "/api/v1/trainers/?company=sportmax",
             data={
                 "first_name": "Анна",
+                "middle_name": "Сергеевна",
                 "last_name": "Иванова",
                 "phone": "+79990000001",
                 "specialization": "Йога",
@@ -58,7 +59,7 @@ class TrainerApiTest(TestCase):
         list_response = self.http.get("/api/v1/trainers/?company=sportmax", **self.auth_headers())
         self.assertEqual(list_response.status_code, 200)
         self.assertEqual(len(list_response.json()), 1)
-        self.assertEqual(list_response.json()[0]["full_name"], "Анна Иванова")
+        self.assertEqual(list_response.json()[0]["full_name"], "Анна Сергеевна Иванова")
         self.assertFalse(list_response.json()[0]["trains_gym_floor"])
         self.assertTrue(list_response.json()[0]["trains_group_programs"])
         self.assertFalse(list_response.json()[0]["rent_paid_current_month"])
@@ -68,6 +69,7 @@ class TrainerApiTest(TestCase):
             "/api/v1/trainers/?company=sportmax",
             data={
                 "first_name": "Анна",
+                "middle_name": "Сергеевна",
                 "last_name": "Иванова",
                 "phone": "+79990000001",
                 "trains_gym_floor": False,
@@ -83,6 +85,7 @@ class TrainerApiTest(TestCase):
             company=self.company,
             branch=self.branch,
             first_name="Анна",
+            middle_name="Сергеевна",
             last_name="Иванова",
             phone="+79990000001",
             specialization="Йога",
@@ -93,6 +96,7 @@ class TrainerApiTest(TestCase):
             f"/api/v1/trainers/{trainer.id}/?company=sportmax",
             data={
                 "first_name": "Анна",
+                "middle_name": "Сергеевна",
                 "last_name": "Иванова",
                 "phone": "+79990000001",
                 "email": "anna@club.ru",
@@ -107,6 +111,8 @@ class TrainerApiTest(TestCase):
         )
         self.assertEqual(update_response.status_code, 200)
         self.assertEqual(update_response.json()["specialization"], "Пилатес")
+        trainer.refresh_from_db()
+        self.assertEqual(trainer.full_name, "Анна Сергеевна Иванова")
 
         delete_response = self.http.delete(
             f"/api/v1/trainers/{trainer.id}/?company=sportmax",
@@ -120,6 +126,7 @@ class TrainerApiTest(TestCase):
             "/api/v1/trainers/?company=sportmax",
             data={
                 "first_name": "Анна",
+                "middle_name": "Сергеевна",
                 "last_name": "Иванова",
                 "phone": "+79990000001",
                 "trains_gym_floor": "true",
@@ -145,6 +152,7 @@ class TrainerApiTest(TestCase):
             company=self.company,
             branch=self.branch,
             first_name="Анна",
+            middle_name="Сергеевна",
             last_name="Иванова",
             phone="+79990000001",
             trains_gym_floor=True,
@@ -169,6 +177,7 @@ class TrainerApiTest(TestCase):
             company=self.company,
             branch=self.branch,
             first_name="Анна",
+            middle_name="Сергеевна",
             last_name="Иванова",
             phone="+79990000001",
             trains_gym_floor=True,

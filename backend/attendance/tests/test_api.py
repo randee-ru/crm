@@ -94,6 +94,53 @@ class AttendanceApiTest(TestCase):
         self.assertEqual(list_response.status_code, 200)
         self.assertEqual(len(list_response.json()), 1)
 
+    def test_attendance_rejects_blocked_client(self) -> None:
+        blocked_client = Client.objects.create(
+            company=self.company,
+            branch=self.branch,
+            first_name="Мария",
+            last_name="Блокова",
+            phone="+79994443322",
+            club_access_blocked=True,
+        )
+        blocked_membership = Membership.objects.create(
+            company=self.company,
+            branch=self.branch,
+            client=blocked_client,
+            title="Пробный месяц",
+            status=Membership.Status.ACTIVE,
+            starts_at="2026-07-01",
+            ends_at="2026-07-31",
+        )
+        blocked_booking = Booking.objects.create(
+            company=self.company,
+            branch=self.branch,
+            client=self.client_record,
+            membership=self.membership,
+            trainer=self.trainer,
+            title="Персональная тренировка",
+            starts_at=timezone.now() + timedelta(hours=2),
+            ends_at=timezone.now() + timedelta(hours=3),
+            status=Booking.Status.CONFIRMED,
+        )
+
+        response = self.http.post(
+            "/api/v1/attendance/?company=sportmax",
+            data={
+                "status": AttendanceRecord.Status.CHECKED_IN,
+                "checked_in_at": timezone.now().isoformat(),
+                "client_id": blocked_client.id,
+                "membership_id": blocked_membership.id,
+                "trainer_id": self.trainer.id,
+                "branch_id": self.branch.id,
+                "booking_id": blocked_booking.id,
+            },
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Клиент заблокирован для прохода в клуб.", response.json()["client_id"][0])
+
     def test_attendance_detail_update_and_delete(self) -> None:
         attendance = AttendanceRecord.objects.create(
             company=self.company,

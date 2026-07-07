@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from rest_framework import serializers
 
 from accounts.models import CompanyMembership, EmployeeInvitation
@@ -91,6 +92,79 @@ class StaffMembershipWriteSerializer(serializers.ModelSerializer):
                 setattr(instance.user, field, user_data[field])
         instance.user.save()
         return super().update(instance, validated_data)
+
+
+class StaffMembershipCreateSerializer(serializers.Serializer):
+    """Создаёт сотрудника сразу с паролем, без письма-приглашения."""
+
+    first_name = serializers.CharField(max_length=150)
+    last_name = serializers.CharField(max_length=150)
+    email = serializers.EmailField()
+    password = serializers.CharField(min_length=8, write_only=True, trim_whitespace=False)
+    role = serializers.ChoiceField(choices=CompanyMembership.Role.choices, default=CompanyMembership.Role.EMPLOYEE)
+    branch_id = serializers.PrimaryKeyRelatedField(
+        queryset=Branch.objects.all(),
+        source="branch",
+        required=False,
+        allow_null=True,
+    )
+
+    def validate_branch_id(self, branch: Branch | None) -> Branch | None:
+        company = self.context.get("company")
+        if branch and company and branch.company_id != company.id:
+            raise serializers.ValidationError("Филиал должен принадлежать текущей компании.")
+        return branch
+
+    def validate_email(self, email: str) -> str:
+        company = self.context.get("company")
+        if company and CompanyMembership.objects.filter(
+            company=company,
+            user__email__iexact=email,
+            is_active=True,
+        ).exists():
+            raise serializers.ValidationError("Сотрудник с таким email уже есть в компании.")
+        return email
+
+    def create(self, validated_data: dict) -> CompanyMembership:
+        from accounts.serializers import _unique_username
+
+        company = self.context["company"]
+        email = validated_data["email"]
+        first_name = validated_data["first_name"].strip()
+        last_name = validated_data["last_name"].strip()
+        password = validated_data["password"]
+        role = validated_data["role"]
+        branch = validated_data.get("branch")
+
+        with transaction.atomic():
+            user = User.objects.filter(email__iexact=email).first()
+            if user is None:
+                username = _unique_username(email.split("@", 1)[0].strip() or email)
+                user = User.objects.create_user(
+                    username=username,
+                    email=email,
+                    first_name=first_name,
+                    last_name=last_name,
+                    password=password,
+                )
+            else:
+                user.first_name = first_name
+                user.last_name = last_name
+                user.set_password(password)
+                user.save()
+
+            membership, created = CompanyMembership.objects.get_or_create(
+                user=user,
+                company=company,
+                defaults={"branch": branch, "role": role, "is_active": True},
+            )
+            if not created:
+                membership.branch = branch
+                membership.role = role
+                membership.is_active = True
+                membership.save()
+
+        return membership
 
 
 class StaffInvitationSerializer(serializers.ModelSerializer):

@@ -4,6 +4,7 @@ from django.urls import path
 
 from schedule.group_views import (
     GroupProgramListView,
+    GroupProgramDetailView,
     GroupScheduleSlotDetailView,
     GroupScheduleSlotListCreateView,
     GroupSlotEnrollmentDetailView,
@@ -20,6 +21,7 @@ urlpatterns = [
     path("schedule/", ScheduleEventListCreateView.as_view(), name="schedule-list"),
     path("schedule/<int:event_id>/", ScheduleEventDetailView.as_view(), name="schedule-detail"),
     path("schedule/programs/", GroupProgramListView.as_view(), name="schedule-programs"),
+    path("schedule/programs/<int:program_id>/", GroupProgramDetailView.as_view(), name="schedule-program-detail"),
     path("schedule/settings/", ScheduleSettingsView.as_view(), name="schedule-settings"),
     path("schedule/sms-integrations/", ScheduleSmsIntegrationListCreateView.as_view(), name="schedule-sms-integrations"),
     path(

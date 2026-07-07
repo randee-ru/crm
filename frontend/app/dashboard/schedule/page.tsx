@@ -76,6 +76,7 @@ export default async function SchedulePage() {
               companyName={company.name}
               companySlug={company.slug}
               scheduleSettings={scheduleSettings}
+              initialWeekStart={formatLocalDate(weekStart)}
             />
           )}
         </WorkspaceCard>

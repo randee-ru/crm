@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Cake } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { ClientForm } from "@/components/client-form";
 import { TelephonyAudioPlayer } from "@/components/telephony/telephony-audio-player";
@@ -61,6 +62,7 @@ type ClientProfilePanelProps = {
   profile: ClientProfile;
   client: ClientDetail;
   branches: BranchOption[];
+  canManageBlocks?: boolean;
 };
 
 function statusLabel(profile: ClientProfile): string {
@@ -172,7 +174,7 @@ function tabCount(profile: ClientProfile, tabId: TabId): number | null {
   }
 }
 
-export function ClientProfilePanel({ profile, client, branches }: ClientProfilePanelProps) {
+export function ClientProfilePanel({ profile, client, branches, canManageBlocks = false }: ClientProfilePanelProps) {
   const [tab, setTab] = useState<TabId>("main");
   const [showEdit, setShowEdit] = useState(false);
   const [player, setPlayer] = useState<{ callId: number; title: string; duration: number } | null>(null);
@@ -224,6 +226,8 @@ export function ClientProfilePanel({ profile, client, branches }: ClientProfileP
               ) : null}
               {profile.registration_date ? <span className="client-card-meta-chip">с {formatClientDate(profile.registration_date)}</span> : null}
               {profile.manager_name ? <span className="client-card-meta-chip">Менеджер: {profile.manager_name}</span> : null}
+              {profile.club_access_blocked ? <span className="client-card-meta-chip client-card-meta-chip--danger">Блок входа</span> : null}
+              {profile.group_programs_blocked ? <span className="client-card-meta-chip client-card-meta-chip--danger">Блок групп</span> : null}
             </div>
           </div>
         </div>
@@ -271,6 +275,18 @@ export function ClientProfilePanel({ profile, client, branches }: ClientProfileP
                 <InfoLine label="Филиал" value={profile.branch_name || profile.club_name} />
                 <InfoLine label="Абонемент" value={profile.membership_name} />
                 <InfoLine label="Карта" value={profile.card_number} />
+              </SidebarCard>
+
+              <SidebarCard title="Блокировки">
+                <InfoLine label="Вход в клуб" value={profile.club_access_blocked ? "Заблокирован" : "Разрешён"} />
+                <InfoLine
+                  label="Групповые программы"
+                  value={profile.group_programs_blocked ? "Заблокированы" : "Разрешены"}
+                />
+                <InfoLine
+                  label="Кто может снять"
+                  value={canManageBlocks ? "Администратор, менеджер, руководитель" : "Только управляющие роли"}
+                />
               </SidebarCard>
 
               <SidebarCard title="Маркетинг">
@@ -480,7 +496,7 @@ export function ClientProfilePanel({ profile, client, branches }: ClientProfileP
         {showEdit ? (
           <section className="client-card-edit">
             <h2>Редактирование клиента</h2>
-            <ClientForm branches={branches} client={client} mode="edit" />
+            <ClientForm branches={branches} client={client} mode="edit" canManageBlocks={canManageBlocks} />
           </section>
         ) : null}
       </div>

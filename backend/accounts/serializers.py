@@ -170,7 +170,7 @@ def build_auth_session(user: User, token: str, request=None) -> dict:
             "branch_name": primary_membership.branch.name if primary_membership.branch else None,
             "clients_count": company.clients.count(),
             "clients_active_count": company.clients.filter(is_active=True).count(),
-            "disabled_modules": company.disabled_modules,
+            "disabled_modules": company.effective_disabled_modules(primary_membership.role),
         }
 
     user_data = UserSerializer(user, context={"request": request}).data

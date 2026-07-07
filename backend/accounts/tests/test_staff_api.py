@@ -104,6 +104,48 @@ class StaffApiTest(TestCase):
         self.assertFalse(payload["is_active"])
         self.assertEqual(payload["branch_name"], "Pool")
 
+    def test_membership_direct_create(self) -> None:
+        response = self.http.post(
+            "/api/v1/staff/memberships/?company=sportmax",
+            data={
+                "first_name": "Ольга",
+                "last_name": "Ресепшн",
+                "email": "reception@sportmax.local",
+                "password": "very-strong-pass",
+                "role": CompanyMembership.Role.EMPLOYEE,
+                "branch_id": self.branch.id,
+            },
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+        self.assertEqual(response.status_code, 201)
+        payload = response.json()
+        self.assertEqual(payload["display_name"], "Ольга Ресепшн")
+        self.assertEqual(payload["role"], CompanyMembership.Role.EMPLOYEE)
+        self.assertTrue(payload["is_active"])
+
+        login_response = self.http.post(
+            "/api/v1/auth/login/",
+            data={"username": payload["username"], "password": "very-strong-pass"},
+            content_type="application/json",
+        )
+        self.assertEqual(login_response.status_code, 200)
+
+    def test_membership_direct_create_rejects_existing_active_email(self) -> None:
+        response = self.http.post(
+            "/api/v1/staff/memberships/?company=sportmax",
+            data={
+                "first_name": "Дубль",
+                "last_name": "Иванов",
+                "email": "manager@sportmax.local",
+                "password": "very-strong-pass",
+                "role": CompanyMembership.Role.EMPLOYEE,
+            },
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+        self.assertEqual(response.status_code, 400)
+
     def test_invitation_accept_creates_user_and_membership(self) -> None:
         invitation = EmployeeInvitation.objects.create(
             company=self.company,

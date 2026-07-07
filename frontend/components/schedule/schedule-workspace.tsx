@@ -4,12 +4,15 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  createGroupProgramAction,
   createGroupScheduleSlotAction,
   createSlotEnrollmentAction,
+  deleteGroupProgramAction,
   deleteGroupScheduleSlotAction,
   deleteSlotEnrollmentAction,
   listGroupScheduleSlotsAction,
   listSlotEnrollmentsAction,
+  updateGroupProgramAction,
   updateGroupScheduleSlotAction,
 } from "@/app/actions/schedule";
 import { IconClose, IconGlobe, IconGrip, IconPencil, IconPrinter, IconSettings, IconShare } from "@/components/ui/app-icon";
@@ -27,6 +30,7 @@ import {
   parseLocalDate,
   weekdayIndex,
 } from "@/lib/schedule-week";
+import { listClientsAction } from "@/app/actions/clients";
 import type {
   ClientRecord,
   GroupProgramRecord,
@@ -43,7 +47,7 @@ const HOURS = Array.from({ length: DAY_END_HOUR - DAY_START_HOUR }, (_, index) =
 const DAY_START_MINUTES = 7 * 60;
 const DAY_END_MINUTES = DAY_END_HOUR * 60;
 const MAX_SLOT_END_MINUTES = DAY_END_MINUTES - 1;
-const HOUR_HEIGHT = 52;
+const HOUR_HEIGHT = 96;
 const DRAG_PROGRAM = "application/x-crm-program-id";
 const DRAG_SLOT = "application/x-crm-slot-id";
 
@@ -55,6 +59,7 @@ type ScheduleWorkspaceProps = {
   companyName: string;
   companySlug: string;
   scheduleSettings: ScheduleSettingsRecord;
+  initialWeekStart: string;
 };
 
 type EditState = {
@@ -62,6 +67,48 @@ type EditState = {
   program: GroupProgramRecord;
   slotDate: Date | null;
 };
+
+type ProgramEditorState = {
+  mode: "create" | "edit";
+  program: GroupProgramRecord | null;
+};
+
+type ProgramMenuState = {
+  program: GroupProgramRecord;
+  x: number;
+  y: number;
+};
+
+type DaySlotLayout = {
+  slot: GroupScheduleSlotRecord;
+  top: string;
+  height: string;
+  left: string;
+  width: string;
+};
+
+type EnrollmentTooltipState = {
+  slotId: number;
+  x: number;
+  y: number;
+  title: string;
+  items: GroupSlotEnrollmentRecord[];
+  loading: boolean;
+};
+
+const ENROLLMENT_STATUS_OPTIONS: Array<{
+  value: GroupSlotEnrollmentRecord["status"];
+  label: string;
+}> = [
+  { value: "confirmed", label: "Запланировано" },
+  { value: "completed", label: "Проведено" },
+  { value: "cancelled", label: "Отменено" },
+  { value: "waitlist", label: "Лист ожидания" },
+];
+
+function enrollmentStatusLabel(status: GroupSlotEnrollmentRecord["status"]): string {
+  return ENROLLMENT_STATUS_OPTIONS.find((option) => option.value === status)?.label ?? status;
+}
 
 function pad(value: number): string {
   return value.toString().padStart(2, "0");
@@ -83,7 +130,7 @@ function slotPosition(startTime: string, endTime: string) {
   const end = Math.min(timeToMinutes(endTime), DAY_END_MINUTES);
   const span = DAY_END_MINUTES - DAY_START_MINUTES;
   const top = ((start - DAY_START_MINUTES) / span) * 100;
-  const height = Math.max(((end - start) / span) * 100, 6);
+  const height = Math.max(((end - start) / span) * 100, 7);
   return { top: `${top}%`, height: `${height}%` };
 }
 
@@ -103,6 +150,85 @@ function slotTitle(slot: GroupScheduleSlotRecord): string {
 
 function slotColor(slot: GroupScheduleSlotRecord, program?: GroupProgramRecord): string {
   return slot.color || slot.display_color || program?.color || slot.program_color || "#2f6fed";
+}
+
+function formatEnrollmentTimestamp(value: string): string {
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function buildDaySlotLayouts(daySlots: GroupScheduleSlotRecord[]): DaySlotLayout[] {
+  if (daySlots.length === 0) return [];
+
+  const items = daySlots
+    .map((slot) => ({
+      slot,
+      start: Math.max(timeToMinutes(slot.start_time), DAY_START_MINUTES),
+      end: Math.min(timeToMinutes(slot.end_time), DAY_END_MINUTES),
+    }))
+    .sort((a, b) => a.start - b.start || a.end - b.end || a.slot.id - b.slot.id);
+
+  const layouts: DaySlotLayout[] = [];
+  let component: typeof items = [];
+  let currentEnd = -1;
+
+  const flushComponent = (componentItems: typeof items) => {
+    if (componentItems.length === 0) return;
+
+    const active: { end: number; laneIndex: number }[] = [];
+    const assigned: Array<{ item: (typeof items)[number]; laneIndex: number }> = [];
+    let maxLane = -1;
+
+    for (const item of componentItems) {
+      for (let index = active.length - 1; index >= 0; index -= 1) {
+        if (active[index].end <= item.start) {
+          active.splice(index, 1);
+        }
+      }
+
+      const used = new Set(active.map((entry) => entry.laneIndex));
+      let laneIndex = 0;
+      while (used.has(laneIndex)) {
+        laneIndex += 1;
+      }
+
+      active.push({ end: item.end, laneIndex });
+      maxLane = Math.max(maxLane, laneIndex);
+      assigned.push({ item, laneIndex });
+    }
+
+    for (const { item, laneIndex } of assigned) {
+      const top = ((item.start - DAY_START_MINUTES) / (DAY_END_MINUTES - DAY_START_MINUTES)) * 100;
+      const durationMinutes = item.end - item.start;
+      const heightPx = Math.max((durationMinutes / 60) * HOUR_HEIGHT - 4, 88);
+      const stackOffsetPx = laneIndex * 22;
+      layouts.push({
+        slot: item.slot,
+        top: laneIndex === 0 ? `${top}%` : `calc(${top}% + ${stackOffsetPx}px)`,
+        height: `${heightPx}px`,
+        left: "0.35rem",
+        width: "calc(100% - 0.7rem)",
+      });
+    }
+  };
+
+  for (const item of items) {
+    if (component.length > 0 && item.start >= currentEnd) {
+      flushComponent(component);
+      component = [item];
+      currentEnd = item.end;
+      continue;
+    }
+    component.push(item);
+    currentEnd = component.length === 1 ? item.end : Math.max(currentEnd, item.end);
+  }
+  flushComponent(component);
+  return layouts;
 }
 
 const SLOT_COLOR_PRESETS = [
@@ -130,23 +256,32 @@ export function ScheduleWorkspace({
   companyName,
   companySlug,
   scheduleSettings,
+  initialWeekStart,
 }: ScheduleWorkspaceProps) {
-  const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
+  const [weekStart, setWeekStart] = useState(() => parseLocalDate(initialWeekStart));
   const [slots, setSlots] = useState(initialSlots);
+  const [programList, setProgramList] = useState(programs);
   const [query, setQuery] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [loadingWeek, setLoadingWeek] = useState(false);
   const [edit, setEdit] = useState<EditState | null>(null);
+  const [programEditor, setProgramEditor] = useState<ProgramEditorState | null>(null);
+  const [programMenu, setProgramMenu] = useState<ProgramMenuState | null>(null);
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [showPublish, setShowPublish] = useState(false);
   const [showSocial, setShowSocial] = useState(false);
   const [publishSettings, setPublishSettings] = useState(scheduleSettings);
   const dayRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const programMenuRef = useRef<HTMLDivElement | null>(null);
   const skipInitialWeekFetch = useRef(true);
 
-  const programsById = useMemo(() => new Map(programs.map((item) => [item.id, item])), [programs]);
+  useEffect(() => {
+    setProgramList(programs);
+  }, [programs]);
+
+  const programsById = useMemo(() => new Map(programList.map((item) => [item.id, item])), [programList]);
 
   useEffect(() => {
     const from = formatLocalDate(weekStart);
@@ -179,16 +314,40 @@ export function ScheduleWorkspace({
     return () => window.removeEventListener("dragend", handleDragEnd);
   }, [isDragging]);
 
+  useEffect(() => {
+    if (!programMenu) return;
+    const handleMouseDown = (event: MouseEvent) => {
+      if (programMenuRef.current && event.target instanceof Node && programMenuRef.current.contains(event.target)) {
+        return;
+      }
+      setProgramMenu(null);
+    };
+    const closeMenu = () => setProgramMenu(null);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeMenu();
+    };
+    window.addEventListener("mousedown", handleMouseDown);
+    window.addEventListener("scroll", closeMenu, true);
+    window.addEventListener("resize", closeMenu);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("mousedown", handleMouseDown);
+      window.removeEventListener("scroll", closeMenu, true);
+      window.removeEventListener("resize", closeMenu);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [programMenu]);
+
   const filteredPrograms = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    if (!normalized) return programs;
-    return programs.filter(
+    if (!normalized) return programList;
+    return programList.filter(
       (item) =>
         item.title.toLowerCase().includes(normalized) ||
         item.code.toLowerCase().includes(normalized) ||
         item.description.toLowerCase().includes(normalized),
     );
-  }, [programs, query]);
+  }, [programList, query]);
 
   const slotsByDate = useMemo(() => {
     const map = new Map<string, GroupScheduleSlotRecord[]>();
@@ -203,13 +362,106 @@ export function ScheduleWorkspace({
     return map;
   }, [slots]);
 
+  function makeUniqueProgramTitle(baseTitle: string) {
+    const existing = new Set(programList.map((item) => item.title.trim().toLowerCase()));
+    const normalizedBase = baseTitle.trim();
+    if (!existing.has(normalizedBase.toLowerCase())) {
+      return normalizedBase;
+    }
+    let index = 2;
+    while (existing.has(`${normalizedBase.toLowerCase()} (копия ${index})`)) {
+      index += 1;
+    }
+    return `${normalizedBase} (копия ${index})`;
+  }
+
+  function sortVisiblePrograms(items: GroupProgramRecord[]) {
+    return items
+      .filter((item) => item.is_active)
+      .sort((a, b) => a.sort_order - b.sort_order || a.title.localeCompare(b.title));
+  }
+
+  function openCreateProgram() {
+    setProgramEditor({ mode: "create", program: null });
+  }
+
+  function openEditProgram(program: GroupProgramRecord) {
+    setProgramEditor({ mode: "edit", program });
+  }
+
+  async function saveProgram(payload: {
+    title: string;
+    code: string;
+    description: string;
+    color: string;
+    sort_order: number;
+    is_active: boolean;
+  }) {
+    setBusy(true);
+    setMessage("");
+    try {
+      if (programEditor?.mode === "edit" && programEditor.program) {
+        const updated = await updateGroupProgramAction(programEditor.program.id, payload);
+        setProgramList((prev) => sortVisiblePrograms(prev.map((item) => (item.id === updated.id ? updated : item))));
+        setProgramEditor(null);
+        return;
+      }
+      const created = await createGroupProgramAction(payload);
+      setProgramList((prev) => sortVisiblePrograms([...prev, created]));
+      setProgramEditor(null);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Не удалось сохранить направление");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeProgram(programId: number) {
+    setBusy(true);
+    setMessage("");
+    try {
+      await deleteGroupProgramAction(programId);
+      setProgramList((prev) => prev.filter((item) => item.id !== programId));
+      setProgramMenu(null);
+      if (programEditor?.program?.id === programId) {
+        setProgramEditor(null);
+      }
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Не удалось удалить направление");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copyProgram(program: GroupProgramRecord) {
+    setBusy(true);
+    setMessage("");
+    try {
+      const created = await createGroupProgramAction({
+        title: makeUniqueProgramTitle(program.title),
+        code: program.code ? `${program.code}-COPY` : "",
+        description: program.description,
+        color: program.color,
+        sort_order: program.sort_order + 1,
+        is_active: program.is_active,
+      });
+      setProgramList((prev) => sortVisiblePrograms([...prev, created]));
+      setProgramMenu(null);
+      setProgramEditor({ mode: "edit", program: created });
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Не удалось скопировать направление");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function beginDrag() {
     setIsDragging(true);
   }
 
   async function createSlot(programId: number, sessionDate: string, startMinutes: number) {
     const start_time = minutesToTime(startMinutes);
-    const end_time = minutesToTime(clampSlotEnd(startMinutes, 60));
+    const end_time = minutesToTime(clampSlotEnd(startMinutes, 55));
     setBusy(true);
     setMessage("");
     try {
@@ -368,7 +620,7 @@ export function ScheduleWorkspace({
           <div className="schedule-hero-stats schedule-hero-stats--compact">
             <div className="schedule-stat-card schedule-stat-card--compact">
               <span>Программ</span>
-              <strong>{programs.length}</strong>
+              <strong>{programList.length}</strong>
             </div>
             <div className="schedule-stat-card schedule-stat-card--compact">
               <span>Занятий</span>
@@ -383,7 +635,12 @@ export function ScheduleWorkspace({
       <div className="schedule-workspace-body">
         <aside className="schedule-programs-panel">
           <div className="schedule-programs-panel-head">
-            <strong>Каталог программ</strong>
+            <div className="schedule-programs-panel-head-row">
+              <strong>Каталог программ</strong>
+              <button type="button" className="schedule-programs-add" onClick={openCreateProgram}>
+                + Направление
+              </button>
+            </div>
             <input
               type="search"
               value={query}
@@ -403,6 +660,14 @@ export function ScheduleWorkspace({
                   event.dataTransfer.setData(DRAG_PROGRAM, String(program.id));
                   event.dataTransfer.effectAllowed = "copy";
                 }}
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                  setProgramMenu({
+                    program,
+                    x: event.clientX,
+                    y: event.clientY,
+                  });
+                }}
                 style={{
                   background: `linear-gradient(135deg, ${program.color}18 0%, #ffffff 55%)`,
                   borderColor: `${program.color}55`,
@@ -418,6 +683,25 @@ export function ScheduleWorkspace({
                       {program.code}
                     </span>
                   </div>
+                  <button
+                    type="button"
+                    className="schedule-program-card-menu"
+                    aria-label="Действия направления"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setProgramMenu((current) =>
+                        current && current.program.id === program.id
+                          ? null
+                          : {
+                              program,
+                              x: event.clientX,
+                              y: event.clientY,
+                            },
+                      );
+                    }}
+                  >
+                    •••
+                  </button>
                 </div>
                 <p>{program.description}</p>
               </article>
@@ -452,6 +736,7 @@ export function ScheduleWorkspace({
                     const weekday = weekdayIndex(date);
                     const isWeekend = weekday >= 5;
                     const daySlots = slotsByDate.get(sessionDate) ?? [];
+                    const daySlotLayouts = buildDaySlotLayouts(daySlots);
                     const today = isToday(date);
                     return (
                       <div
@@ -485,35 +770,33 @@ export function ScheduleWorkspace({
                             <div key={hour} className="schedule-day-gridline" style={{ height: HOUR_HEIGHT }} />
                           ))}
 
-                          {daySlots.map((slot) => {
+                          {daySlotLayouts.map(({ slot, top, height, left, width }) => {
                             const program = programsById.get(slot.program);
                             const color = slotColor(slot, program);
-                            const position = slotPosition(slot.start_time, slot.end_time);
                             return (
                               <div
                                 key={slot.id}
                                 className="schedule-event"
+                                draggable={!busy}
                                 style={{
-                                  ...position,
+                                  top,
+                                  height,
+                                  left,
+                                  width,
                                   background: `linear-gradient(145deg, ${color} 0%, ${color}dd 100%)`,
                                   boxShadow: `0 8px 20px ${color}44`,
                                 }}
+                                onDragStart={(event) => {
+                                  beginDrag();
+                                  event.stopPropagation();
+                                  event.dataTransfer.setData(DRAG_SLOT, String(slot.id));
+                                  event.dataTransfer.effectAllowed = "move";
+                                }}
                               >
                                 <div className="schedule-event-toolbar">
-                                  <button
-                                    type="button"
-                                    className="schedule-event-grip"
-                                    draggable={!busy}
-                                    aria-label="Переместить"
-                                    onDragStart={(event) => {
-                                      beginDrag();
-                                      event.stopPropagation();
-                                      event.dataTransfer.setData(DRAG_SLOT, String(slot.id));
-                                      event.dataTransfer.effectAllowed = "move";
-                                    }}
-                                  >
+                                  <span className="schedule-event-grip" aria-hidden="true">
                                     <IconGrip size={12} />
-                                  </button>
+                                  </span>
                                   <button
                                     type="button"
                                     className="schedule-event-edit"
@@ -531,10 +814,10 @@ export function ScheduleWorkspace({
                                   <span>
                                     {slot.start_time.slice(0, 5)} – {slot.end_time.slice(0, 5)}
                                   </span>
-                                  <span className="schedule-event-capacity">
-                                    {slot.enrollment_count ?? 0}/{slot.max_participants_effective ?? 20}
+                                  <span className="schedule-event-capacity schedule-event-capacity--full">
+                                    Записано {slot.enrollment_count ?? 0} из {slot.max_participants_effective ?? 20}
                                   </span>
-                                  {slot.room ? <em>{slot.room}</em> : null}
+                                  {slot.room ? <span className="schedule-event-room">{slot.room}</span> : null}
                                   {slot.trainer_display ? <em>{slot.trainer_display}</em> : null}
                                 </button>
                               </div>
@@ -569,12 +852,37 @@ export function ScheduleWorkspace({
         />
       ) : null}
 
+      {programMenu ? (
+        <div
+          ref={programMenuRef}
+          className="schedule-program-menu"
+          style={{ left: `${programMenu.x}px`, top: `${programMenu.y}px` }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <button type="button" onClick={() => void copyProgram(programMenu.program)}>
+            Скопировать
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setProgramMenu(null);
+              openEditProgram(programMenu.program);
+            }}
+          >
+            Редактировать
+          </button>
+          <button type="button" onClick={() => void removeProgram(programMenu.program.id)}>
+            Удалить
+          </button>
+        </div>
+      ) : null}
+
       {edit ? (
         <SlotEditorModal
           slot={edit.slot}
           slotDate={edit.slotDate}
           program={edit.program}
-          programs={programs}
+          programs={programList}
           trainers={trainers}
           clients={clients}
           busy={busy}
@@ -591,6 +899,16 @@ export function ScheduleWorkspace({
               );
             }
           }}
+          />
+      ) : null}
+
+      {programEditor ? (
+        <ProgramEditorModal
+          mode={programEditor.mode}
+          program={programEditor.program}
+          busy={busy}
+          onClose={() => setProgramEditor(null)}
+          onSave={saveProgram}
         />
       ) : null}
     </div>
@@ -651,11 +969,108 @@ function SlotEditorModal({
   const [endTime, setEndTime] = useState(slot.end_time.slice(0, 5));
   const [enrollments, setEnrollments] = useState<GroupSlotEnrollmentRecord[]>([]);
   const [selectedClientId, setSelectedClientId] = useState("");
+  const [clientSearch, setClientSearch] = useState("");
+  const [clientOptions, setClientOptions] = useState<ClientRecord[]>([]);
+  const [clientSearchLoading, setClientSearchLoading] = useState(false);
+  const [clientSearchTotal, setClientSearchTotal] = useState<number | null>(null);
+  const [clientSearchHint, setClientSearchHint] = useState("Показываем активных клиентов");
   const [enrollmentMessage, setEnrollmentMessage] = useState("");
 
   const selectedProgram = programs.find((item) => String(item.id) === programId) ?? program;
   const heroColor = color || selectedProgram.color;
-  const confirmedCount = enrollments.filter((item) => item.status === "confirmed").length;
+  const occupiedCount = enrollments.filter((item) => item.status === "confirmed" || item.status === "completed").length;
+
+  useEffect(() => {
+    const query = clientSearch.trim();
+    let active = true;
+    setClientSearchLoading(true);
+    setClientSearchHint(query.length >= 3 ? "Ищем активных клиентов…" : "Показываем активных клиентов");
+    const localMatches = query
+      ? clients.filter((client) =>
+          [client.full_name, client.phone, client.email]
+            .filter(Boolean)
+            .some((value) => value!.toLowerCase().includes(query.toLowerCase())),
+        )
+      : clients;
+    const timeoutId = window.setTimeout(() => {
+      const loadClients = async () => {
+        try {
+          const activePage = await listClientsAction({
+            search: query.length >= 3 ? query : undefined,
+            isActive: true,
+            page: 1,
+          });
+
+          if (!active) {
+            return;
+          }
+
+          if (query.length < 3 || activePage.results.length > 0) {
+            setClientOptions(activePage.results.length > 0 ? activePage.results : localMatches);
+            setClientSearchTotal(activePage.count);
+            setClientSearchHint(
+              query.length >= 3
+                ? `Найдено активных клиентов: ${activePage.count}`
+                : `Показываем активных клиентов: ${activePage.count}`,
+            );
+            return;
+          }
+
+          const allPage = await listClientsAction({
+            search: query,
+            page: 1,
+          });
+
+          if (!active) {
+            return;
+          }
+
+          const fallback = allPage.results.length > 0 ? allPage.results : localMatches;
+          setClientOptions(fallback);
+          setClientSearchTotal(allPage.count);
+          setClientSearchHint(
+            allPage.results.length > 0
+              ? `В базе найдено: ${allPage.count}`
+              : localMatches.length > 0
+                ? `Локально найдено совпадений: ${localMatches.length}`
+                : `Активных не нашли, но в базе найдено: ${allPage.count}`,
+          );
+        } catch {
+          if (active) {
+            setClientOptions(localMatches);
+            setClientSearchTotal(localMatches.length);
+            setClientSearchHint(localMatches.length > 0 ? `Локально найдено совпадений: ${localMatches.length}` : "Ничего не найдено");
+          }
+        } finally {
+          if (active) setClientSearchLoading(false);
+        }
+      };
+
+      void loadClients();
+    }, 220);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timeoutId);
+    };
+  }, [clientSearch, clients]);
+
+  const selectedClient = useMemo(
+    () =>
+      clientOptions.find((client) => String(client.id) === selectedClientId) ??
+      clients.find((client) => String(client.id) === selectedClientId) ??
+      null,
+    [clientOptions, clients, selectedClientId],
+  );
+  const visibleClientResults = useMemo(() => clientOptions.slice(0, 12), [clientOptions]);
+  const selectedClientBlocked = Boolean(
+    selectedClient?.club_access_blocked || selectedClient?.group_programs_blocked,
+  );
+  const selectedClientBlockLabel = selectedClient?.club_access_blocked
+    ? "Клиент заблокирован для входа в клуб"
+    : selectedClient?.group_programs_blocked
+      ? "Клиент заблокирован для групповых программ"
+      : "";
 
   useEffect(() => {
     let active = true;
@@ -673,13 +1088,20 @@ function SlotEditorModal({
 
   async function addEnrollment() {
     if (!selectedClientId) return;
+    if (selectedClientBlocked) {
+      setEnrollmentMessage(selectedClientBlockLabel || "Клиент заблокирован");
+      return;
+    }
     setEnrollmentMessage("");
     try {
-      const created = await createSlotEnrollmentAction(slot.id, { client: Number(selectedClientId) });
+      const created = await createSlotEnrollmentAction(slot.id, {
+        client: Number(selectedClientId),
+        status: "confirmed",
+      });
       setEnrollments((prev) => [created, ...prev.filter((item) => item.id !== created.id)]);
       setSelectedClientId("");
-      const nextCount = confirmedCount + 1;
-      onEnrollmentChange(slot.id, nextCount);
+      setClientSearch("");
+      onEnrollmentChange(slot.id, occupiedCount + 1);
     } catch (error) {
       setEnrollmentMessage(error instanceof Error ? error.message : "Не удалось записать клиента");
     }
@@ -689,8 +1111,13 @@ function SlotEditorModal({
     setEnrollmentMessage("");
     try {
       await deleteSlotEnrollmentAction(slot.id, enrollmentId);
-      setEnrollments((prev) => prev.filter((item) => item.id !== enrollmentId));
-      onEnrollmentChange(slot.id, Math.max(0, confirmedCount - 1));
+      setEnrollments((prev) => {
+        const removed = prev.find((item) => item.id === enrollmentId);
+        const next = prev.filter((item) => item.id !== enrollmentId);
+        const nextCount = removed && (removed.status === "confirmed" || removed.status === "completed") ? Math.max(0, occupiedCount - 1) : occupiedCount;
+        onEnrollmentChange(slot.id, nextCount);
+        return next;
+      });
     } catch (error) {
       setEnrollmentMessage(error instanceof Error ? error.message : "Не удалось удалить запись");
     }
@@ -698,7 +1125,7 @@ function SlotEditorModal({
 
   return (
     <div className="schedule-modal-backdrop" onClick={onClose}>
-      <div className="schedule-modal schedule-modal--wide" onClick={(event) => event.stopPropagation()}>
+        <div className="schedule-modal schedule-modal--wide" onClick={(event) => event.stopPropagation()}>
         <div
           className="schedule-modal-hero"
           style={{ background: `linear-gradient(135deg, ${heroColor} 0%, ${heroColor}cc 100%)` }}
@@ -714,6 +1141,97 @@ function SlotEditorModal({
             <IconClose size={18} />
           </button>
         </div>
+
+        <section className="schedule-modal-enrollments schedule-modal-enrollments--top">
+          <div className="schedule-modal-enrollments-head">
+            <strong>Записались ({occupiedCount})</strong>
+            <span>
+              {occupiedCount}/{slot.max_participants_effective} мест
+            </span>
+          </div>
+          {enrollmentMessage ? <p className="schedule-modal-enrollment-error">{enrollmentMessage}</p> : null}
+          <div className="schedule-modal-enrollment-add">
+            <input
+              value={clientSearch}
+              onChange={(event) => setClientSearch(event.target.value)}
+              placeholder="Поиск по имени, фамилии, телефону или email"
+              className="schedule-modal-client-search"
+            />
+            <div className="schedule-modal-client-list">
+              {visibleClientResults.length === 0 ? (
+                <div className="schedule-modal-client-empty">Ничего не найдено</div>
+              ) : (
+                visibleClientResults.map((client) => {
+                  const isSelected = String(client.id) === selectedClientId;
+                  const isBlocked = client.club_access_blocked || client.group_programs_blocked;
+                  return (
+                    <button
+                      key={client.id}
+                      type="button"
+                      className={`schedule-modal-client-option${isSelected ? " schedule-modal-client-option--active" : ""}${isBlocked ? " schedule-modal-client-option--blocked" : ""}`}
+                      onClick={() => setSelectedClientId(String(client.id))}
+                    >
+                      <strong>{client.full_name}</strong>
+                      <span>
+                        {[client.phone, client.email].filter(Boolean).join(" · ") || "Без контактов"}
+                      </span>
+                      {isBlocked ? (
+                        <span className="schedule-modal-client-badge">
+                          {client.club_access_blocked ? "Блок входа" : null}
+                          {client.club_access_blocked && client.group_programs_blocked ? " · " : null}
+                          {client.group_programs_blocked ? "Блок групп" : null}
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+            <button
+              type="button"
+              className="schedule-modal-save"
+              disabled={busy || !selectedClientId || selectedClientBlocked}
+              onClick={() => void addEnrollment()}
+            >
+              {selectedClientBlocked ? "Клиент заблокирован" : "Записать"}
+            </button>
+          </div>
+          <div className="schedule-modal-selected-client">
+            {selectedClient ? (
+              <>
+                <strong>{selectedClient.full_name}</strong>
+                <span>
+                  {[selectedClient.phone, selectedClient.email].filter(Boolean).join(" · ") || "Контакты не указаны"}
+                </span>
+                {selectedClientBlocked ? <em>{selectedClientBlockLabel}</em> : null}
+              </>
+            ) : (
+              <span>Выберите клиента из результатов поиска</span>
+            )}
+          </div>
+          <p className="schedule-modal-enrollment-hint">
+            {clientSearchLoading ? "Ищем клиентов…" : clientSearchHint}
+          </p>
+          <div className="schedule-modal-enrollment-list">
+            {enrollments.length === 0 ? (
+              <p className="schedule-modal-enrollment-empty">Пока никто не записан на это занятие.</p>
+            ) : (
+              enrollments.map((item) => (
+                <article key={item.id} className="schedule-modal-enrollment-item">
+                  <div>
+                    <strong>{item.client_name}</strong>
+                    <span>
+                      {item.client_phone || "Без телефона"} · {enrollmentStatusLabel(item.status)}
+                    </span>
+                  </div>
+                  <button type="button" className="schedule-modal-delete" onClick={() => void removeEnrollment(item.id)}>
+                    Убрать
+                  </button>
+                </article>
+              ))
+            )}
+          </div>
+        </section>
 
         <div className="schedule-modal-grid">
           <label>
@@ -819,47 +1337,6 @@ function SlotEditorModal({
           </label>
         </div>
 
-        <section className="schedule-modal-enrollments">
-          <div className="schedule-modal-enrollments-head">
-            <strong>Записались ({confirmedCount})</strong>
-            <span>
-              {confirmedCount}/{slot.max_participants_effective} мест
-            </span>
-          </div>
-          {enrollmentMessage ? <p className="schedule-modal-enrollment-error">{enrollmentMessage}</p> : null}
-          <div className="schedule-modal-enrollment-add">
-            <select value={selectedClientId} onChange={(event) => setSelectedClientId(event.target.value)}>
-              <option value="">Выберите клиента…</option>
-              {clients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.full_name}
-                  {client.phone ? ` · ${client.phone}` : ""}
-                </option>
-              ))}
-            </select>
-            <button type="button" className="schedule-modal-save" disabled={busy || !selectedClientId} onClick={() => void addEnrollment()}>
-              Записать
-            </button>
-          </div>
-          <div className="schedule-modal-enrollment-list">
-            {enrollments.length === 0 ? (
-              <p className="schedule-modal-enrollment-empty">Пока никто не записан на это занятие.</p>
-            ) : (
-              enrollments.map((item) => (
-                <article key={item.id} className="schedule-modal-enrollment-item">
-                  <div>
-                    <strong>{item.client_name}</strong>
-                    {item.client_phone ? <span>{item.client_phone}</span> : null}
-                  </div>
-                  <button type="button" className="schedule-modal-delete" onClick={() => void removeEnrollment(item.id)}>
-                    Убрать
-                  </button>
-                </article>
-              ))
-            )}
-          </div>
-        </section>
-
         <div className="schedule-modal-actions">
           <button type="button" className="schedule-modal-delete" disabled={busy} onClick={onDelete}>
             Удалить занятие
@@ -886,6 +1363,130 @@ function SlotEditorModal({
             }
           >
             Сохранить
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProgramEditorModal({
+  mode,
+  program,
+  busy,
+  onClose,
+  onSave,
+}: {
+  mode: "create" | "edit";
+  program: GroupProgramRecord | null;
+  busy: boolean;
+  onClose: () => void;
+  onSave: (payload: {
+    title: string;
+    code: string;
+    description: string;
+    color: string;
+    sort_order: number;
+    is_active: boolean;
+  }) => void;
+}) {
+  const [title, setTitle] = useState(program?.title ?? "");
+  const [code, setCode] = useState(program?.code ?? "");
+  const [description, setDescription] = useState(program?.description ?? "");
+  const [color, setColor] = useState(program?.color ?? "#2f6fed");
+  const [sortOrder, setSortOrder] = useState(String(program?.sort_order ?? 0));
+  const [isActive, setIsActive] = useState(program?.is_active ?? true);
+
+  useEffect(() => {
+    setTitle(program?.title ?? "");
+    setCode(program?.code ?? "");
+    setDescription(program?.description ?? "");
+    setColor(program?.color ?? "#2f6fed");
+    setSortOrder(String(program?.sort_order ?? 0));
+    setIsActive(program?.is_active ?? true);
+  }, [program]);
+
+  return (
+    <div className="schedule-modal-backdrop" onClick={onClose}>
+      <div className="schedule-modal schedule-modal--wide" onClick={(event) => event.stopPropagation()}>
+        <div className="schedule-modal-hero" style={{ background: `linear-gradient(135deg, ${color} 0%, ${color}cc 100%)` }}>
+          <div>
+            <span className="schedule-modal-code">{mode === "edit" ? "Направление" : "Новое направление"}</span>
+            <h2>{title || "Без названия"}</h2>
+            <p>Управление каталогом групповых программ и левого списка расписания.</p>
+          </div>
+          <button type="button" className="schedule-modal-close" onClick={onClose} aria-label="Закрыть">
+            <IconClose size={18} />
+          </button>
+        </div>
+
+        <div className="schedule-modal-grid">
+          <label className="schedule-modal-full">
+            Название
+            <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Например, Йога" />
+          </label>
+          <label>
+            Код
+            <input value={code} onChange={(event) => setCode(event.target.value)} placeholder="YOGA" />
+          </label>
+          <label>
+            Порядок
+            <input type="number" min={0} value={sortOrder} onChange={(event) => setSortOrder(event.target.value)} />
+          </label>
+          <label className="schedule-modal-full">
+            Описание
+            <textarea
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              placeholder="Короткое описание направления"
+              rows={4}
+            />
+          </label>
+          <label className="schedule-modal-full schedule-modal-color-field">
+            Цвет
+            <div className="schedule-color-picker">
+              {SLOT_COLOR_PRESETS.slice(0, 10).map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  className={`schedule-color-swatch${color === preset ? " schedule-color-swatch--active" : ""}`}
+                  style={{ background: preset }}
+                  onClick={() => setColor(preset)}
+                  aria-label={`Цвет ${preset}`}
+                />
+              ))}
+              <label className="schedule-color-custom">
+                <span>Свой</span>
+                <input type="color" value={color} onChange={(event) => setColor(event.target.value)} />
+              </label>
+            </div>
+          </label>
+          <label className="schedule-modal-full schedule-program-active-field">
+            <input type="checkbox" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} />
+            Активно в расписании
+          </label>
+        </div>
+
+        <div className="schedule-modal-actions">
+          <button type="button" className="schedule-modal-delete" disabled={busy} onClick={onClose}>
+            Отмена
+          </button>
+          <button
+            type="button"
+            className="schedule-modal-save"
+            disabled={busy || !title.trim()}
+            onClick={() =>
+              onSave({
+                title: title.trim(),
+                code: code.trim(),
+                description: description.trim(),
+                color,
+                sort_order: Number(sortOrder) || 0,
+                is_active: isActive,
+              })
+            }
+          >
+            {mode === "edit" ? "Сохранить" : "Создать"}
           </button>
         </div>
       </div>

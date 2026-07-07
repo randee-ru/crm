@@ -1,10 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { getAuthHeaders, getCompanySlugFromCookie } from "@/lib/auth";
 import { API_BASE_URL } from "@/lib/api-config";
-import type { ActionState, StaffInvitationWriteInput, StaffMembershipUpdateInput } from "@/lib/types";
+import type {
+  ActionState,
+  StaffInvitationWriteInput,
+  StaffMembershipCreateInput,
+  StaffMembershipUpdateInput,
+} from "@/lib/types";
 
 async function parseApiError(response: Response): Promise<string> {
   try {
@@ -56,6 +62,17 @@ function readInvitationInput(formData: FormData): StaffInvitationWriteInput {
   };
 }
 
+function readCreateInput(formData: FormData): StaffMembershipCreateInput {
+  return {
+    first_name: String(formData.get("first_name") ?? "").trim(),
+    last_name: String(formData.get("last_name") ?? "").trim(),
+    email: String(formData.get("email") ?? "").trim(),
+    password: String(formData.get("password") ?? ""),
+    role: String(formData.get("role") ?? "employee"),
+    branch_id: readBranchId(formData),
+  };
+}
+
 function readMembershipInput(formData: FormData): StaffMembershipUpdateInput {
   return {
     first_name: String(formData.get("first_name") ?? "").trim(),
@@ -97,6 +114,40 @@ export async function inviteEmployeeAction(
   revalidatePath("/dashboard/employees");
   revalidatePath("/dashboard/settings?section=employees");
   return { success: "Приглашение отправлено." };
+}
+
+export async function createEmployeeAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const companySlug = await getCompanySlugFromCookie();
+  const payload = readCreateInput(formData);
+
+  if (!payload.first_name || !payload.last_name || !payload.email) {
+    return { error: "Укажите имя, фамилию и email сотрудника." };
+  }
+  if (payload.password.length < 8) {
+    return { error: "Пароль должен быть не короче 8 символов." };
+  }
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/staff/memberships/?company=${encodeURIComponent(companySlug)}`,
+    {
+      method: "POST",
+      headers: {
+        ...(await getAuthHeaders()),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    },
+  );
+
+  if (!response.ok) {
+    return { error: await parseApiError(response) };
+  }
+
+  revalidatePath("/dashboard/employees");
+  redirect("/dashboard/employees");
 }
 
 export async function updateEmployeeAction(

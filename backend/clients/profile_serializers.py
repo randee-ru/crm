@@ -193,6 +193,8 @@ class ClientProfileSerializer(serializers.ModelSerializer):
             "interests",
             "notes",
             "is_active",
+            "club_access_blocked",
+            "group_programs_blocked",
             "branch_name",
             "created_at",
             "updated_at",

@@ -9,11 +9,12 @@ type ClientFormProps = {
   branches: BranchOption[];
   client?: ClientDetail;
   mode: "create" | "edit";
+  canManageBlocks?: boolean;
 };
 
 const initialState: ActionState = {};
 
-export function ClientForm({ branches, client, mode }: ClientFormProps) {
+export function ClientForm({ branches, client, mode, canManageBlocks = false }: ClientFormProps) {
   const action = mode === "create" ? createClientAction : updateClientAction.bind(null, client!.id);
   const [state, formAction, isPending] = useActionState(action, initialState);
 
@@ -67,6 +68,16 @@ export function ClientForm({ branches, client, mode }: ClientFormProps) {
             className="form-field"
           />
         </label>
+        <label className="block">
+          <span className="mb-1 block text-[13px] font-medium text-[var(--text)]">Дата рождения</span>
+          <input
+            name="birth_date"
+            type="date"
+            defaultValue={client?.birth_date ?? ""}
+            max={new Date().toISOString().slice(0, 10)}
+            className="form-field"
+          />
+        </label>
         <label className="block md:col-span-2">
           <span className="mb-1 block text-[13px] font-medium text-[var(--text)]">Филиал</span>
           <select
@@ -102,6 +113,39 @@ export function ClientForm({ branches, client, mode }: ClientFormProps) {
         />
         Клиент активен
       </label>
+
+      {canManageBlocks ? (
+        <div className="grid gap-3 rounded-xl border border-[var(--line)] bg-white/80 p-4 md:grid-cols-2">
+          <label className="flex items-start gap-2 text-[13px] text-[var(--text)]">
+            <input
+              name="club_access_blocked"
+              type="checkbox"
+              defaultChecked={client?.club_access_blocked ?? false}
+              className="mt-1 h-4 w-4 accent-[var(--danger)]"
+            />
+            <span>
+              <span className="block font-medium">Блок доступа в клуб</span>
+              <span className="block text-[12px] text-[var(--muted)]">
+                Не позволит оформить посещение, бронь или проход в клуб.
+              </span>
+            </span>
+          </label>
+          <label className="flex items-start gap-2 text-[13px] text-[var(--text)]">
+            <input
+              name="group_programs_blocked"
+              type="checkbox"
+              defaultChecked={client?.group_programs_blocked ?? false}
+              className="mt-1 h-4 w-4 accent-[var(--danger)]"
+            />
+            <span>
+              <span className="block font-medium">Блок групповых программ</span>
+              <span className="block text-[12px] text-[var(--muted)]">
+                Не позволит записать клиента на групповое занятие.
+              </span>
+            </span>
+          </label>
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap gap-2">
         <button

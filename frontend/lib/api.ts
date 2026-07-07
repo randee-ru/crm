@@ -104,6 +104,10 @@ function buildClientQuery(companySlug: string, filters: ClientListFilters = {}):
     params.set("client_status", filters.clientStatus);
   }
 
+  if (filters.isActive !== undefined) {
+    params.set("is_active", filters.isActive ? "true" : "false");
+  }
+
   if (filters.birthDateFrom) {
     params.set("birth_date_from", filters.birthDateFrom);
   }

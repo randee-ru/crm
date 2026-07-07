@@ -20,7 +20,13 @@ class Company(TimeStampedModel):
         "Скрытые модули меню",
         default=list,
         blank=True,
-        help_text="Идентификаторы пунктов бокового меню, скрытых для сотрудников компании.",
+        help_text="Идентификаторы пунктов бокового меню, скрытых для всех сотрудников компании.",
+    )
+    role_disabled_modules = models.JSONField(
+        "Скрытые модули меню по ролям",
+        default=dict,
+        blank=True,
+        help_text="Словарь {роль: [id пунктов меню]} — что дополнительно скрыто для конкретной роли.",
     )
 
     class Meta:
@@ -34,6 +40,17 @@ class Company(TimeStampedModel):
         if not self.slug:
             self.slug = slugify(self.name)
         super().save(*args, **kwargs)
+
+    def effective_disabled_modules(self, role: str) -> list[str]:
+        """Модули меню, скрытые для конкретной роли: общие + ролевые.
+
+        Владелец (owner) всегда видит полное меню — это защита от случайной
+        самоблокировки.
+        """
+        if role == "owner":
+            return list(self.disabled_modules)
+        merged = set(self.disabled_modules) | set(self.role_disabled_modules.get(role, []))
+        return sorted(merged)
 
     def __str__(self) -> str:
         return self.name
