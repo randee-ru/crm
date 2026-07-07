@@ -11,7 +11,9 @@ class EmployeesConfig(AppConfig):
     def ready(self) -> None:
         from config.admin_registry import register_business_admin
 
-        from .admin import TrainerAdmin
-        from .models import Trainer
+        from .admin import TrainerAccessCardAdmin, TrainerAdmin, TrainerRentPaymentAdmin
+        from .models import Trainer, TrainerAccessCard, TrainerRentPayment
 
         register_business_admin(Trainer, TrainerAdmin)
+        register_business_admin(TrainerRentPayment, TrainerRentPaymentAdmin)
+        register_business_admin(TrainerAccessCard, TrainerAccessCardAdmin)

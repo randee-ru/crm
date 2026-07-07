@@ -163,3 +163,52 @@ class TrainerApiTest(TestCase):
         payload = trainer_response.json()
         self.assertEqual(len(payload["rent_payments"]), 1)
         self.assertEqual(payload["rent_payments"][0]["amount"], "15000.00")
+
+    def test_trainer_access_card_create_list_and_delete(self) -> None:
+        trainer = Trainer.objects.create(
+            company=self.company,
+            branch=self.branch,
+            first_name="Анна",
+            last_name="Иванова",
+            phone="+79990000001",
+            trains_gym_floor=True,
+        )
+
+        create_response = self.http.post(
+            f"/api/v1/trainers/{trainer.id}/access-cards/?company=sportmax",
+            data={"card_number": "125,63260"},
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+        self.assertEqual(create_response.status_code, 201)
+        card_payload = create_response.json()
+        self.assertEqual(card_payload["status"], "active")
+        self.assertEqual(card_payload["status_label"], "Активна")
+
+        duplicate_response = self.http.post(
+            f"/api/v1/trainers/{trainer.id}/access-cards/?company=sportmax",
+            data={"card_number": "125,63260"},
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+        self.assertEqual(duplicate_response.status_code, 400)
+
+        trainer_response = self.http.get(f"/api/v1/trainers/{trainer.id}/?company=sportmax", **self.auth_headers())
+        payload = trainer_response.json()
+        self.assertEqual(len(payload["access_cards"]), 1)
+
+        card_id = card_payload["id"]
+        block_response = self.http.patch(
+            f"/api/v1/trainers/{trainer.id}/access-cards/{card_id}/?company=sportmax",
+            data={"status": "blocked"},
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+        self.assertEqual(block_response.status_code, 200)
+        self.assertEqual(block_response.json()["status"], "blocked")
+
+        delete_response = self.http.delete(
+            f"/api/v1/trainers/{trainer.id}/access-cards/{card_id}/?company=sportmax",
+            **self.auth_headers(),
+        )
+        self.assertEqual(delete_response.status_code, 204)

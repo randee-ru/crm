@@ -178,3 +178,72 @@ export async function deleteTrainerRentPaymentAction(trainerId: number, paymentI
   revalidatePath("/dashboard/trainers");
   revalidatePath(`/dashboard/trainers/${trainerId}`);
 }
+
+export async function createTrainerAccessCardAction(
+  trainerId: number,
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const companySlug = await getCompanySlugFromCookie();
+  const cardNumber = String(formData.get("card_number") ?? "").trim();
+
+  if (!cardNumber) {
+    return { error: "Укажите номер карты." };
+  }
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/trainers/${trainerId}/access-cards/?company=${encodeURIComponent(companySlug)}`,
+    {
+      method: "POST",
+      headers: {
+        ...(await getAuthHeaders()),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ card_number: cardNumber }),
+    },
+  );
+
+  if (!response.ok) {
+    return { error: await parseApiError(response) };
+  }
+
+  revalidatePath("/dashboard/trainers");
+  revalidatePath(`/dashboard/trainers/${trainerId}`);
+  return { success: "Карта выдана." };
+}
+
+export async function updateTrainerAccessCardStatusAction(
+  trainerId: number,
+  cardId: number,
+  status: string,
+): Promise<void> {
+  const companySlug = await getCompanySlugFromCookie();
+  await fetch(
+    `${API_BASE_URL}/api/v1/trainers/${trainerId}/access-cards/${cardId}/?company=${encodeURIComponent(companySlug)}`,
+    {
+      method: "PATCH",
+      headers: {
+        ...(await getAuthHeaders()),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ status }),
+    },
+  );
+
+  revalidatePath("/dashboard/trainers");
+  revalidatePath(`/dashboard/trainers/${trainerId}`);
+}
+
+export async function deleteTrainerAccessCardAction(trainerId: number, cardId: number): Promise<void> {
+  const companySlug = await getCompanySlugFromCookie();
+  await fetch(
+    `${API_BASE_URL}/api/v1/trainers/${trainerId}/access-cards/${cardId}/?company=${encodeURIComponent(companySlug)}`,
+    {
+      method: "DELETE",
+      headers: await getAuthHeaders(),
+    },
+  );
+
+  revalidatePath("/dashboard/trainers");
+  revalidatePath(`/dashboard/trainers/${trainerId}`);
+}

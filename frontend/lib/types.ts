@@ -645,12 +645,25 @@ export type TrainerRentPayment = {
   created_at: string;
 };
 
+export type TrainerAccessCardStatus = "active" | "blocked" | "lost";
+
+export type TrainerAccessCard = {
+  id: number;
+  card_number: string;
+  status: TrainerAccessCardStatus;
+  status_label: string;
+  issued_at: string;
+  note: string;
+  created_at: string;
+};
+
 export type TrainerDetail = TrainerRecord & {
   branch_id: number | null;
   achievements: string;
   bio: string;
   updated_at: string;
   rent_payments: TrainerRentPayment[];
+  access_cards: TrainerAccessCard[];
 };
 
 export type TrainerWriteInput = {
@@ -671,6 +684,13 @@ export type TrainerRentPaymentWriteInput = {
   period: string;
   amount: string;
   paid_at?: string;
+  note?: string;
+};
+
+export type TrainerAccessCardWriteInput = {
+  card_number: string;
+  status?: TrainerAccessCardStatus;
+  issued_at?: string;
   note?: string;
 };
 

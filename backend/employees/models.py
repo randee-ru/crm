@@ -119,3 +119,54 @@ class TrainerRentPayment(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"{self.trainer} — {self.period:%Y-%m}"
+
+
+class TrainerAccessCard(TimeStampedModel):
+    """Карта доступа (СКУД/RFID), выданная тренеру."""
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Активна"
+        BLOCKED = "blocked", "Заблокирована"
+        LOST = "lost", "Утеряна"
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.CASCADE,
+        related_name="trainer_access_cards",
+        verbose_name="Компания",
+    )
+    trainer = models.ForeignKey(
+        Trainer,
+        on_delete=models.CASCADE,
+        related_name="access_cards",
+        verbose_name="Тренер",
+    )
+    card_number = models.CharField("Номер карты", max_length=64)
+    status = models.CharField("Статус", max_length=20, choices=Status.choices, default=Status.ACTIVE)
+    issued_at = models.DateTimeField("Дата выдачи")
+    note = models.CharField("Комментарий", max_length=255, blank=True)
+
+    class Meta:
+        verbose_name = "Карта доступа тренера"
+        verbose_name_plural = "Карты доступа тренеров"
+        ordering = ["-issued_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company", "card_number"],
+                name="uniq_trainer_card_number_per_company",
+            )
+        ]
+
+    def clean(self) -> None:
+        errors: dict[str, str] = {}
+        if self.trainer_id and self.company_id and self.trainer.company_id != self.company_id:
+            errors["trainer"] = "Тренер должен принадлежать той же компании, что и карта доступа."
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args: object, **kwargs: object) -> None:
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return f"{self.trainer} — карта №{self.card_number}"

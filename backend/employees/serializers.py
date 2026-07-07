@@ -4,7 +4,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from branches.models import Branch
-from employees.models import Trainer, TrainerRentPayment
+from employees.models import Trainer, TrainerAccessCard, TrainerRentPayment
 
 
 class TrainerListSerializer(serializers.ModelSerializer):
@@ -47,9 +47,18 @@ class TrainerRentPaymentSerializer(serializers.ModelSerializer):
         fields = ["id", "period", "amount", "paid_at", "note", "created_at"]
 
 
+class TrainerAccessCardSerializer(serializers.ModelSerializer):
+    status_label = serializers.CharField(source="get_status_display", read_only=True)
+
+    class Meta:
+        model = TrainerAccessCard
+        fields = ["id", "card_number", "status", "status_label", "issued_at", "note", "created_at"]
+
+
 class TrainerDetailSerializer(TrainerListSerializer):
     branch_id = serializers.IntegerField(source="branch.id", read_only=True, default=None)
     rent_payments = TrainerRentPaymentSerializer(many=True, read_only=True)
+    access_cards = TrainerAccessCardSerializer(many=True, read_only=True)
 
     class Meta(TrainerListSerializer.Meta):
         fields = TrainerListSerializer.Meta.fields + [
@@ -58,6 +67,7 @@ class TrainerDetailSerializer(TrainerListSerializer):
             "bio",
             "updated_at",
             "rent_payments",
+            "access_cards",
         ]
 
 
@@ -143,4 +153,29 @@ class TrainerRentPaymentWriteSerializer(serializers.ModelSerializer):
         validated_data["company"] = self.context["company"]
         validated_data["trainer"] = self.context["trainer"]
         validated_data.setdefault("paid_at", timezone.now())
+        return super().create(validated_data)
+
+
+class TrainerAccessCardWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TrainerAccessCard
+        fields = ["card_number", "status", "issued_at", "note"]
+        extra_kwargs = {"issued_at": {"required": False}, "status": {"required": False}}
+
+    def validate_card_number(self, card_number: str) -> str:
+        company = self.context.get("company")
+        card_id = self.instance.id if self.instance else None
+        if (
+            company
+            and TrainerAccessCard.objects.filter(company=company, card_number=card_number)
+            .exclude(id=card_id)
+            .exists()
+        ):
+            raise serializers.ValidationError("Карта с таким номером уже выдана в этой компании.")
+        return card_number
+
+    def create(self, validated_data: dict) -> TrainerAccessCard:
+        validated_data["company"] = self.context["company"]
+        validated_data["trainer"] = self.context["trainer"]
+        validated_data.setdefault("issued_at", timezone.now())
         return super().create(validated_data)

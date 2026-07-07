@@ -11,8 +11,10 @@ from rest_framework.response import Response
 
 from accounts.permissions import HasCompanyAccess, resolve_company_slug
 from clients.views import get_company_from_request
-from employees.models import Trainer, TrainerRentPayment
+from employees.models import Trainer, TrainerAccessCard, TrainerRentPayment
 from employees.serializers import (
+    TrainerAccessCardSerializer,
+    TrainerAccessCardWriteSerializer,
     TrainerDetailSerializer,
     TrainerListSerializer,
     TrainerRentPaymentSerializer,
@@ -38,7 +40,7 @@ class TrainerQuerysetMixin:
         return (
             Trainer.objects.filter(company__slug=company_slug, company__is_active=True)
             .select_related("branch", "company")
-            .prefetch_related("rent_payments")
+            .prefetch_related("rent_payments", "access_cards")
             .annotate(rent_paid_current_month=Exists(rent_paid_this_month))
         )
 
@@ -102,7 +104,7 @@ class TrainerDetailView(TrainerQuerysetMixin, RetrieveUpdateDestroyAPIView):
         return Response(status=204)
 
 
-class TrainerRentPaymentQuerysetMixin:
+class TrainerNestedResourceMixin:
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated, HasCompanyAccess]
 
@@ -117,7 +119,7 @@ class TrainerRentPaymentQuerysetMixin:
         ).first()
 
 
-class TrainerRentPaymentListCreateView(TrainerRentPaymentQuerysetMixin, ListCreateAPIView):
+class TrainerRentPaymentListCreateView(TrainerNestedResourceMixin, ListCreateAPIView):
     def get_serializer_class(self):
         if self.request.method == "POST":
             return TrainerRentPaymentWriteSerializer
@@ -149,7 +151,7 @@ class TrainerRentPaymentListCreateView(TrainerRentPaymentQuerysetMixin, ListCrea
         return Response(read_serializer.data, status=status.HTTP_201_CREATED)
 
 
-class TrainerRentPaymentDetailView(TrainerRentPaymentQuerysetMixin, RetrieveUpdateDestroyAPIView):
+class TrainerRentPaymentDetailView(TrainerNestedResourceMixin, RetrieveUpdateDestroyAPIView):
     lookup_url_kwarg = "payment_id"
     serializer_class = TrainerRentPaymentSerializer
 
@@ -158,6 +160,64 @@ class TrainerRentPaymentDetailView(TrainerRentPaymentQuerysetMixin, RetrieveUpda
         if trainer is None:
             return TrainerRentPayment.objects.none()
         return TrainerRentPayment.objects.filter(trainer=trainer)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.delete()
+        return Response(status=204)
+
+
+class TrainerAccessCardListCreateView(TrainerNestedResourceMixin, ListCreateAPIView):
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return TrainerAccessCardWriteSerializer
+        return TrainerAccessCardSerializer
+
+    def get_queryset(self) -> QuerySet[TrainerAccessCard]:
+        trainer = self.get_trainer()
+        if trainer is None:
+            return TrainerAccessCard.objects.none()
+        return TrainerAccessCard.objects.filter(trainer=trainer).order_by("-issued_at")
+
+    def get_serializer_context(self) -> dict:
+        context = super().get_serializer_context()
+        context["company"] = get_company_from_request(self.request)
+        context["trainer"] = self.get_trainer()
+        return context
+
+    def create(self, request: Request, *args, **kwargs) -> Response:
+        trainer = self.get_trainer()
+        if trainer is None:
+            return Response({"detail": "Trainer not found."}, status=status.HTTP_404_NOT_FOUND)
+        write_serializer = TrainerAccessCardWriteSerializer(
+            data=request.data,
+            context=self.get_serializer_context(),
+        )
+        write_serializer.is_valid(raise_exception=True)
+        instance = write_serializer.save()
+        read_serializer = TrainerAccessCardSerializer(instance)
+        return Response(read_serializer.data, status=status.HTTP_201_CREATED)
+
+
+class TrainerAccessCardDetailView(TrainerNestedResourceMixin, RetrieveUpdateDestroyAPIView):
+    lookup_url_kwarg = "card_id"
+
+    def get_serializer_class(self):
+        if self.request.method in {"PUT", "PATCH"}:
+            return TrainerAccessCardWriteSerializer
+        return TrainerAccessCardSerializer
+
+    def get_queryset(self) -> QuerySet[TrainerAccessCard]:
+        trainer = self.get_trainer()
+        if trainer is None:
+            return TrainerAccessCard.objects.none()
+        return TrainerAccessCard.objects.filter(trainer=trainer)
+
+    def get_serializer_context(self) -> dict:
+        context = super().get_serializer_context()
+        context["company"] = get_company_from_request(self.request)
+        context["trainer"] = self.get_trainer()
+        return context
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()

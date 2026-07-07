@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 
+import { TrainerAccessCardsPanel } from "@/components/trainers/trainer-access-cards-panel";
 import { TrainerDeleteButton } from "@/components/trainers/trainer-delete-button";
 import { TrainerForm } from "@/components/trainers/trainer-form";
 import { TrainerRentPanel } from "@/components/trainers/trainer-rent-panel";
@@ -125,6 +126,8 @@ export function TrainerProfilePanel({ trainer, branches }: TrainerProfilePanelPr
                 </Link>
               </div>
             </SidebarCard>
+
+            <TrainerAccessCardsPanel trainerId={trainer.id} cards={trainer.access_cards} />
           </aside>
 
           <section className="client-card-timeline space-y-3">

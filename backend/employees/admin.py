@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from unfold.admin import ModelAdmin
 
-from .models import Trainer, TrainerRentPayment
+from .models import Trainer, TrainerAccessCard, TrainerRentPayment
 
 
 class TrainerAdmin(ModelAdmin):
@@ -28,5 +28,13 @@ class TrainerRentPaymentAdmin(ModelAdmin):
     list_display = ("trainer", "company", "period", "amount", "paid_at")
     list_filter = ("company", "period")
     search_fields = ("trainer__first_name", "trainer__last_name")
+    autocomplete_fields = ("company", "trainer")
+    list_fullwidth = True
+
+
+class TrainerAccessCardAdmin(ModelAdmin):
+    list_display = ("trainer", "company", "card_number", "status", "issued_at")
+    list_filter = ("company", "status")
+    search_fields = ("card_number", "trainer__first_name", "trainer__last_name")
     autocomplete_fields = ("company", "trainer")
     list_fullwidth = True
