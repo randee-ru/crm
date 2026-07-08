@@ -32,6 +32,11 @@ export function SchedulePublishModal({ companySlug, settings, onClose, onUpdated
     return `${origin}/embed/schedule/${companySlug}?${params.toString()}`;
   }, [companySlug, embedToken, origin]);
 
+  const mobileUrl = useMemo(() => {
+    const params = new URLSearchParams({ token: embedToken });
+    return `${origin}/schedule/${companySlug}?${params.toString()}`;
+  }, [companySlug, embedToken, origin]);
+
   const iframeCode = `<iframe src="${embedUrl}" title="Расписание" style="width:100%;min-height:760px;border:0;border-radius:16px;" loading="lazy" allowfullscreen></iframe>`;
 
   const scriptCode = `<div id="crmkit-schedule"></div>
@@ -111,6 +116,20 @@ export function SchedulePublishModal({ companySlug, settings, onClose, onUpdated
             <a href={embedUrl} target="_blank" rel="noreferrer" className="schedule-publish-preview">
               <IconGlobe size={14} />
               Открыть превью
+            </a>
+          </div>
+
+          <div className="schedule-publish-block">
+            <div className="schedule-publish-block-head">
+              <strong>Ссылка для клиентов (мобильная)</strong>
+              <button type="button" className="schedule-publish-copy" onClick={() => copyText(mobileUrl)}>
+                Копировать
+              </button>
+            </div>
+            <code className="schedule-publish-code">{mobileUrl}</code>
+            <a href={mobileUrl} target="_blank" rel="noreferrer" className="schedule-publish-preview">
+              <IconGlobe size={14} />
+              Открыть на телефоне
             </a>
           </div>
 

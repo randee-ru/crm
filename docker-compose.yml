@@ -22,6 +22,21 @@ services:
     ports:
       - "6379:6379"
 
+  messenger-gateway:
+    image: node:22-alpine
+    container_name: crm-kit-messenger-gateway
+    working_dir: /app
+    command: sh -c "npm install && npm start"
+    volumes:
+      - ./gateway:/app
+      - messenger_gateway_data:/app/data
+    env_file:
+      - gateway/.env.example
+    environment:
+      CRM_GATEWAY_WEBHOOK_URL: http://backend:8000/api/v1/channels/gateway/inbound/
+    ports:
+      - "8787:8787"
+
   backend:
     profiles: ["docker-backend"]
     build:
@@ -36,6 +51,7 @@ services:
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
+      MESSENGER_GATEWAY_URL: http://messenger-gateway:8787
     ports:
       - "8000:8000"
     depends_on:
@@ -46,3 +62,4 @@ services:
 
 volumes:
   postgres_data:
+  messenger_gateway_data:

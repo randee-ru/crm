@@ -9,7 +9,7 @@ import { SiteHeader } from "@/components/site-header";
 import { UserPanelProvider } from "@/components/user-panel-provider";
 import { UserProfilePanel } from "@/components/user-profile-panel";
 import { WorkspaceShellProvider } from "@/components/workspace-shell-provider";
-import type { AuthUser, CompanyMembershipRecord, NotificationRecord } from "@/lib/types";
+import type { AuthUser, CompanyMembershipRecord } from "@/lib/types";
 
 type WorkspaceChromeProps = {
   children: ReactNode;
@@ -18,7 +18,6 @@ type WorkspaceChromeProps = {
   companySlug?: string;
   companyName?: string;
   role?: string;
-  notifications?: NotificationRecord[];
   disabledModules?: string[];
 };
 
@@ -29,12 +28,11 @@ export function WorkspaceChrome({
   companySlug = "",
   companyName,
   role,
-  notifications = [],
   disabledModules = [],
 }: WorkspaceChromeProps) {
   return (
     <WorkspaceShellProvider>
-      <NotificationsProvider initialNotifications={notifications}>
+      <NotificationsProvider>
         <UserPanelProvider user={user} companyName={companyName} role={role}>
           <div className="workspace-bg flex min-h-screen">
             <Sidebar user={user} disabledModules={disabledModules} />

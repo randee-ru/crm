@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { API_BASE_URL } from "@/lib/api-config";
 import type { AuthSession } from "@/lib/types";
 import {
@@ -6,17 +8,17 @@ import {
   DEFAULT_COMPANY_SLUG,
 } from "@/lib/auth-cookies";
 
-export async function getAuthToken(): Promise<string | undefined> {
+export const getAuthToken = cache(async (): Promise<string | undefined> => {
   const { cookies } = await import("next/headers");
   const cookieStore = await cookies();
   return cookieStore.get(AUTH_TOKEN_COOKIE)?.value;
-}
+});
 
-export async function getCompanySlugFromCookie(): Promise<string> {
+export const getCompanySlugFromCookie = cache(async (): Promise<string> => {
   const { cookies } = await import("next/headers");
   const cookieStore = await cookies();
   return cookieStore.get(AUTH_COMPANY_COOKIE)?.value ?? DEFAULT_COMPANY_SLUG;
-}
+});
 
 export async function getAuthHeaders(): Promise<HeadersInit> {
   const token = await getAuthToken();
@@ -31,7 +33,7 @@ export async function getAuthHeaders(): Promise<HeadersInit> {
   return headers;
 }
 
-export async function getAuthSession(): Promise<AuthSession | null> {
+export const getAuthSession = cache(async (): Promise<AuthSession | null> => {
   const token = await getAuthToken();
   if (!token) {
     return null;
@@ -59,4 +61,4 @@ export async function getAuthSession(): Promise<AuthSession | null> {
   } catch {
     return null;
   }
-}
+});

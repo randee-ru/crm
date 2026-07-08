@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { DashboardShell } from "@/components/dashboard-shell";
 import { EmployeeCreateForm } from "@/components/employees/employee-create-form";
 import { WorkspaceCard } from "@/components/workspace-card";
 import { getEmployeesDashboard } from "@/lib/api";
@@ -15,7 +14,6 @@ export default async function NewEmployeePage() {
     .catch(() => [] as BranchOption[]);
 
   return (
-    <DashboardShell>
       <div className="workspace-content min-h-0 flex-1">
         <WorkspaceCard className="clients-workspace-card min-w-0 flex-1">
           <header className="clients-module-header">
@@ -40,6 +38,5 @@ export default async function NewEmployeePage() {
           </section>
         </WorkspaceCard>
       </div>
-    </DashboardShell>
   );
 }

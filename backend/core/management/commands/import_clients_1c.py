@@ -29,7 +29,7 @@ from clients.import_1c import (
 from clients.models import Client, ClientLead, ClientMessage
 from companies.models import Company
 from crm.models import Deal
-from crm.pipelines import ensure_default_pipeline, get_stage_by_code
+from crm.pipelines import ensure_default_pipeline, get_sales_pipeline, get_stage_by_code
 from memberships.models import Membership
 from sales.models import Sale
 
@@ -60,7 +60,8 @@ class Command(BaseCommand):
         if branch is None:
             branch = Branch.objects.create(company=company, name="Main Hall", is_primary=True)
 
-        pipeline = ensure_default_pipeline(company)
+        ensure_default_pipeline(company)
+        pipeline = get_sales_pipeline(company)
         default_stage = get_stage_by_code(pipeline, "new_lead")
 
         with open(file_path, "r", encoding="utf-8-sig") as handle:

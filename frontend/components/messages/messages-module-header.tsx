@@ -3,15 +3,15 @@ import Link from "next/link";
 import { messagesTopTabs } from "@/lib/nav";
 
 type MessagesModuleHeaderProps = {
-  activeTab?: number;
+  activeView?: string;
 };
 
-export function MessagesModuleHeader({ activeTab = 0 }: MessagesModuleHeaderProps) {
+export function MessagesModuleHeader({ activeView = "chats" }: MessagesModuleHeaderProps) {
   return (
     <header className="messages-module-header">
       <nav className="messages-top-tabs" aria-label="Разделы мессенджера">
-        {messagesTopTabs.map((tab, index) => {
-          const isActive = index === activeTab;
+        {messagesTopTabs.map((tab) => {
+          const isActive = tab.view === activeView;
           const className = `messages-top-tab ${isActive ? "messages-top-tab--active" : ""} ${
             tab.stub ? "messages-top-tab--stub" : ""
           }`;

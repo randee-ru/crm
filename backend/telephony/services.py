@@ -7,8 +7,10 @@ from django.utils import timezone
 
 from clients.models import Client
 from companies.models import Company
+from telephony.lead_deals_service import ensure_lead_deal_from_call
 from telephony.lines import fetch_mango_line_directory, resolve_mango_call_line_name
-from telephony.mango_client import MangoCall, determine_call_direction, get_mango_calls, resolve_mango_config
+from telephony.mango_client import MangoCall, MangoConfig, determine_call_direction, get_mango_calls, resolve_mango_config
+from telephony.phone import phone_tail
 from telephony.models import CallLog, TelephonyIntegration
 from telephony.recording_jobs import enqueue_call_recording_archives
 from telephony.recording_storage import purge_old_recordings
@@ -78,7 +80,7 @@ def upsert_mango_call(
         "to_number": call.to_number[:64],
         "line_number": (call.line_number or "")[:64],
         "line_name": line_name[:120],
-        "recording_id": (call.recording_id or "")[:128],
+        "recording_id": (call.recording_id or (existing.recording_id if existing else ""))[:128],
         "started_at": started_at,
         "duration": duration,
         "source": line_name[:120],
@@ -93,7 +95,71 @@ def upsert_mango_call(
         external_id=external_id,
         defaults=defaults,
     )
+    if created or call_log.client_id is None:
+        ensure_lead_deal_from_call(call_log)
     return call_log, created
+
+
+def _phones_match(lhs: str, rhs: str) -> bool:
+    left = normalize_phone(lhs)
+    right = normalize_phone(rhs)
+    if left and right and left == right:
+        return True
+    left_tail = phone_tail(lhs)
+    right_tail = phone_tail(rhs)
+    return bool(left_tail and right_tail and left_tail == right_tail)
+
+
+def _mango_call_matches_call_log(call: CallLog, mango_call: MangoCall) -> bool:
+    call_start = int(call.started_at.timestamp())
+    if abs(call_start - mango_call.start) > 2:
+        return False
+    mango_duration = max(0, int(mango_call.finish - mango_call.start))
+    if mango_duration != call.duration:
+        return False
+
+    call_from = call.from_number or call.caller_phone
+    call_to = call.to_number or call.target_phone
+    if _phones_match(call_from, mango_call.from_number) and _phones_match(call_to, mango_call.to_number):
+        return True
+    return _phones_match(call_from, mango_call.to_number) and _phones_match(call_to, mango_call.from_number)
+
+
+def refresh_call_recording_from_mango(call: CallLog, config: MangoConfig) -> str:
+    if call.recording_id or call.recording_file:
+        return call.recording_id
+
+    call_date = timezone.localdate(call.started_at)
+    mango_calls = get_mango_calls(config, call_date, call_date)
+    for mango_call in mango_calls:
+        if not mango_call.recording_id:
+            continue
+        if not _mango_call_matches_call_log(call, mango_call):
+            continue
+        call.recording_id = mango_call.recording_id[:128]
+        call.save(update_fields=["recording_id", "updated_at"])
+        return call.recording_id
+    return ""
+
+
+def recording_unavailable_message(call: CallLog) -> str:
+    if call.status == CallLog.Status.ANSWERED and call.duration > 0:
+        return "Запись не сохранялась в Mango Office"
+    return "Запись пока недоступна"
+
+
+def try_refresh_call_recording(call: CallLog) -> CallLog:
+    if call.recording_id or call.recording_file:
+        return call
+    integration = TelephonyIntegration.objects.filter(company=call.company).first()
+    if integration is None:
+        return call
+    config = resolve_mango_config(integration)
+    if config is None:
+        return call
+    refresh_call_recording_from_mango(call, config)
+    call.refresh_from_db()
+    return call
 
 
 @transaction.atomic

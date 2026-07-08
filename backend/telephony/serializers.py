@@ -9,6 +9,8 @@ from telephony.models import CallLog, TelephonyIntegration
 class TelephonyIntegrationSerializer(serializers.ModelSerializer):
     has_api_key = serializers.SerializerMethodField()
     has_api_secret = serializers.SerializerMethodField()
+    mango_webhook_url = serializers.SerializerMethodField()
+    public_app_url = serializers.SerializerMethodField()
 
     class Meta:
         model = TelephonyIntegration
@@ -21,6 +23,8 @@ class TelephonyIntegrationSerializer(serializers.ModelSerializer):
             "is_active",
             "last_synced_at",
             "settings",
+            "mango_webhook_url",
+            "public_app_url",
         ]
 
     def get_has_api_key(self, obj: TelephonyIntegration) -> bool:
@@ -28,6 +32,16 @@ class TelephonyIntegrationSerializer(serializers.ModelSerializer):
 
     def get_has_api_secret(self, obj: TelephonyIntegration) -> bool:
         return bool(obj.api_secret)
+
+    def get_public_app_url(self, obj: TelephonyIntegration) -> str:
+        from telephony.webhook_urls import get_public_app_url
+
+        return get_public_app_url(obj)
+
+    def get_mango_webhook_url(self, obj: TelephonyIntegration) -> str:
+        from telephony.webhook_urls import build_mango_webhook_url
+
+        return build_mango_webhook_url(obj)
 
 
 class TelephonyIntegrationWriteSerializer(serializers.ModelSerializer):

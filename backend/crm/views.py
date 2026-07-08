@@ -25,7 +25,7 @@ class TaskQuerysetMixin:
 
         return (
             Task.objects.filter(company__slug=company_slug, company__is_active=True)
-            .select_related("branch", "client", "assigned_to", "created_by", "company")
+            .select_related("branch", "client", "assigned_to", "created_by", "company", "deal")
             .order_by("due_at", "-created_at")
         )
 
@@ -57,6 +57,10 @@ class TaskListCreateView(TaskQuerysetMixin, ListCreateAPIView):
             queryset = queryset.filter(due_at__lt=now).exclude(
                 status__in=[Task.Status.DONE, Task.Status.CANCELLED]
             )
+
+        deal_id = self.request.query_params.get("deal", "").strip()
+        if deal_id.isdigit():
+            queryset = queryset.filter(deal_id=int(deal_id))
 
         return queryset
 

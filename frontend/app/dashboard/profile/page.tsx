@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { CrmModuleHeader } from "@/components/crm-module-header";
-import { DashboardShell } from "@/components/dashboard-shell";
 import { ModulePageLayout } from "@/components/module-page-layout";
 import { ProfileForm } from "@/components/profile-form";
 import { WorkspaceCard } from "@/components/workspace-card";
@@ -15,7 +14,6 @@ export default async function ProfilePage() {
   if (!session) redirect("/login");
 
   return (
-    <DashboardShell>
       <ModulePageLayout>
         <WorkspaceCard className="crm-workspace-card">
           <CrmModuleHeader
@@ -36,6 +34,5 @@ export default async function ProfilePage() {
           />
         </WorkspaceCard>
       </ModulePageLayout>
-    </DashboardShell>
   );
 }

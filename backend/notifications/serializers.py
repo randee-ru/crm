@@ -25,5 +25,11 @@ class NotificationSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class NotificationUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = ["is_read"]
+
+
 class NotificationMarkReadSerializer(serializers.Serializer):
     is_read = serializers.BooleanField(default=True)

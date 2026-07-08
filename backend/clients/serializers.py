@@ -13,6 +13,14 @@ class BranchOptionSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "slug", "is_primary"]
 
 
+class ClientOptionSerializer(serializers.ModelSerializer):
+    full_name = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = Client
+        fields = ["id", "full_name", "phone"]
+
+
 class ClientListSerializer(serializers.ModelSerializer):
     """Компактное представление клиента для CRM-списков."""
 
@@ -23,14 +31,16 @@ class ClientListSerializer(serializers.ModelSerializer):
     birth_date = serializers.DateField(read_only=True, default=None)
     membership_start = serializers.SerializerMethodField()
     membership_end = serializers.SerializerMethodField()
+    registration_date = serializers.SerializerMethodField()
 
     class Meta:
         model = Client
         fields = [
             "id",
             "full_name",
-            "first_name",
             "last_name",
+            "first_name",
+            "middle_name",
             "phone",
             "email",
             "birth_date",
@@ -48,8 +58,18 @@ class ClientListSerializer(serializers.ModelSerializer):
             "ltv_total",
             "manager_name",
             "last_visit_date",
+            "registration_date",
             "created_at",
         ]
+
+    def get_registration_date(self, client: Client) -> str:
+        # У клиентов, импортированных из 1С, created_at — это момент импорта,
+        # он одинаковый у всей пачки и не отражает реальную дату регистрации.
+        # registration_date хранит настоящую историческую дату; для клиентов,
+        # заведённых прямо в CRM, он пуст — тогда честно показываем created_at.
+        if client.registration_date:
+            return client.registration_date.isoformat()
+        return client.created_at.date().isoformat()
 
     def get_membership_status(self, client: Client) -> str | None:
         membership = client.memberships.order_by("-starts_at").first()
@@ -91,8 +111,9 @@ class ClientWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Client
         fields = [
-            "first_name",
             "last_name",
+            "first_name",
+            "middle_name",
             "phone",
             "email",
             "birth_date",

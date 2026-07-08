@@ -25,7 +25,19 @@ _load_dotenv(BASE_DIR / "backend" / ".env")
 _load_dotenv(BASE_DIR / ".env")
 
 DEBUG = True
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "0.0.0.0"]
+_hosts = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,0.0.0.0").split(",")
+ALLOWED_HOSTS = [host.strip() for host in _hosts if host.strip()]
+
+_public_app_url = os.getenv("PUBLIC_APP_URL", "").strip()
+if _public_app_url:
+    try:
+        from urllib.parse import urlparse
+
+        _ngrok_host = urlparse(_public_app_url).hostname
+        if _ngrok_host and _ngrok_host not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(_ngrok_host)
+    except Exception:
+        pass
 
 # В dev можно смотреть CRM-данные в /admin/ для отладки.
 ADMIN_ENABLE_BUSINESS_MODELS = True

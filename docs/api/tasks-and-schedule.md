@@ -1,4 +1,4 @@
-# API: tasks and schedule
+# API: задачи и расписание
 
 ## Tasks
 

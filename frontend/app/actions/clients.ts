@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 
 import { getAuthHeaders, getCompanySlugFromCookie } from "@/lib/auth";
 import { API_BASE_URL } from "@/lib/api-config";
-import type { ActionState, ClientWriteInput } from "@/lib/types";
+import type { ActionState, ClientRecord, ClientWriteInput } from "@/lib/types";
 
 async function parseApiError(response: Response): Promise<string> {
   try {
@@ -30,8 +30,9 @@ function readClientInput(formData: FormData): ClientWriteInput {
   const birthDateRaw = String(formData.get("birth_date") ?? "").trim();
 
   return {
-    first_name: String(formData.get("first_name") ?? "").trim(),
     last_name: String(formData.get("last_name") ?? "").trim(),
+    first_name: String(formData.get("first_name") ?? "").trim(),
+    middle_name: String(formData.get("middle_name") ?? "").trim(),
     phone: String(formData.get("phone") ?? "").trim(),
     email: String(formData.get("email") ?? "").trim(),
     birth_date: birthDateRaw || null,
@@ -76,6 +77,37 @@ export async function createClientAction(
   redirect(`/dashboard/clients/${client.id}`);
 }
 
+export async function createClientQuickAction(
+  payload: ClientWriteInput,
+): Promise<{ error?: string; client?: ClientRecord }> {
+  const companySlug = await getCompanySlugFromCookie();
+
+  if (!payload.first_name || !payload.last_name || !payload.phone) {
+    return { error: "Имя, фамилия и телефон обязательны." };
+  }
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/clients/?company=${encodeURIComponent(companySlug)}`,
+    {
+      method: "POST",
+      headers: {
+        ...(await getAuthHeaders()),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    },
+  );
+
+  if (!response.ok) {
+    return { error: await parseApiError(response) };
+  }
+
+  const client = (await response.json()) as ClientRecord;
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/clients");
+  return { client };
+}
+
 export async function updateClientAction(
   clientId: number,
   _prevState: ActionState,
@@ -110,6 +142,11 @@ export async function updateClientAction(
   return { success: "Изменения сохранены." };
 }
 
+export async function searchClientOptionsAction(search?: string, ids?: number[]) {
+  const { searchClientOptions } = await import("@/lib/api");
+  return searchClientOptions(search, ids);
+}
+
 export async function listClientsAction(filters: {
   page?: number;
   search?: string;
@@ -119,6 +156,7 @@ export async function listClientsAction(filters: {
   birthDateTo?: string;
   birthdayMonth?: string;
   membershipExpiresInDays?: string;
+  ordering?: string;
 }) {
   const { getClientsPaginated } = await import("@/lib/api");
   return getClientsPaginated(undefined, filters);

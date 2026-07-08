@@ -11,7 +11,17 @@ Backend CRM Kit на Django — модульный монолит с REST API.
 | `companies` | `/api/v1/company/` | контекст tenant |
 | `clients` | `/api/v1/clients/` | CRUD клиентов |
 | `crm` | `/api/v1/tasks/`, `/deals/`, `/pipelines/` | задачи, сделки, воронки |
-| `schedule` | `/api/v1/schedule/` | расписание |
+| `schedule` | `/api/v1/schedule/` | расписание и группы |
+| `memberships` | `/api/v1/memberships/` | абонементы |
+| `employees` | `/api/v1/trainers/` | тренеры, аренда, доступы |
+| `bookings` | `/api/v1/bookings/` | бронирования |
+| `attendance` | `/api/v1/attendance/` | посещаемость |
+| `sales` | `/api/v1/sales/` | продажи |
+| `payments` | `/api/v1/payments/` | платежи |
+| `reports` | `/api/v1/reports/` | отчёты и аналитика |
+| `automation` | `/api/v1/automation/` | правила и события |
+| `notifications` | `/api/v1/notifications/` | уведомления |
+| `integrations` | `/api/v1/integrations/` | реестр и webhook log |
 
 ## CRM: воронки и сделки
 

@@ -33,7 +33,7 @@ const topTabHrefs = [
 
 const viewTabHrefs = [
   "/dashboard",
-  "/dashboard/clients",
+  "/dashboard?view=list",
   "/dashboard/tasks",
   "/dashboard/schedule",
 ] as const;

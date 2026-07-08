@@ -3,7 +3,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { CrmModuleHeader } from "@/components/crm-module-header";
-import { DashboardShell } from "@/components/dashboard-shell";
 import { ModulePageLayout } from "@/components/module-page-layout";
 import { TaskForm } from "@/components/task-form";
 import { WorkspaceCard } from "@/components/workspace-card";
@@ -50,7 +49,6 @@ export default async function TaskDetailPage({ params }: TaskDetailPageProps) {
   }
 
   return (
-    <DashboardShell>
       <ModulePageLayout>
         <WorkspaceCard className="crm-workspace-card">
           <CrmModuleHeader
@@ -94,6 +92,5 @@ export default async function TaskDetailPage({ params }: TaskDetailPageProps) {
           </section>
         </WorkspaceCard>
       </ModulePageLayout>
-    </DashboardShell>
   );
 }

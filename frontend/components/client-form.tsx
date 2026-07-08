@@ -33,6 +33,15 @@ export function ClientForm({ branches, client, mode, canManageBlocks = false }: 
 
       <div className="grid gap-4 md:grid-cols-2">
         <label className="block">
+          <span className="mb-1 block text-[13px] font-medium text-[var(--text)]">Фамилия</span>
+          <input
+            name="last_name"
+            defaultValue={client?.last_name ?? ""}
+            required
+            className="form-field"
+          />
+        </label>
+        <label className="block">
           <span className="mb-1 block text-[13px] font-medium text-[var(--text)]">Имя</span>
           <input
             name="first_name"
@@ -42,11 +51,10 @@ export function ClientForm({ branches, client, mode, canManageBlocks = false }: 
           />
         </label>
         <label className="block">
-          <span className="mb-1 block text-[13px] font-medium text-[var(--text)]">Фамилия</span>
+          <span className="mb-1 block text-[13px] font-medium text-[var(--text)]">Отчество</span>
           <input
-            name="last_name"
-            defaultValue={client?.last_name ?? ""}
-            required
+            name="middle_name"
+            defaultValue={client?.middle_name ?? ""}
             className="form-field"
           />
         </label>

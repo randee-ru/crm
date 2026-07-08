@@ -4,7 +4,6 @@ import { MarketingAdvertisingPanel } from "@/components/marketing/marketing-adve
 import { MarketingModuleHeader } from "@/components/marketing/marketing-module-header";
 import { MarketingNewslettersPanel } from "@/components/marketing/marketing-newsletters-panel";
 import { MarketingStartDashboard } from "@/components/marketing/marketing-start-dashboard";
-import { DashboardShell } from "@/components/dashboard-shell";
 import { WorkspaceCard } from "@/components/workspace-card";
 import { getMarketingCampaigns, getMarketingIntegrations } from "@/lib/api";
 
@@ -39,7 +38,6 @@ export default async function MarketingPage({ searchParams }: MarketingPageProps
             : "start";
 
   return (
-    <DashboardShell>
       <div className="workspace-content min-h-0 flex-1">
         <WorkspaceCard className="marketing-workspace-card min-w-0 flex-1">
           <MarketingModuleHeader activeTab={activeTab} />
@@ -56,6 +54,5 @@ export default async function MarketingPage({ searchParams }: MarketingPageProps
           )}
         </WorkspaceCard>
       </div>
-    </DashboardShell>
   );
 }

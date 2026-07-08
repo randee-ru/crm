@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { DashboardShell } from "@/components/dashboard-shell";
 import { TrainerForm } from "@/components/trainers/trainer-form";
 import { WorkspaceCard } from "@/components/workspace-card";
 import { getBranches } from "@/lib/api";
@@ -13,7 +12,6 @@ export default async function NewTrainerPage() {
   const branches = await getBranches().catch(() => [] as BranchOption[]);
 
   return (
-    <DashboardShell>
       <div className="workspace-content min-h-0 flex-1">
         <WorkspaceCard className="trainers-workspace-card min-w-0 flex-1">
           <header className="clients-module-header">
@@ -38,6 +36,5 @@ export default async function NewTrainerPage() {
           </section>
         </WorkspaceCard>
       </div>
-    </DashboardShell>
   );
 }

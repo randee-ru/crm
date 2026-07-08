@@ -31,7 +31,7 @@ export function ClientFilters({
           name="search"
           type="search"
           defaultValue={search}
-          placeholder="Контакты в работе"
+          placeholder="Сделки и контакты"
           className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-[var(--muted)]"
         />
         {(search || clientStatus) && (

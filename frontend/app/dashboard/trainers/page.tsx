@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { DashboardShell } from "@/components/dashboard-shell";
 import { TrainersFilters } from "@/components/trainers/trainers-filters";
 import { TrainersModuleHeader } from "@/components/trainers/trainers-module-header";
 import { WorkspaceCard } from "@/components/workspace-card";
@@ -78,7 +77,6 @@ export default async function TrainersPage({ searchParams }: TrainersPageProps) 
   const unpaidRentCount = gymFloorTrainers.filter((trainer) => !trainer.rent_paid_current_month).length;
 
   return (
-    <DashboardShell>
       <div className="workspace-content min-h-0 flex-1">
         <WorkspaceCard className="trainers-workspace-card min-w-0 flex-1">
           <TrainersModuleHeader total={trainers.length} activeCount={activeCount} branchesCount={branches.length} />
@@ -217,6 +215,5 @@ export default async function TrainersPage({ searchParams }: TrainersPageProps) 
           </div>
         </WorkspaceCard>
       </div>
-    </DashboardShell>
   );
 }

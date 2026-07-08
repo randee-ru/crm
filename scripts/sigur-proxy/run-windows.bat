@@ -1,12 +1,13 @@
 @echo off
-REM Запуск Sigur-прокси на Windows-сервере клуба
-setlocal
+REM Запуск прокси Sigur на Windows-сервере клуба
+REM Требуется Python 3.10+ в PATH
+
 cd /d %~dp0
 
-if exist .env (
-  for /f "usebackq tokens=1,* delims==" %%A in (".env") do (
-    if not "%%A"=="" if not "%%A:~0,1%"=="#" set %%A=%%B
-  )
+if not exist .env (
+  echo Создайте файл .env на основе config.example.env
+  pause
+  exit /b 1
 )
 
 python proxy.py

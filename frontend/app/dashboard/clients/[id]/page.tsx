@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { ClientProfilePanel } from "@/components/clients/client-profile-panel";
-import { DashboardShell } from "@/components/dashboard-shell";
 import { WorkspaceCard } from "@/components/workspace-card";
 import { getAuthSession } from "@/lib/auth";
 import { getBranches, getClient, getClientProfile } from "@/lib/api";
@@ -47,12 +46,10 @@ export default async function ClientDetailPage({ params }: ClientDetailPageProps
   }
 
   return (
-    <DashboardShell>
       <div className="workspace-content min-h-0 flex-1">
         <WorkspaceCard className="clients-workspace-card min-w-0 flex-1">
           <ClientProfilePanel profile={profile} client={client} branches={branches} canManageBlocks={canManageBlocks} />
         </WorkspaceCard>
       </div>
-    </DashboardShell>
   );
 }

@@ -316,24 +316,27 @@ class Command(BaseCommand):
     ) -> None:
         from decimal import Decimal
 
-        from crm.pipelines import ensure_default_pipeline, get_stage_by_code
+        from crm.choices import LeadSource
+        from crm.pipelines import ensure_default_pipeline, get_renewal_pipeline, get_sales_pipeline, get_stage_by_code
 
-        pipeline = ensure_default_pipeline(company)
+        ensure_default_pipeline(company)
+        sales_pipeline = get_sales_pipeline(company)
+        renewal_pipeline = get_renewal_pipeline(company)
         clients = list(Client.objects.filter(company=company).order_by("id")[:5])
-        demo_deals = [
-            ("Пробное занятие", "new_lead", Decimal("0")),
-            ("Абонемент 3 месяца", "trial", Decimal("12900")),
-            ("Семейный тариф", "payment", Decimal("24000")),
-            ("Корпоративный пакет", "offer", Decimal("85000")),
-            ("Продление безлимита", "payment", Decimal("15900")),
+        demo_sales_deals = [
+            ("Заявка с сайта", "new_lead", Decimal("0"), LeadSource.SITE),
+            ("Звонок — пробная тренировка", "visit_scheduled", Decimal("12900"), LeadSource.CALL),
+            ("Семейный тариф", "contract", Decimal("24000"), LeadSource.REFERRAL),
+            ("Корпоративный пакет", "follow_up", Decimal("85000"), LeadSource.YANDEX_DIRECT),
+            ("WhatsApp — консультация", "visit_done", Decimal("15900"), LeadSource.WHATSAPP),
         ]
 
-        for index, (title, stage_code, amount) in enumerate(demo_deals):
+        for index, (title, stage_code, amount, source) in enumerate(demo_sales_deals):
             client = clients[index % len(clients)] if clients else None
-            stage = get_stage_by_code(pipeline, stage_code)
+            stage = get_stage_by_code(sales_pipeline, stage_code)
             Deal.objects.update_or_create(
                 company=company,
-                pipeline=pipeline,
+                pipeline=sales_pipeline,
                 title=title,
                 defaults={
                     "branch": branch,
@@ -341,6 +344,34 @@ class Command(BaseCommand):
                     "assigned_to": user,
                     "amount": amount,
                     "stage": stage,
+                    "lead_source": source,
+                    "contact_name": client.full_name if client else "",
+                    "contact_phone": client.phone if client else "",
+                },
+            )
+
+        memberships = list(
+            Membership.objects.filter(company=company, status=Membership.Status.ACTIVE).order_by("id")[:3]
+        )
+        renewal_stages = ["renewal_30", "renewal_15", "renewal_7"]
+        for index, membership in enumerate(memberships):
+            stage = get_stage_by_code(renewal_pipeline, renewal_stages[index % len(renewal_stages)])
+            Deal.objects.update_or_create(
+                company=company,
+                external_key=f"renewal:membership:{membership.pk}",
+                defaults={
+                    "pipeline": renewal_pipeline,
+                    "stage": stage,
+                    "branch": branch,
+                    "client": membership.client,
+                    "assigned_to": user,
+                    "membership": membership,
+                    "title": f"Продление: {membership.client.full_name}",
+                    "amount": membership.price,
+                    "renewal_amount": membership.price,
+                    "proposed_tariff": membership.title,
+                    "contact_name": membership.client.full_name,
+                    "contact_phone": membership.client.phone,
                 },
             )
 

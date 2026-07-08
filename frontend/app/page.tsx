@@ -149,7 +149,7 @@ export default async function HomePage() {
                       </p>
                     </div>
                     <span className="rounded bg-white px-2 py-0.5 text-[11px] font-semibold text-[var(--muted)]">
-                      {formatClientDate(featuredClient.created_at)}
+                      {formatClientDate(featuredClient.registration_date)}
                     </span>
                   </div>
                 </div>

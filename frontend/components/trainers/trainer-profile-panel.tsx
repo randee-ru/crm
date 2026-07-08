@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 
+import { ClickToCallChip } from "@/components/telephony/click-to-call-chip";
 import { TrainerAccessCardsPanel } from "@/components/trainers/trainer-access-cards-panel";
 import { TrainerDeleteButton } from "@/components/trainers/trainer-delete-button";
 import { TrainerForm } from "@/components/trainers/trainer-form";
@@ -61,10 +62,7 @@ export function TrainerProfilePanel({ trainer, branches }: TrainerProfilePanelPr
             </div>
             <div className="client-card-header-meta">
               {trainer.phone ? (
-                <a href={`tel:${trainer.phone}`} className="client-card-meta-chip">
-                  <IconPhone size={14} />
-                  {trainer.phone}
-                </a>
+                <ClickToCallChip phone={trainer.phone}>{trainer.phone}</ClickToCallChip>
               ) : null}
               {trainer.email ? (
                 <a href={`mailto:${trainer.email}`} className="client-card-meta-chip">

@@ -9,6 +9,12 @@ def normalize_phone(value: str | None) -> str:
         return ""
     if len(digits) == 11 and digits.startswith("8"):
         return f"7{digits[1:]}"
+    if len(digits) == 11 and digits.startswith("7"):
+        return digits
+    if len(digits) == 10 and digits.startswith("8"):
+        return f"7{digits[1:]}"
+    if len(digits) == 10 and digits.startswith("7"):
+        return digits
     if len(digits) == 10:
         return f"7{digits}"
     return digits

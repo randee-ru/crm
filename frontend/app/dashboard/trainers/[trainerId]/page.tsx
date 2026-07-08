@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { DashboardShell } from "@/components/dashboard-shell";
 import { TrainerProfilePanel } from "@/components/trainers/trainer-profile-panel";
 import { WorkspaceCard } from "@/components/workspace-card";
 import { getBranches, getTrainer } from "@/lib/api";
@@ -41,12 +40,10 @@ export default async function TrainerDetailPage({ params }: TrainerPageProps) {
   }
 
   return (
-    <DashboardShell>
       <div className="workspace-content min-h-0 flex-1">
         <WorkspaceCard className="trainers-workspace-card min-w-0 flex-1">
           <TrainerProfilePanel trainer={trainer} branches={branches} />
         </WorkspaceCard>
       </div>
-    </DashboardShell>
   );
 }

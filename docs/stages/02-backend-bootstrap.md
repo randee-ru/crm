@@ -1,4 +1,4 @@
-# Этап 2 - Backend Bootstrap
+# Этап 2 - Основа backend
 
 ## Цель
 

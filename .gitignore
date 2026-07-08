@@ -22,3 +22,7 @@ htmlcov/
 *.egg-info/
 *.tsbuildinfo
 /media/
+gateway/data/sessions/
+deploy/backups/*.tgz
+deploy/backups/*.dump
+deploy/certbot/conf/

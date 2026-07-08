@@ -24,7 +24,8 @@ from telephony.serializers import (
     TelephonyIntegrationSerializer,
     TelephonyIntegrationWriteSerializer,
 )
-from telephony.services import sync_mango_calls
+from telephony.click_to_call import click_to_call
+from telephony.services import recording_unavailable_message, sync_mango_calls, try_refresh_call_recording
 
 
 class BinaryPassthroughRenderer(BaseRenderer):
@@ -191,13 +192,30 @@ class MangoSyncView(TelephonyQuerysetMixin, APIView):
         )
 
 
+class ClickToCallView(TelephonyQuerysetMixin, APIView):
+    def post(self, request: Request) -> Response:
+        phone = str(request.data.get("phone") or "").strip()
+        extension = str(request.data.get("extension") or "").strip()
+        if not phone:
+            return Response({"detail": "Укажите номер телефона."}, status=400)
+
+        company = self.get_company()
+        try:
+            result = click_to_call(company, request.user, phone=phone, extension=extension)
+        except Exception as exc:
+            return Response({"detail": str(exc)}, status=400)
+
+        return Response(result)
+
+
 class CallRecordingView(TelephonyQuerysetMixin, APIView):
     def post(self, request: Request, call_id: int) -> Response:
         call = self.get_calls_queryset().filter(id=call_id).first()
         if call is None:
             return Response({"detail": "Call not found."}, status=404)
+        call = try_refresh_call_recording(call)
         if not call.recording_id and not call.recording_file:
-            return Response({"detail": "Recording not available."}, status=404)
+            return Response({"detail": recording_unavailable_message(call)}, status=404)
         return Response(
             {
                 "playback_url": f"/api/telephony/recording/{call_id}",
@@ -219,8 +237,9 @@ class CallRecordingStreamView(TelephonyQuerysetMixin, APIView):
         call = self.get_calls_queryset().filter(id=call_id).first()
         if call is None:
             return HttpResponse("Call not found.", status=404)
+        call = try_refresh_call_recording(call)
         if not call.recording_id and not call.recording_file:
-            return HttpResponse("Recording not available.", status=404)
+            return HttpResponse(recording_unavailable_message(call), status=404)
 
         if call.recording_file:
             return build_local_recording_response(call)

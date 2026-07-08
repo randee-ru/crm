@@ -12,6 +12,7 @@ type CrmKanbanColumnHeaderProps = {
   stage: DealStageRecord;
   stages: DealStageRecord[];
   dealsCount: number;
+  loadedCount?: number;
   totalAmount: number;
   canMoveLeft: boolean;
   canMoveRight: boolean;
@@ -26,6 +27,7 @@ export function CrmKanbanColumnHeader({
   stage,
   stages,
   dealsCount,
+  loadedCount,
   totalAmount,
   canMoveLeft,
   canMoveRight,
@@ -169,7 +171,11 @@ export function CrmKanbanColumnHeader({
           ) : (
             <>
               <span className="crm-kanban-col-title-text">{stage.name}</span>
-              <span className="crm-kanban-col-count">({dealsCount})</span>
+              <span className="crm-kanban-col-count">
+                ({loadedCount != null && loadedCount < dealsCount
+                  ? `${loadedCount} из ${dealsCount}`
+                  : dealsCount})
+              </span>
               <button
                 type="button"
                 className="crm-kanban-col-edit"

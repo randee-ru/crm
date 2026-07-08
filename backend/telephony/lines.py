@@ -267,6 +267,10 @@ def resolve_mango_call_line_name(call: MangoCall, line_directory: dict[str, Any]
     )
 
 
+def is_managers_line(line_name: str | None) -> bool:
+    return (line_name or "").strip() == "Менеджеры"
+
+
 def filter_calls_by_line_key(queryset: QuerySet, line_key: str) -> QuerySet:
     config = next((item for item in DISPLAY_LINES if item["key"] == line_key), None)
     if config is None:

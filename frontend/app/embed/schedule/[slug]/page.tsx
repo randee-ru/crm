@@ -17,7 +17,7 @@ export default async function EmbedSchedulePage({ params, searchParams }: EmbedS
   const { token = "" } = await searchParams;
 
   return (
-    <main className="schedule-embed-page">
+    <main className="schedule-embed-page schedule-embed-page--wide">
       <ScheduleEmbedView companySlug={slug} token={token} />
     </main>
   );

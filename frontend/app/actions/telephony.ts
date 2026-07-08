@@ -108,3 +108,14 @@ export async function transcribeCallAction(
 export async function reportCallAction(callId: number): Promise<{ call_report: string; cached: boolean }> {
   return telephonyFetch(`/api/v1/telephony/calls/${callId}/report/`, { method: "POST", body: "{}" });
 }
+
+export async function clickToCallAction(payload: {
+  phone: string;
+  client_id?: number;
+  extension?: string;
+}): Promise<{ status: string; extension: string; to_number: string }> {
+  return telephonyFetch("/api/v1/telephony/calls/click-to-call/", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}

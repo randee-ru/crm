@@ -38,7 +38,7 @@ class MembershipModelTest(TestCase):
             price="4990.00",
         )
 
-        self.assertEqual(str(membership), "Anna Petrova — Monthly 12 visits")
+        self.assertEqual(str(membership), "Petrova Anna — Monthly 12 visits")
         self.assertEqual(membership.remaining_visits, 9)
 
     def test_membership_rejects_client_from_other_company(self) -> None:

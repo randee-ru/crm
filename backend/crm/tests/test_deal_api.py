@@ -39,7 +39,7 @@ class DealApiTest(TestCase):
         self.token = Token.objects.create(user=self.user)
         self.pipeline = ensure_default_pipeline(self.company)
         self.new_stage = get_stage_by_code(self.pipeline, "new_lead")
-        self.offer_stage = get_stage_by_code(self.pipeline, "offer")
+        self.offer_stage = get_stage_by_code(self.pipeline, "follow_up")
 
     def auth_headers(self) -> dict[str, str]:
         return {"HTTP_AUTHORIZATION": f"Token {self.token.key}"}
@@ -66,7 +66,9 @@ class DealApiTest(TestCase):
             **self.auth_headers(),
         )
         self.assertEqual(list_response.status_code, 200)
-        self.assertEqual(len(list_response.json()), 1)
+        payload = list_response.json()
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(len(payload["results"]), 1)
 
     def test_deal_stage_update(self) -> None:
         deal = Deal.objects.create(
@@ -109,6 +111,118 @@ class DealApiTest(TestCase):
         self.assertEqual(response.status_code, 204)
         self.assertFalse(Deal.objects.filter(id=deal.id).exists())
 
+    def test_deal_detail_without_renewal_fields(self) -> None:
+        deal = Deal.objects.create(
+            company=self.company,
+            pipeline=self.pipeline,
+            stage=self.new_stage,
+            title="Заявка — звонок +79991234567",
+            contact_phone="+79991234567",
+            amount=Decimal("0.00"),
+        )
+
+        response = self.http.get(
+            f"/api/v1/deals/{deal.id}/?company=sportmax",
+            **self.auth_headers(),
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertIsNone(payload["client_id"])
+        self.assertIsNone(payload["renewal_amount"])
+        self.assertIn("linked_calls", payload)
+        self.assertIn("tasks", payload)
+
+    def test_deal_contact_create_and_detail(self) -> None:
+        deal = Deal.objects.create(
+            company=self.company,
+            pipeline=self.pipeline,
+            stage=self.new_stage,
+            branch=self.branch,
+            client=self.client_record,
+            assigned_to=self.user,
+            title="Контакт по сделке",
+            amount=Decimal("5000.00"),
+        )
+
+        contact_response = self.http.post(
+            f"/api/v1/deals/{deal.id}/contacts/?company=sportmax",
+            data={
+                "contact_type": "call",
+                "contacted_at": "2026-07-10T14:00:00+03:00",
+                "comment": "Перезвонить по тарифу",
+            },
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+        self.assertEqual(contact_response.status_code, 201)
+        payload = contact_response.json()
+        self.assertEqual(payload["contact_type"], "call")
+        self.assertEqual(payload["comment"], "Перезвонить по тарифу")
+
+        detail_response = self.http.get(
+            f"/api/v1/deals/{deal.id}/?company=sportmax",
+            **self.auth_headers(),
+        )
+        self.assertEqual(detail_response.status_code, 200)
+        detail = detail_response.json()
+        self.assertEqual(len(detail["contact_history"]), 1)
+        if detail["stage_history"]:
+            self.assertIsNone(detail["stage_history"][0]["from_stage_code"])
+        deal.refresh_from_db()
+        self.assertIsNotNone(deal.next_contact_at)
+
+    def test_deal_task_create_and_list(self) -> None:
+        from crm.models import Task
+
+        deal = Deal.objects.create(
+            company=self.company,
+            pipeline=self.pipeline,
+            stage=self.new_stage,
+            branch=self.branch,
+            client=self.client_record,
+            assigned_to=self.user,
+            title="Задачи по сделке",
+            amount=Decimal("3000.00"),
+        )
+
+        task_response = self.http.post(
+            "/api/v1/tasks/?company=sportmax",
+            data={
+                "title": "Отправить КП",
+                "deal_id": deal.id,
+                "due_at": "2026-07-08T10:00:00+03:00",
+            },
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+        self.assertEqual(task_response.status_code, 201)
+        self.assertEqual(task_response.json()["title"], "Отправить КП")
+
+        list_response = self.http.get(
+            f"/api/v1/tasks/?company=sportmax&deal={deal.id}",
+            **self.auth_headers(),
+        )
+        self.assertEqual(list_response.status_code, 200)
+        tasks = list_response.json()
+        self.assertEqual(len(tasks), 1)
+        self.assertEqual(tasks[0]["deal_id"], deal.id)
+
+        detail_response = self.http.get(
+            f"/api/v1/deals/{deal.id}/?company=sportmax",
+            **self.auth_headers(),
+        )
+        self.assertEqual(len(detail_response.json()["tasks"]), 1)
+
+        task_id = tasks[0]["id"]
+        done_response = self.http.patch(
+            f"/api/v1/tasks/{task_id}/?company=sportmax",
+            data={"status": Task.Status.DONE},
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+        self.assertEqual(done_response.status_code, 200)
+        self.assertEqual(done_response.json()["status"], Task.Status.DONE)
+
 
 class PipelineApiTest(TestCase):
     def setUp(self) -> None:
@@ -137,12 +251,16 @@ class PipelineApiTest(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         pipelines = response.json()
-        self.assertEqual(len(pipelines), 1)
-        self.assertEqual(pipelines[0]["name"], "Продажи абонементов")
-        self.assertGreaterEqual(len(pipelines[0]["stages"]), 7)
-        stage_names = [stage["name"] for stage in pipelines[0]["stages"]]
-        self.assertIn("Пробное занятие", stage_names)
-        self.assertIn("Абонемент оформлен", stage_names)
+        self.assertEqual(len(pipelines), 4)
+        general = next(p for p in pipelines if p["slug"] == "general")
+        self.assertEqual(general["name"], "Общая воронка")
+        self.assertTrue(general["is_default"])
+        sales = next(p for p in pipelines if p["slug"] == "membership-sales")
+        self.assertEqual(sales["name"], "Продажа абонемента")
+        self.assertGreaterEqual(len(sales["stages"]), 7)
+        stage_names = [stage["name"] for stage in sales["stages"]]
+        self.assertIn("Назначен визит", stage_names)
+        self.assertIn("Продано", stage_names)
 
     def test_pipeline_create_and_stage_create(self) -> None:
         create_pipeline = self.http.post(

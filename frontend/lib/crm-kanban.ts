@@ -8,22 +8,27 @@ export function formatDealAmount(amount: string | number): string {
   }).format(value);
 }
 
+export function formatKanbanCardCreatedAt(value: string): string {
+  try {
+    return new Intl.DateTimeFormat("ru-RU", {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(value));
+  } catch {
+    return "";
+  }
+}
+
 export function buildCrmDashboardHref(
   view: "kanban" | "list",
   params?: Record<string, string | undefined>,
 ) {
-  if (view === "list") {
-    const search = new URLSearchParams();
-    if (params) {
-      for (const [key, value] of Object.entries(params)) {
-        if (value) search.set(key, value);
-      }
-    }
-    const query = search.toString();
-    return query ? `/dashboard/clients?${query}` : "/dashboard/clients";
-  }
-
   const search = new URLSearchParams();
+  if (view === "list") {
+    search.set("view", "list");
+  }
   if (params) {
     for (const [key, value] of Object.entries(params)) {
       if (value) search.set(key, value);

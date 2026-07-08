@@ -22,7 +22,7 @@ class ClientModelTest(TestCase):
             phone="+79990001122",
         )
 
-        self.assertEqual(client.full_name, "Anna Petrova")
-        self.assertEqual(str(client), "Anna Petrova (+79990001122)")
+        self.assertEqual(client.full_name, "Petrova Anna")
+        self.assertEqual(str(client), "Petrova Anna (+79990001122)")
         self.assertEqual(company.clients.count(), 1)
 

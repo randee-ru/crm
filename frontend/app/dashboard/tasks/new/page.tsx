@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { CrmModuleHeader } from "@/components/crm-module-header";
-import { DashboardShell } from "@/components/dashboard-shell";
 import { ModulePageLayout } from "@/components/module-page-layout";
 import { TaskForm } from "@/components/task-form";
 import { WorkspaceCard } from "@/components/workspace-card";
@@ -16,7 +15,6 @@ export default async function NewTaskPage() {
   const [, clients] = await Promise.all([getCompanyContext(), getClients()]);
 
   return (
-    <DashboardShell>
       <ModulePageLayout>
         <WorkspaceCard className="crm-workspace-card">
           <CrmModuleHeader
@@ -35,6 +33,5 @@ export default async function NewTaskPage() {
           </section>
         </WorkspaceCard>
       </ModulePageLayout>
-    </DashboardShell>
   );
 }

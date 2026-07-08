@@ -3,7 +3,6 @@ import type { Metadata } from "next";
 import { ContractsFilters } from "@/components/contracts/contracts-filters";
 import { ContractsModuleHeader } from "@/components/contracts/contracts-module-header";
 import { ContractsTable } from "@/components/contracts/contracts-table";
-import { DashboardShell } from "@/components/dashboard-shell";
 import { WorkspaceCard } from "@/components/workspace-card";
 import { getContracts } from "@/lib/api";
 
@@ -36,7 +35,6 @@ export default async function ContractsPage({ searchParams }: ContractsPageProps
   }
 
   return (
-    <DashboardShell>
       <div className="workspace-content min-h-0 flex-1">
         <WorkspaceCard className="contracts-workspace-card min-w-0 flex-1">
           <ContractsModuleHeader total={contracts.length} />
@@ -51,6 +49,5 @@ export default async function ContractsPage({ searchParams }: ContractsPageProps
           />
         </WorkspaceCard>
       </div>
-    </DashboardShell>
   );
 }

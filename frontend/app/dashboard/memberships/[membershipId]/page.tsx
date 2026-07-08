@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 
 import { MembershipDeleteButton } from "@/components/memberships/membership-delete-button";
 import { MembershipForm } from "@/components/memberships/membership-form";
-import { DashboardShell } from "@/components/dashboard-shell";
 import { WorkspaceCard } from "@/components/workspace-card";
 import { getBranches, getClients, getMembership } from "@/lib/api";
 
@@ -56,7 +55,6 @@ export default async function MembershipDetailPage({ params }: MembershipDetailP
   }
 
   return (
-    <DashboardShell>
       <div className="workspace-content min-h-0 flex-1">
         <WorkspaceCard className="clients-workspace-card min-w-0 flex-1">
           <header className="clients-module-header">
@@ -97,6 +95,5 @@ export default async function MembershipDetailPage({ params }: MembershipDetailP
           </section>
         </WorkspaceCard>
       </div>
-    </DashboardShell>
   );
 }

@@ -1,4 +1,4 @@
-# API: healthcheck
+# API: проверка backend
 
 ## Назначение
 

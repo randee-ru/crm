@@ -39,16 +39,16 @@ CRM KIT/
 | № | Файл | Содержание |
 |---|------|------------|
 | 01 | [stages/01-foundation.md](./stages/01-foundation.md) | Основа репозитория |
-| 02 | [stages/02-backend-bootstrap.md](./stages/02-backend-bootstrap.md) | Django, Docker, healthcheck |
-| 03 | [stages/03-saas-core.md](./stages/03-saas-core.md) | Company, Branch, multi-tenant |
+| 02 | [stages/02-backend-bootstrap.md](./stages/02-backend-bootstrap.md) | Основа backend: Django, Docker, healthcheck |
+| 03 | [stages/03-saas-core.md](./stages/03-saas-core.md) | SaaS-основа: компания, филиалы, мультитенантность |
 | 04 | [stages/04-admin-unfold.md](./stages/04-admin-unfold.md) | Панель платформы на Unfold |
-| 05 | [stages/05-fitness-club-mvp.md](./stages/05-fitness-club-mvp.md) | Клиенты, абонементы |
-| 06 | [stages/06-frontend-bootstrap.md](./stages/06-frontend-bootstrap.md) | Next.js dashboard |
+| 05 | [stages/05-fitness-club-mvp.md](./stages/05-fitness-club-mvp.md) | MVP для фитнес-клубов: клиенты, абонементы, бронирования |
+| 06 | [stages/06-frontend-bootstrap.md](./stages/06-frontend-bootstrap.md) | Основа frontend на Next.js |
 | 07 | [stages/07-developing-new-features.md](./stages/07-developing-new-features.md) | Учебный контур разработки |
 | 08 | [stages/08-fitness-kanban-pipelines.md](./stages/08-fitness-kanban-pipelines.md) | **Канбан, воронки, сделки** |
 | 09 | [stages/09-reports-analytics.md](./stages/09-reports-analytics.md) | Отчёты и аналитика |
 | 10 | [stages/10-integrations.md](./stages/10-integrations.md) | Интеграции |
-| 11 | [stages/11-production-hardening.md](./stages/11-production-hardening.md) | Production hardening |
+| 11 | [stages/11-production-hardening.md](./stages/11-production-hardening.md) | Укрепление production |
 
 ---
 
@@ -97,6 +97,10 @@ Next.js, API-клиент.
 | [clients-crud](./api/clients-crud.md) | CRUD клиентов |
 | [tasks-and-schedule](./api/tasks-and-schedule.md) | задачи, расписание |
 | [**deals-and-pipelines**](./api/deals-and-pipelines.md) | **воронки, этапы, сделки** |
+| [automation](./api/automation.md) | правила автоматизации |
+| [notifications](./api/notifications.md) | уведомления |
+| [reports](./api/reports.md) | отчёты и аналитика |
+| [integrations](./api/integrations.md) | интеграции и webhook log |
 | [template](./api/template.md) | шаблон для новых страниц |
 
 Индекс: [api/README.md](./api/README.md).
@@ -133,9 +137,13 @@ Next.js, API-клиент.
 | `clients` | Клиенты клуба | ✅ |
 | `crm` | Задачи, сделки, воронки | ✅ |
 | `schedule` | Расписание занятий | ✅ |
-| `memberships` | Абонементы (модель) | частично |
-| `sales`, `payments` | Счета, оплаты | рабочие |
-| `automation`, `notifications` | Роботы, уведомления | рабочий каркас |
+| `memberships` | Абонементы, список, карточка, CRUD | ✅ |
+| `employees` | Тренеры, доступы, аренда, СКУД | ✅ |
+| `bookings` | Бронирования и визиты | ✅ |
+| `attendance` | Посещаемость | ✅ |
+| `sales` | Продажи и журналы оплат | ✅ |
+| `payments` | Платежи | ✅ |
+| `automation`, `notifications` | Роботы и уведомления | рабочий каркас |
 | `reports` | Отчёты и аналитика | рабочий каркас |
 | `integrations` | Внешние интеграции | рабочий каркас |
 
@@ -149,10 +157,24 @@ Next.js, API-клиент.
 | `/login` | Авторизация |
 | `/dashboard` | CRM: канбан сделок / список клиентов |
 | `/dashboard/clients/*` | CRUD клиентов |
+| `/dashboard/memberships/*` | Абонементы |
+| `/dashboard/bookings/*` | Бронирования |
+| `/dashboard/attendance/*` | Посещаемость |
+| `/dashboard/employees/*` | Сотрудники и доступы |
+| `/dashboard/trainers/*` | Тренеры |
 | `/dashboard/tasks/*` | Задачи |
 | `/dashboard/schedule` | Расписание |
-| `/dashboard/profile` | Профиль пользователя |
+| `/dashboard/sales` | Продажи |
+| `/dashboard/payments` | Платежи |
+| `/dashboard/telephony` | Телефония |
 | `/dashboard/reports` | Отчёты и аналитика |
+| `/dashboard/daily-report` | Дневной отчёт |
+| `/dashboard/drive` | Диск и файлы |
+| `/dashboard/messages` | Сообщения |
+| `/dashboard/mail` | Почта |
+| `/dashboard/marketing` | Маркетинг |
+| `/dashboard/contracts` | Договоры |
+| `/dashboard/profile` | Профиль пользователя |
 | `/dashboard/settings` | Настройки (инструменты, воронки) |
 
 Подробнее: [frontend/README.md](../frontend/README.md).

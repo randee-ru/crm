@@ -3,7 +3,6 @@ import { Suspense } from "react";
 
 import { maybeAutoSyncMangoAction } from "@/app/actions/telephony";
 import { TelephonyPageClient } from "@/components/telephony/telephony-page-client";
-import { DashboardShell } from "@/components/dashboard-shell";
 import { WorkspaceCard } from "@/components/workspace-card";
 import { getTelephonyDashboard, getTelephonyIntegration } from "@/lib/api";
 import type { TelephonyDashboardStats, TelephonyIntegrationRecord } from "@/lib/types";
@@ -49,7 +48,6 @@ export default async function TelephonyPage() {
   }
 
   return (
-    <DashboardShell>
       <div className="workspace-content min-h-0 flex-1">
         <WorkspaceCard className="telephony-workspace-card min-w-0 flex-1">
           {offline ? (
@@ -63,6 +61,5 @@ export default async function TelephonyPage() {
           )}
         </WorkspaceCard>
       </div>
-    </DashboardShell>
   );
 }

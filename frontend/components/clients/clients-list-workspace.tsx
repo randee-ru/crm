@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { ClientsModuleHeader } from "@/components/clients/clients-module-header";
-import { ClientsTable } from "@/components/clients-table";
+import { ClientsTable, type ClientSortKey } from "@/components/clients-table";
 import { ListPagination } from "@/components/list-pagination";
 import { WorkspaceCard } from "@/components/workspace-card";
 import { listClientsAction } from "@/app/actions/clients";
@@ -62,6 +62,7 @@ export function ClientsListWorkspace({ totalCount, activeCount = 0 }: ClientsLis
   const birthDateTo = searchParams.get("birth_date_to") || "";
   const birthdayMonth = searchParams.get("birthday_month") || "";
   const membershipExpiresInDays = searchParams.get("membership_expires_in_days") || "";
+  const ordering = searchParams.get("ordering") || "";
 
   const hasAdvancedFilters = Boolean(
     birthDateFrom || birthDateTo || birthdayMonth || membershipExpiresInDays,
@@ -87,6 +88,7 @@ export function ClientsListWorkspace({ totalCount, activeCount = 0 }: ClientsLis
       nextBirthDateTo: string,
       nextBirthdayMonth: string,
       nextMembershipExpiresInDays: string,
+      nextOrdering: string,
     ) => {
       const params = new URLSearchParams();
       if (nextPage > 1) {
@@ -109,6 +111,9 @@ export function ClientsListWorkspace({ totalCount, activeCount = 0 }: ClientsLis
       }
       if (nextMembershipExpiresInDays) {
         params.set("membership_expires_in_days", nextMembershipExpiresInDays);
+      }
+      if (nextOrdering) {
+        params.set("ordering", nextOrdering);
       }
       const query = params.toString();
       router.replace(query ? `/dashboard/clients?${query}` : "/dashboard/clients", { scroll: false });
@@ -133,12 +138,23 @@ export function ClientsListWorkspace({ totalCount, activeCount = 0 }: ClientsLis
           birthDateTo,
           birthdayMonth,
           membershipExpiresInDays,
+          ordering,
         );
       }
     }, 350);
 
     return () => window.clearTimeout(timer);
-  }, [searchInput, clientStatus, urlSearch, updateUrl, birthDateFrom, birthDateTo, birthdayMonth, membershipExpiresInDays]);
+  }, [
+    searchInput,
+    clientStatus,
+    urlSearch,
+    updateUrl,
+    birthDateFrom,
+    birthDateTo,
+    birthdayMonth,
+    membershipExpiresInDays,
+    ordering,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -156,6 +172,7 @@ export function ClientsListWorkspace({ totalCount, activeCount = 0 }: ClientsLis
           birthDateTo: birthDateTo || undefined,
           birthdayMonth: birthdayMonth || undefined,
           membershipExpiresInDays: membershipExpiresInDays || undefined,
+          ordering: ordering || undefined,
         });
 
         if (!cancelled) {
@@ -179,18 +196,10 @@ export function ClientsListWorkspace({ totalCount, activeCount = 0 }: ClientsLis
     return () => {
       cancelled = true;
     };
-  }, [page, effectiveSearch, clientStatus, birthDateFrom, birthDateTo, birthdayMonth, membershipExpiresInDays]);
+  }, [page, effectiveSearch, clientStatus, birthDateFrom, birthDateTo, birthdayMonth, membershipExpiresInDays, ordering]);
 
   function handleClientStatusChange(value: string) {
-    updateUrl(
-      1,
-      effectiveSearch,
-      value,
-      birthDateFrom,
-      birthDateTo,
-      birthdayMonth,
-      membershipExpiresInDays,
-    );
+    updateUrl(1, effectiveSearch, value, birthDateFrom, birthDateTo, birthdayMonth, membershipExpiresInDays, ordering);
   }
 
   function handleFilterChange(nextValues: {
@@ -207,6 +216,26 @@ export function ClientsListWorkspace({ totalCount, activeCount = 0 }: ClientsLis
       nextValues.birthDateTo ?? birthDateTo,
       nextValues.birthdayMonth ?? birthdayMonth,
       nextValues.membershipExpiresInDays ?? membershipExpiresInDays,
+      ordering,
+    );
+  }
+
+  function handleSortChange(key: ClientSortKey) {
+    let nextOrdering: string = key;
+    if (ordering === key) {
+      nextOrdering = `-${key}`;
+    } else if (ordering === `-${key}`) {
+      nextOrdering = "";
+    }
+    updateUrl(
+      1,
+      effectiveSearch,
+      clientStatus,
+      birthDateFrom,
+      birthDateTo,
+      birthdayMonth,
+      membershipExpiresInDays,
+      nextOrdering,
     );
   }
 
@@ -276,7 +305,7 @@ export function ClientsListWorkspace({ totalCount, activeCount = 0 }: ClientsLis
           )}
         </button>
 
-        {(urlSearch || clientStatus || hasAdvancedFilters) && (
+        {(urlSearch || clientStatus || hasAdvancedFilters || ordering) && (
           <button
             type="button"
             onClick={handleReset}
@@ -367,6 +396,8 @@ export function ClientsListWorkspace({ totalCount, activeCount = 0 }: ClientsLis
 
       <ClientsTable
         clients={clients}
+        ordering={ordering}
+        onSortChange={handleSortChange}
         emptyMessage={
           error
             ? "Backend недоступен или сессия истекла."
@@ -390,6 +421,7 @@ export function ClientsListWorkspace({ totalCount, activeCount = 0 }: ClientsLis
             birthDateTo,
             birthdayMonth,
             membershipExpiresInDays,
+            ordering,
           )
         }
       />

@@ -159,7 +159,7 @@ class AttendanceApiTest(TestCase):
             **self.auth_headers(),
         )
         self.assertEqual(detail_response.status_code, 200)
-        self.assertEqual(detail_response.json()["client_name"], "Иван Петров")
+        self.assertEqual(detail_response.json()["client_name"], "Петров Иван")
 
         update_response = self.http.patch(
             f"/api/v1/attendance/{attendance.id}/?company=sportmax",

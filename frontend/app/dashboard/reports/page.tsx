@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 
-import { DashboardShell } from "@/components/dashboard-shell";
 import { ModulePageLayout } from "@/components/module-page-layout";
 import { WidgetCard } from "@/components/widget-card";
 import { WorkspaceCard } from "@/components/workspace-card";
@@ -53,7 +52,6 @@ export default async function ReportsPage() {
   }
 
   return (
-    <DashboardShell>
       <ModulePageLayout
         sidebar={
           <>
@@ -158,6 +156,5 @@ export default async function ReportsPage() {
           </div>
         </WorkspaceCard>
       </ModulePageLayout>
-    </DashboardShell>
   );
 }

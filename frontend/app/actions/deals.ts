@@ -1,11 +1,24 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import { getAuthHeaders, getCompanySlugFromCookie } from "@/lib/auth";
 import { API_BASE_URL } from "@/lib/api-config";
 import { getDeal } from "@/lib/api";
-import type { DealDetail, DealWriteInput } from "@/lib/types";
+import type { DealDetail, DealListFilters, DealWriteInput } from "@/lib/types";
+
+export async function getCrmDashboardAction(options: {
+  pipelineId?: string;
+  search?: string;
+  perStage?: number;
+} = {}) {
+  const { getCrmDashboard } = await import("@/lib/api");
+  return getCrmDashboard(undefined, options);
+}
+
+export async function getCrmListMetaAction() {
+  const { getBranches, getPipelines } = await import("@/lib/api");
+  const [pipelines, branches] = await Promise.all([getPipelines(), getBranches()]);
+  return { pipelines, branches };
+}
 
 export async function getDealAction(dealId: number): Promise<DealDetail> {
   return getDeal(dealId);
@@ -29,8 +42,27 @@ export async function updateDealStageAction(dealId: number, stageId: number) {
   if (!response.ok) {
     throw new Error("Не удалось переместить сделку.");
   }
+}
 
-  revalidatePath("/dashboard");
+export async function getCrmFunnelAnalyticsAction(pipelineSlug: string) {
+  const { getCrmFunnelAnalytics } = await import("@/lib/api");
+  return getCrmFunnelAnalytics(pipelineSlug);
+}
+
+export async function listDealsAction(filters: DealListFilters = {}) {
+  const { getDealsPaginated } = await import("@/lib/api");
+  return getDealsPaginated(undefined, filters);
+}
+
+export async function loadKanbanStageDealsAction(
+  pipelineId: number,
+  stageId: number,
+  offset: number,
+  search?: string,
+  limit = 15,
+) {
+  const { getKanbanStageDeals } = await import("@/lib/api");
+  return getKanbanStageDeals(pipelineId, stageId, offset, { search, limit });
 }
 
 export async function updateDealAction(
@@ -55,11 +87,13 @@ export async function updateDealAction(
     return { error: "Не удалось сохранить сделку." };
   }
 
-  revalidatePath("/dashboard");
   return {};
 }
 
-export async function createQuickDealAction(pipelineId: number, stageId: number) {
+export async function createQuickDealAction(
+  pipelineId: number,
+  stageId: number,
+): Promise<import("@/lib/types").DealRecord> {
   const companySlug = await getCompanySlugFromCookie();
 
   const response = await fetch(
@@ -83,7 +117,7 @@ export async function createQuickDealAction(pipelineId: number, stageId: number)
     throw new Error("Не удалось создать сделку.");
   }
 
-  revalidatePath("/dashboard");
+  return response.json() as Promise<import("@/lib/types").DealRecord>;
 }
 
 export async function deleteDealAction(dealId: number): Promise<{ error?: string }> {
@@ -101,7 +135,6 @@ export async function deleteDealAction(dealId: number): Promise<{ error?: string
     return { error: "Не удалось удалить сделку." };
   }
 
-  revalidatePath("/dashboard");
   return {};
 }
 
@@ -139,6 +172,5 @@ export async function copyDealAction(dealId: number): Promise<{ error?: string; 
   }
 
   const created = (await response.json()) as { id: number };
-  revalidatePath("/dashboard");
   return { dealId: created.id };
 }

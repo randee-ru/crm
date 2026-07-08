@@ -8,7 +8,7 @@ type ModulePageLayoutProps = {
 export function ModulePageLayout({ children, sidebar }: ModulePageLayoutProps) {
   return (
     <div className="workspace-content min-h-0 flex-1">
-      <div className="min-h-0 min-w-0 flex-1">{children}</div>
+      <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">{children}</div>
       {sidebar ? (
         <aside className="hidden w-[272px] shrink-0 space-y-3 xl:block">{sidebar}</aside>
       ) : null}

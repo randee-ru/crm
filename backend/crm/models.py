@@ -8,6 +8,7 @@ from branches.models import Branch
 from clients.models import Client
 from companies.models import Company
 from core.models import TimeStampedModel
+from crm.choices import ClientInterest, ContactType, LeadSource, LossReason, VisitType
 
 
 class Task(TimeStampedModel):
@@ -81,6 +82,15 @@ class Task(TimeStampedModel):
         default=Priority.NORMAL,
     )
     due_at = models.DateTimeField("Срок", null=True, blank=True)
+    deal = models.ForeignKey(
+        "Deal",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="tasks",
+        verbose_name="Сделка",
+    )
+    automation_key = models.CharField("Ключ автоматизации", max_length=128, blank=True, db_index=True)
 
     class Meta:
         verbose_name = "Задача"
@@ -162,11 +172,72 @@ class Deal(TimeStampedModel):
     external_key = models.CharField("Ключ импорта", max_length=128, blank=True, db_index=True)
     closed_at = models.DateTimeField("Дата закрытия", null=True, blank=True)
     amount = models.DecimalField("Сумма", max_digits=12, decimal_places=2, default=0)
+    # Контактные данные лида (если клиент ещё не создан в CRM)
+    contact_name = models.CharField("Имя контакта", max_length=255, blank=True)
+    contact_phone = models.CharField("Телефон", max_length=32, blank=True)
+    contact_email = models.EmailField("Email", blank=True)
+    lead_source = models.CharField(
+        "Источник лида",
+        max_length=32,
+        choices=LeadSource.choices,
+        blank=True,
+    )
+    client_interest = models.CharField(
+        "Интерес клиента",
+        max_length=32,
+        choices=ClientInterest.choices,
+        blank=True,
+    )
+    visit_type = models.CharField(
+        "Тип визита",
+        max_length=32,
+        choices=VisitType.choices,
+        blank=True,
+    )
+    visit_at = models.DateTimeField("Дата визита", null=True, blank=True)
+    visit_done_at = models.DateTimeField("Визит состоялся в", null=True, blank=True)
+    desired_tariff = models.CharField("Желаемый тариф", max_length=120, blank=True)
+    next_contact_at = models.DateTimeField("Следующий контакт", null=True, blank=True)
+    manager_comment = models.TextField("Комментарий менеджера", blank=True)
+    loss_reason = models.CharField(
+        "Причина отказа",
+        max_length=32,
+        choices=LossReason.choices,
+        blank=True,
+    )
+    follow_up_started_at = models.DateTimeField("Начало повторного контакта", null=True, blank=True)
+    # Поля воронки продления
+    membership = models.ForeignKey(
+        "memberships.Membership",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="renewal_deals",
+        verbose_name="Абонемент",
+    )
+    renewal_amount = models.DecimalField(
+        "Сумма продления",
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    proposed_tariff = models.CharField("Предложенный тариф", max_length=120, blank=True)
 
     class Meta:
         verbose_name = "Сделка"
         verbose_name_plural = "Сделки"
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(
+                fields=["company", "pipeline", "stage", "-created_at"],
+                name="crm_deal_kanban_idx",
+            ),
+            models.Index(
+                fields=["company", "pipeline", "stage"],
+                name="crm_deal_pipeline_stage_idx",
+            ),
+        ]
 
     def clean(self) -> None:
         errors: dict[str, str] = {}
@@ -185,8 +256,100 @@ class Deal(TimeStampedModel):
         self.full_clean()
         super().save(*args, **kwargs)
 
+    @property
+    def display_name(self) -> str:
+        if self.client_id:
+            return self.client.full_name
+        return self.contact_name or self.title
+
+    @property
+    def display_phone(self) -> str:
+        if self.client_id and self.client.phone:
+            return self.client.phone
+        return self.contact_phone
+
+    def days_remaining(self) -> int | None:
+        """Оставшиеся дни абонемента (для воронки продления)."""
+        if not self.membership_id:
+            return None
+        from django.utils import timezone
+
+        ends_at = self.membership.ends_at
+        return (ends_at - timezone.localdate()).days
+
     def __str__(self) -> str:
         return self.title
+
+
+class DealStageHistory(TimeStampedModel):
+    """История смены этапов сделки."""
+
+    deal = models.ForeignKey(
+        Deal,
+        on_delete=models.CASCADE,
+        related_name="stage_history",
+        verbose_name="Сделка",
+    )
+    from_stage = models.ForeignKey(
+        "DealStage",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="history_from",
+        verbose_name="С этапа",
+    )
+    to_stage = models.ForeignKey(
+        "DealStage",
+        on_delete=models.PROTECT,
+        related_name="history_to",
+        verbose_name="На этап",
+    )
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="deal_stage_changes",
+        verbose_name="Кто изменил",
+    )
+    comment = models.TextField("Комментарий", blank=True)
+
+    class Meta:
+        verbose_name = "История этапа сделки"
+        verbose_name_plural = "История этапов сделок"
+        ordering = ["-created_at"]
+
+
+class DealContactHistory(TimeStampedModel):
+    """История контактов по сделке."""
+
+    deal = models.ForeignKey(
+        Deal,
+        on_delete=models.CASCADE,
+        related_name="contact_history",
+        verbose_name="Сделка",
+    )
+    contact_type = models.CharField(
+        "Тип контакта",
+        max_length=20,
+        choices=ContactType.choices,
+        default=ContactType.NOTE,
+    )
+    contacted_at = models.DateTimeField("Дата контакта")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="deal_contacts",
+        verbose_name="Менеджер",
+    )
+    comment = models.TextField("Комментарий", blank=True)
+
+    class Meta:
+        verbose_name = "Контакт по сделке"
+        verbose_name_plural = "Контакты по сделкам"
+        ordering = ["-contacted_at"]
 
 
 class DealPipeline(TimeStampedModel):

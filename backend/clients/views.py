@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from django.db.models import Q, QuerySet
+from django.db.models import DateField, OuterRef, Q, QuerySet, Subquery
+from django.db.models.functions import Cast, Coalesce
 from django.utils import timezone
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.generics import ListAPIView, ListCreateAPIView, RetrieveAPIView, RetrieveUpdateAPIView
@@ -23,6 +24,7 @@ from clients.serializers import (
     BranchOptionSerializer,
     ClientDetailSerializer,
     ClientListSerializer,
+    ClientOptionSerializer,
     ClientWriteSerializer,
 )
 from clients.profile_serializers import ClientProfileSerializer
@@ -73,13 +75,31 @@ class ClientListCreateView(ClientQuerysetMixin, ListCreateAPIView):
 
     pagination_class = ClientListPagination
 
+    # Ключ из ?ordering= -> поля модели/аннотации для order_by.
+    # "-" перед ключом разворачивает сортировку (соответствует конвенции DRF).
+    ORDERING_FIELDS = {
+        "name": ["last_name", "first_name"],
+        "client_status": ["client_status"],
+        "membership_title": ["membership_title_sort"],
+        "birth_date": ["birth_date"],
+        "membership_end": ["membership_end_sort"],
+        "branch": ["branch__name"],
+        "registration_date": ["registration_sort"],
+        "path": ["client_status"],
+    }
+
     def get_serializer_class(self):
         if self.request.method == "POST":
             return ClientWriteSerializer
         return ClientListSerializer
 
     def get_queryset(self) -> QuerySet[Client]:
-        queryset = self.get_company_clients_queryset().order_by("-created_at")
+        latest_membership = Membership.objects.filter(client=OuterRef("pk")).order_by("-starts_at")
+        queryset = self.get_company_clients_queryset().annotate(
+            membership_title_sort=Subquery(latest_membership.values("title")[:1]),
+            membership_end_sort=Subquery(latest_membership.values("ends_at")[:1]),
+            registration_sort=Coalesce("registration_date", Cast("created_at", DateField())),
+        )
 
         search = self.request.query_params.get("search", "").strip()
         if len(search) >= 3:
@@ -137,6 +157,16 @@ class ClientListCreateView(ClientQuerysetMixin, ListCreateAPIView):
                     )
                     .distinct()
                 )
+
+        ordering_param = self.request.query_params.get("ordering", "").strip()
+        descending = ordering_param.startswith("-")
+        ordering_key = ordering_param[1:] if descending else ordering_param
+        ordering_fields = self.ORDERING_FIELDS.get(ordering_key)
+        if ordering_fields:
+            prefix = "-" if descending else ""
+            queryset = queryset.order_by(*(f"{prefix}{field}" for field in ordering_fields), "-created_at")
+        else:
+            queryset = queryset.order_by("-created_at")
 
         return queryset
 
@@ -218,6 +248,40 @@ class BranchListView(ClientQuerysetMixin, ListAPIView):
             return Branch.objects.none()
 
         return Branch.objects.filter(company__slug=company_slug, is_active=True).order_by("name")
+
+
+class ClientOptionsView(ClientQuerysetMixin, ListAPIView):
+    """Быстрый поиск клиентов для привязки к сделке."""
+
+    serializer_class = ClientOptionSerializer
+    pagination_class = ClientListPagination
+
+    def get_queryset(self) -> QuerySet[Client]:
+        queryset = (
+            Client.objects.filter(
+                company__slug=resolve_company_slug(self.request, required=True),
+                company__is_active=True,
+            )
+            .only("id", "first_name", "last_name", "middle_name", "phone")
+            .order_by("last_name", "first_name", "id")
+        )
+
+        search = self.request.query_params.get("search", "").strip()
+        ids_raw = self.request.query_params.get("ids", "").strip()
+        if ids_raw:
+            ids = [int(value) for value in ids_raw.split(",") if value.isdigit()]
+            if ids:
+                return queryset.filter(id__in=ids)
+
+        if len(search) < 2:
+            return queryset.none()
+
+        return queryset.filter(
+            Q(first_name__icontains=search)
+            | Q(last_name__icontains=search)
+            | Q(middle_name__icontains=search)
+            | Q(phone__icontains=search)
+        )
 
 
 class CompanyContextView(APIView):

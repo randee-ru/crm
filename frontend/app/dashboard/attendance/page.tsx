@@ -7,7 +7,6 @@ import {
   AttendanceToolbar,
   AttendanceVisitorsTable,
 } from "@/components/attendance/attendance-visitors-panel";
-import { DashboardShell } from "@/components/dashboard-shell";
 import { WidgetCard } from "@/components/widget-card";
 import {
   getAttendanceOccupancy,
@@ -61,7 +60,6 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
     when === "now" ? records.length : records.filter((item) => item.is_in_club).length;
 
   return (
-    <DashboardShell>
       <div className="workspace-content min-h-0 flex-1">
         <div className="attendance-workspace-shell min-w-0 flex-1">
           <div className="attendance-workspace-main">
@@ -116,6 +114,5 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
           </aside>
         </div>
       </div>
-    </DashboardShell>
   );
 }

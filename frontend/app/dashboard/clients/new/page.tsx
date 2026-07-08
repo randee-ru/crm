@@ -3,7 +3,6 @@ import Link from "next/link";
 
 import { CrmModuleHeader } from "@/components/crm-module-header";
 import { ClientForm } from "@/components/client-form";
-import { DashboardShell } from "@/components/dashboard-shell";
 import { ModulePageLayout } from "@/components/module-page-layout";
 import { WorkspaceCard } from "@/components/workspace-card";
 import { getAuthSession } from "@/lib/auth";
@@ -19,7 +18,6 @@ export default async function NewClientPage() {
   const canManageBlocks = ["owner", "admin", "manager"].includes(session?.company?.role ?? "");
 
   return (
-    <DashboardShell>
       <ModulePageLayout>
         <WorkspaceCard className="crm-workspace-card">
           <CrmModuleHeader
@@ -41,6 +39,5 @@ export default async function NewClientPage() {
           </section>
         </WorkspaceCard>
       </ModulePageLayout>
-    </DashboardShell>
   );
 }

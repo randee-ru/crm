@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { cancelInvitationAction } from "@/app/actions/employees";
-import { DashboardShell } from "@/components/dashboard-shell";
 import { RoleMenuSettings } from "@/components/employees/role-menu-settings";
 import { WorkspaceCard } from "@/components/workspace-card";
 import { getModuleSettingsAction } from "@/app/actions/company";
@@ -92,7 +91,6 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
   const pendingInvitations = dashboard.invitations.filter((item) => item.status === "pending");
 
   return (
-    <DashboardShell>
       <div className="workspace-content min-h-0 flex-1">
         <WorkspaceCard className="crm-workspace-card min-w-0 flex-1 overflow-hidden">
           <div className="border-b border-[var(--line)] bg-[linear-gradient(180deg,#2b71bf_0%,#1f5e9e_100%)] px-5 py-5 text-white">
@@ -308,6 +306,5 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
           </div>
         </WorkspaceCard>
       </div>
-    </DashboardShell>
   );
 }

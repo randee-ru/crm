@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+
+from django.utils import timezone
 from rest_framework import serializers
 
 from branches.models import Branch
@@ -263,6 +266,14 @@ class ScheduleSmsIntegrationWriteSerializer(serializers.ModelSerializer):
             "is_primary",
         ]
 
+    def validate(self, attrs: dict) -> dict:
+        provider = attrs.get("provider", getattr(self.instance, "provider", ""))
+        sender = str(attrs.get("sender_name", getattr(self.instance, "sender_name", "")) or "").strip()
+        if provider == ScheduleSmsIntegration.Provider.SMS_RU:
+            # Вариант 1: пустое имя — стандартный SMS.ru без ежемесячной платы.
+            attrs["sender_name"] = sender
+        return attrs
+
     def create(self, validated_data: dict) -> ScheduleSmsIntegration:
         validated_data["company"] = self.context["company"]
         return super().create(validated_data)
@@ -330,6 +341,15 @@ class PublicScheduleSlotSerializer(serializers.ModelSerializer):
     display_color = serializers.SerializerMethodField()
     trainer_display = serializers.SerializerMethodField()
     program_code = serializers.CharField(source="program.code", read_only=True)
+    max_participants = serializers.SerializerMethodField()
+    seats_left = serializers.SerializerMethodField()
+    is_enrolled = serializers.SerializerMethodField()
+    enrollment_id = serializers.SerializerMethodField()
+    enrollment_status = serializers.SerializerMethodField()
+    can_book = serializers.SerializerMethodField()
+    is_past = serializers.SerializerMethodField()
+    is_started = serializers.SerializerMethodField()
+    can_cancel = serializers.SerializerMethodField()
 
     class Meta:
         model = GroupScheduleSlot
@@ -345,7 +365,88 @@ class PublicScheduleSlotSerializer(serializers.ModelSerializer):
             "trainer_display",
             "description",
             "restrictions",
+            "max_participants",
+            "seats_left",
+            "is_enrolled",
+            "enrollment_id",
+            "enrollment_status",
+            "can_book",
+            "is_past",
+            "is_started",
+            "can_cancel",
         ]
+
+    def _slot_capacity(self, slot: GroupScheduleSlot) -> tuple[int, int]:
+        occupancy = self.context.get("occupancy", {})
+        occupied = int(occupancy.get(slot.id, 0))
+        max_participants = slot.max_participants or int(self.context.get("default_max", 20))
+        return occupied, max_participants
+
+    def get_max_participants(self, slot: GroupScheduleSlot) -> int:
+        _, max_participants = self._slot_capacity(slot)
+        return max_participants
+
+    def get_seats_left(self, slot: GroupScheduleSlot) -> int:
+        occupied, max_participants = self._slot_capacity(slot)
+        return max(0, max_participants - occupied)
+
+    def get_is_enrolled(self, slot: GroupScheduleSlot) -> bool:
+        return slot.id in self.context.get("client_enrolled_slot_ids", set())
+
+    def get_enrollment_id(self, slot: GroupScheduleSlot) -> int | None:
+        if not self.get_is_enrolled(slot):
+            return None
+        value = self.context.get("client_enrollment_id_by_slot", {}).get(slot.id)
+        return int(value) if value else None
+
+    def get_enrollment_status(self, slot: GroupScheduleSlot) -> str | None:
+        if not self.get_is_enrolled(slot):
+            return None
+        return self.context.get("client_enrollment_status_by_slot", {}).get(slot.id)
+
+    def _session_start(self, slot: GroupScheduleSlot) -> datetime:
+        session_start = datetime.combine(slot.session_date, slot.start_time)
+        if timezone.is_aware(timezone.localtime()):
+            return timezone.make_aware(session_start, timezone.get_current_timezone())
+        return session_start
+
+    def get_is_started(self, slot: GroupScheduleSlot) -> bool:
+        return timezone.localtime() >= self._session_start(slot)
+
+    def get_is_past(self, slot: GroupScheduleSlot) -> bool:
+        now = timezone.localtime()
+        session_end = datetime.combine(slot.session_date, slot.end_time)
+        if timezone.is_aware(now):
+            session_end = timezone.make_aware(session_end, timezone.get_current_timezone())
+        return session_end < now
+
+    def get_can_book(self, slot: GroupScheduleSlot) -> bool:
+        if self.get_is_enrolled(slot):
+            return False
+
+        now = timezone.localtime()
+        session_start = self._session_start(slot)
+        if now >= session_start:
+            return False
+
+        # Запись закрывается за 1 час до начала.
+        return now < session_start - timedelta(hours=1)
+
+    def get_can_cancel(self, slot: GroupScheduleSlot) -> bool:
+        if not self.get_is_enrolled(slot):
+            return False
+
+        if not self.get_enrollment_id(slot):
+            return False
+
+        now = timezone.localtime()
+        session_start = datetime.combine(slot.session_date, slot.start_time)
+        if timezone.is_aware(now):
+            session_start = timezone.make_aware(session_start, timezone.get_current_timezone())
+
+        # Отменить нельзя менее чем за 1 час до начала.
+        cancel_deadline = session_start - timedelta(hours=1)
+        return now < cancel_deadline
 
     def get_display_title(self, slot: GroupScheduleSlot) -> str:
         return slot.custom_title or slot.program.title
@@ -363,6 +464,50 @@ class PublicSchedulePayloadSerializer(serializers.Serializer):
     company_name = serializers.CharField()
     company_slug = serializers.CharField()
     weeks_ahead = serializers.IntegerField()
+    weeks_back = serializers.IntegerField(required=False, default=0)
     date_from = serializers.DateField()
     date_to = serializers.DateField()
+    booking_enabled = serializers.BooleanField(required=False, default=True)
+    client = serializers.DictField(required=False, allow_null=True)
     slots = PublicScheduleSlotSerializer(many=True)
+
+
+class PublicClientEnrollmentSerializer(serializers.ModelSerializer):
+    slot_id = serializers.IntegerField(source="slot.id", read_only=True)
+    session_date = serializers.DateField(source="slot.session_date", read_only=True)
+    start_time = serializers.TimeField(source="slot.start_time", read_only=True)
+    end_time = serializers.TimeField(source="slot.end_time", read_only=True)
+    display_title = serializers.SerializerMethodField()
+    display_color = serializers.SerializerMethodField()
+    trainer_display = serializers.SerializerMethodField()
+    room = serializers.CharField(source="slot.room", read_only=True)
+
+    class Meta:
+        model = GroupSlotEnrollment
+        fields = [
+            "id",
+            "slot_id",
+            "session_date",
+            "start_time",
+            "end_time",
+            "display_title",
+            "display_color",
+            "trainer_display",
+            "room",
+            "status",
+            "created_at",
+        ]
+
+    def get_display_title(self, enrollment: GroupSlotEnrollment) -> str:
+        slot = enrollment.slot
+        return slot.custom_title or slot.program.title
+
+    def get_display_color(self, enrollment: GroupSlotEnrollment) -> str:
+        slot = enrollment.slot
+        return slot.color or slot.program.color
+
+    def get_trainer_display(self, enrollment: GroupSlotEnrollment) -> str:
+        slot = enrollment.slot
+        if slot.trainer_id:
+            return slot.trainer.full_name
+        return slot.trainer_name or ""

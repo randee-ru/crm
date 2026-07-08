@@ -1,16 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
 
 import { getDealAction, updateDealAction, updateDealStageAction } from "@/app/actions/deals";
 import {
   CrmDealHeaderFunnelSelect,
   CrmDealHeaderTitle,
 } from "@/components/crm-deal-panel-header";
+import { CrmDealCallPlayer } from "@/components/crm-deal-call-player";
+import { CrmDealPanelFeed } from "@/components/crm-deal-panel-feed";
+import { CrmClientPicker } from "@/components/crm-client-picker";
+import { CrmDealCreateClient } from "@/components/crm-deal-create-client";
 import { useWorkspaceShell } from "@/components/workspace-shell-provider";
-import { formatClientDate, formatDateTime } from "@/lib/api";
+import { formatClientDate } from "@/lib/api";
 import { formatDealAmount } from "@/lib/crm-kanban";
 import type { BranchOption, ClientRecord, DealDetail, DealPipelineRecord } from "@/lib/types";
 
@@ -18,7 +21,6 @@ type CrmDealCardPanelProps = {
   dealId: number;
   pipeline: DealPipelineRecord;
   pipelines: DealPipelineRecord[];
-  clients: ClientRecord[];
   branches: BranchOption[];
   preview?: DealDetail | null;
   onClose: () => void;
@@ -36,15 +38,15 @@ export function CrmDealCardPanel({
   dealId,
   pipeline,
   pipelines,
-  clients,
   branches,
   preview,
   onClose,
 }: CrmDealCardPanelProps) {
-  const router = useRouter();
   const { sidebarCollapsed } = useWorkspaceShell();
   const [mounted, setMounted] = useState(false);
   const [deal, setDeal] = useState<DealDetail | null>(preview ?? null);
+  const [selectedClientId, setSelectedClientId] = useState<number | null>(preview?.client_id ?? null);
+  const [selectedClientName, setSelectedClientName] = useState<string | null>(preview?.client_name ?? null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -64,19 +66,49 @@ export function CrmDealCardPanel({
 
   const activeStageIndex = stages.findIndex((stage) => stage.id === deal?.stage_id);
 
-  const loadDeal = useCallback(async () => {
-    setLoadError(null);
-    try {
-      const detail = await getDealAction(dealId);
-      setDeal(detail);
-    } catch {
-      setLoadError("Не удалось загрузить сделку.");
-    }
-  }, [dealId]);
+  useEffect(() => {
+    setSelectedClientId(deal?.client_id ?? null);
+    setSelectedClientName(deal?.client_name ?? null);
+  }, [deal?.client_id, deal?.client_name, deal?.id]);
 
   useEffect(() => {
-    void loadDeal();
-  }, [loadDeal]);
+    setDeal(preview ?? null);
+    setLoadError(null);
+    setSaveError(null);
+    setSaveSuccess(false);
+  }, [dealId, preview]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function run() {
+      try {
+        const detail = await getDealAction(dealId);
+        if (!cancelled) {
+          setDeal(detail);
+          setSelectedClientId(detail.client_id ?? null);
+          setSelectedClientName(detail.client_name ?? null);
+          setLoadError(null);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          const message = error instanceof Error ? error.message : "";
+          setLoadError(
+            message.includes("status 500")
+              ? "Ошибка сервера при загрузке сделки. Перезапустите backend."
+              : message.includes("status 404")
+                ? "Сделка не найдена."
+                : "Не удалось загрузить сделку.",
+          );
+        }
+      }
+    }
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [dealId]);
 
   useEffect(() => {
     setMounted(true);
@@ -105,6 +137,35 @@ export function CrmDealCardPanel({
   const handleStageClick = (stageId: number) => {
     if (!deal || deal.stage_id === stageId) return;
 
+    const targetStage = stages.find((item) => item.id === stageId);
+    if (targetStage?.is_lost && !deal.loss_reason) {
+      const reason = window.prompt(
+        "Укажите причину отказа (expensive, other_club, far, no_time, no_answer, changed_mind, club_dislike, no_visit, other):",
+      );
+      if (!reason) return;
+
+      startTransition(async () => {
+        try {
+          await updateDealAction(deal.id, { stage_id: stageId, loss_reason: reason });
+          setDeal((current) =>
+            current
+              ? {
+                  ...current,
+                  stage_id: stageId,
+                  stage_label: targetStage.name,
+                  stage_code: targetStage.code,
+                  stage_color: targetStage.color,
+                  loss_reason: reason,
+                }
+              : current,
+          );
+        } catch {
+          setSaveError("Не удалось сменить этап.");
+        }
+      });
+      return;
+    }
+
     startTransition(async () => {
       try {
         await updateDealStageAction(deal.id, stageId);
@@ -120,7 +181,6 @@ export function CrmDealCardPanel({
               }
             : current,
         );
-        router.refresh();
       } catch {
         setSaveError("Не удалось сменить этап.");
       }
@@ -138,7 +198,6 @@ export function CrmDealCardPanel({
 
     setDeal((current) => (current ? { ...current, title } : current));
     setSaveError(null);
-    router.refresh();
   };
 
   const handlePipelineChange = (pipelineId: number) => {
@@ -175,7 +234,37 @@ export function CrmDealCardPanel({
             }
           : current,
       );
-      router.refresh();
+    });
+  };
+
+  const handleClientCreated = (client: ClientRecord) => {
+    setSelectedClientId(client.id);
+    setSelectedClientName(client.full_name);
+
+    startTransition(async () => {
+      setSaveError(null);
+      const result = await updateDealAction(deal!.id, {
+        client_id: client.id,
+        contact_name: client.full_name,
+        contact_phone: client.phone,
+      });
+
+      if (result.error) {
+        setSaveError(result.error);
+        return;
+      }
+
+      setDeal((current) =>
+        current
+          ? {
+              ...current,
+              client_id: client.id,
+              client_name: client.full_name,
+              contact_phone: client.phone,
+            }
+          : current,
+      );
+      setSaveSuccess(true);
     });
   };
 
@@ -185,7 +274,6 @@ export function CrmDealCardPanel({
 
     const formData = new FormData(event.currentTarget);
     const amount = String(formData.get("amount") ?? "0");
-    const clientRaw = String(formData.get("client_id") ?? "");
     const branchRaw = String(formData.get("branch_id") ?? "");
 
     startTransition(async () => {
@@ -194,7 +282,7 @@ export function CrmDealCardPanel({
       const result = await updateDealAction(deal.id, {
         title: deal.title,
         amount,
-        client_id: clientRaw ? Number(clientRaw) : null,
+        client_id: selectedClientId,
         branch_id: branchRaw ? Number(branchRaw) : null,
       });
 
@@ -203,22 +291,20 @@ export function CrmDealCardPanel({
         return;
       }
 
-      const client = clients.find((item) => item.id === Number(clientRaw));
       const branch = branches.find((item) => item.id === Number(branchRaw));
       setDeal((current) =>
         current
           ? {
               ...current,
               amount,
-              client_id: clientRaw ? Number(clientRaw) : null,
+              client_id: selectedClientId,
               branch_id: branchRaw ? Number(branchRaw) : null,
-              client_name: client?.full_name ?? null,
+              client_name: selectedClientName,
               branch_name: branch?.name ?? null,
             }
           : current,
       );
       setSaveSuccess(true);
-      router.refresh();
     });
   };
 
@@ -326,6 +412,17 @@ export function CrmDealCardPanel({
                   <div className="crm-deal-panel-alert crm-deal-panel-alert--success">Сохранено</div>
                 ) : null}
 
+                {deal.linked_calls && deal.linked_calls.length > 0 ? (
+                  <div className="crm-deal-section crm-deal-section--calls">
+                    <h3 className="crm-deal-section-title">Звонки</h3>
+                    <div className="crm-deal-calls-list">
+                      {deal.linked_calls.map((call) => (
+                        <CrmDealCallPlayer key={call.id} call={call} />
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
                 <div className="crm-deal-section">
                   <h3 className="crm-deal-section-title">О сделке</h3>
 
@@ -364,21 +461,27 @@ export function CrmDealCardPanel({
                     </span>
                   </div>
 
-                  <label className="crm-deal-field">
+                  <div className="crm-deal-field">
                     <span className="crm-deal-field-label">Клиент</span>
-                    <select
-                      name="client_id"
-                      defaultValue={deal.client_id ?? ""}
-                      className="form-field"
-                    >
-                      <option value="">не заполнено</option>
-                      {clients.map((client) => (
-                        <option key={client.id} value={client.id}>
-                          {client.full_name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                    <CrmClientPicker
+                      value={selectedClientId}
+                      label={selectedClientName}
+                      disabled={isPending}
+                      onChange={(client) => {
+                        setSelectedClientId(client?.id ?? null);
+                        setSelectedClientName(client?.full_name ?? null);
+                      }}
+                    />
+                    {!deal.client_id && !selectedClientId ? (
+                      <CrmDealCreateClient
+                        phone={deal.contact_phone ?? ""}
+                        branches={branches}
+                        branchId={deal.branch_id}
+                        disabled={isPending}
+                        onCreated={handleClientCreated}
+                      />
+                    ) : null}
+                  </div>
 
                   <label className="crm-deal-field">
                     <span className="crm-deal-field-label">Филиал</span>
@@ -391,6 +494,38 @@ export function CrmDealCardPanel({
                       ))}
                     </select>
                   </label>
+
+                  <label className="crm-deal-field">
+                    <span className="crm-deal-field-label">Телефон</span>
+                    <input
+                      name="contact_phone"
+                      type="text"
+                      defaultValue={deal.contact_phone ?? ""}
+                      className="form-field"
+                      readOnly
+                    />
+                  </label>
+
+                  {deal.lead_source_label ? (
+                    <div className="crm-deal-field crm-deal-field--readonly">
+                      <span className="crm-deal-field-label">Источник</span>
+                      <span className="crm-deal-field-value">{deal.lead_source_label}</span>
+                    </div>
+                  ) : null}
+
+                  {deal.days_remaining != null ? (
+                    <div className="crm-deal-field crm-deal-field--readonly">
+                      <span className="crm-deal-field-label">Дней до окончания</span>
+                      <span className="crm-deal-field-value">{deal.days_remaining}</span>
+                    </div>
+                  ) : null}
+
+                  {deal.membership_title ? (
+                    <div className="crm-deal-field crm-deal-field--readonly">
+                      <span className="crm-deal-field-label">Абонемент</span>
+                      <span className="crm-deal-field-value">{deal.membership_title}</span>
+                    </div>
+                  ) : null}
 
                   <div className="crm-deal-field crm-deal-field--readonly">
                     <span className="crm-deal-field-label">Дата начала</span>
@@ -425,50 +560,11 @@ export function CrmDealCardPanel({
               </form>
             </section>
 
-            <aside className="crm-deal-panel-feed">
-              <div className="crm-deal-feed-tabs">
-                <button type="button" className="crm-deal-feed-tab crm-deal-feed-tab--active">
-                  Дело
-                </button>
-                <button type="button" className="crm-deal-feed-tab" disabled>
-                  Комментарий
-                </button>
-                <button type="button" className="crm-deal-feed-tab" disabled>
-                  Задача
-                </button>
-              </div>
-
-              <div className="crm-deal-feed-compose">
-                <input
-                  type="text"
-                  placeholder="Что нужно сделать"
-                  className="crm-deal-feed-input"
-                  disabled
-                />
-                <p className="crm-deal-feed-hint">Задачи и комментарии — на следующем этапе</p>
-              </div>
-
-              <div className="crm-deal-feed-promo">
-                <strong>Создайте дело</strong>
-                <p>Запланируйте следующий шаг с клиентом: звонок, пробное занятие или напоминание об оплате.</p>
-                <button type="button" className="crm-deal-feed-promo-btn" disabled>
-                  Создать дело
-                </button>
-              </div>
-
-              <ol className="crm-deal-timeline">
-                {deal.updated_at !== deal.created_at ? (
-                  <li className="crm-deal-timeline-item">
-                    <span className="crm-deal-timeline-time">{formatDateTime(deal.updated_at)}</span>
-                    <span className="crm-deal-timeline-text">Сделка обновлена</span>
-                  </li>
-                ) : null}
-                <li className="crm-deal-timeline-item">
-                  <span className="crm-deal-timeline-time">{formatDateTime(deal.created_at)}</span>
-                  <span className="crm-deal-timeline-text">Создана сделка</span>
-                </li>
-              </ol>
-            </aside>
+            <CrmDealPanelFeed
+              deal={deal}
+              disabled={isPending}
+              onUpdated={(nextDeal) => setDeal(nextDeal)}
+            />
           </div>
         ) : null}
       </aside>

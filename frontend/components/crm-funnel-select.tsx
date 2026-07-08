@@ -5,6 +5,7 @@ import type { ComponentProps } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import { buildCrmDashboardHref } from "@/lib/crm-kanban";
+import { CANONICAL_PIPELINE_SLUGS, sortCanonicalPipelines } from "@/lib/crm-pipelines";
 import type { DealPipelineRecord } from "@/lib/types";
 
 type CrmFunnelSelectProps = {
@@ -13,12 +14,19 @@ type CrmFunnelSelectProps = {
   preserveQuery?: Record<string, string | undefined>;
 };
 
-function withQuery(href: string, preserveQuery?: Record<string, string | undefined>) {
+function withQuery(
+  href: string,
+  preserveQuery?: Record<string, string | undefined>,
+  skipKeys: string[] = [],
+) {
   const [path, existing = ""] = href.split("?");
   const params = new URLSearchParams(existing);
+  const skip = new Set(skipKeys);
   if (preserveQuery) {
     for (const [key, value] of Object.entries(preserveQuery)) {
-      if (value) params.set(key, value);
+      if (value && !skip.has(key)) {
+        params.set(key, value);
+      }
     }
   }
   const query = params.toString();
@@ -34,6 +42,11 @@ export function CrmFunnelSelect({
   const rootRef = useRef<HTMLDivElement>(null);
   const activePipeline =
     pipelines.find((pipeline) => pipeline.id === activePipelineId) ?? pipelines[0];
+  const visiblePipelines = sortCanonicalPipelines(
+    pipelines.filter((pipeline) =>
+      (CANONICAL_PIPELINE_SLUGS as readonly string[]).includes(pipeline.slug),
+    ),
+  );
 
   useEffect(() => {
     const handleClick = (event: MouseEvent) => {
@@ -69,13 +82,16 @@ export function CrmFunnelSelect({
 
       {open ? (
         <div className="crm-funnel-dropdown" role="menu">
-          {pipelines.map((pipeline) => (
+          {visiblePipelines.map((pipeline) => (
             <Link
               key={pipeline.id}
               href={
                 withQuery(
-                  buildCrmDashboardHref("kanban", { pipeline: String(pipeline.id) }),
+                  buildCrmDashboardHref(preserveQuery?.view === "list" ? "list" : "kanban", {
+                    pipeline: String(pipeline.id),
+                  }),
                   preserveQuery,
+                  ["pipeline"],
                 ) as ComponentProps<typeof Link>["href"]
               }
               className={`crm-funnel-option ${

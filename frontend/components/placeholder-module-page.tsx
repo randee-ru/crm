@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 
 import { CrmModuleHeader } from "@/components/crm-module-header";
-import { DashboardShell } from "@/components/dashboard-shell";
 import { ModulePageLayout } from "@/components/module-page-layout";
 import { WorkspaceCard } from "@/components/workspace-card";
 
@@ -19,20 +18,18 @@ export async function PlaceholderModulePage({
   children,
 }: PlaceholderModulePageProps) {
   return (
-    <DashboardShell>
-      <ModulePageLayout>
-        <WorkspaceCard className="crm-workspace-card">
-          <CrmModuleHeader
-            title={title}
-            activeTopTab={activeTopTab}
-            showCreate={false}
-          />
-          <div className="px-4 py-8">
-            <p className="max-w-2xl text-[14px] leading-6 text-[var(--muted)]">{description}</p>
-            {children}
-          </div>
-        </WorkspaceCard>
-      </ModulePageLayout>
-    </DashboardShell>
+    <ModulePageLayout>
+      <WorkspaceCard className="crm-workspace-card">
+        <CrmModuleHeader
+          title={title}
+          activeTopTab={activeTopTab}
+          showCreate={false}
+        />
+        <div className="px-4 py-8">
+          <p className="max-w-2xl text-[14px] leading-6 text-[var(--muted)]">{description}</p>
+          {children}
+        </div>
+      </WorkspaceCard>
+    </ModulePageLayout>
   );
 }

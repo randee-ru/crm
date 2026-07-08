@@ -49,8 +49,9 @@ export type AuthSession = {
 export type ClientRecord = {
   id: number;
   full_name: string;
-  first_name: string;
   last_name: string;
+  first_name: string;
+  middle_name?: string;
   phone: string;
   email: string;
   birth_date: string | null;
@@ -68,6 +69,7 @@ export type ClientRecord = {
   ltv_total?: string;
   manager_name?: string | null;
   last_visit_date?: string | null;
+  registration_date: string;
   created_at: string;
 };
 
@@ -345,6 +347,7 @@ export type CompanyModuleSettings = {
 export type ClientWriteInput = {
   first_name: string;
   last_name: string;
+  middle_name?: string;
   phone: string;
   email?: string;
   birth_date?: string | null;
@@ -370,6 +373,14 @@ export type ClientListFilters = {
   birthDateTo?: string;
   birthdayMonth?: string;
   membershipExpiresInDays?: string;
+  ordering?: string;
+  page?: number;
+};
+
+export type DealListFilters = {
+  search?: string;
+  pipelineId?: string;
+  stageId?: string;
   page?: number;
 };
 
@@ -379,6 +390,7 @@ export type TaskRecord = {
   status: string;
   priority: string;
   due_at: string | null;
+  deal_id?: number | null;
   client_name: string | null;
   branch_name: string | null;
   assigned_to_name: string | null;
@@ -403,6 +415,7 @@ export type TaskWriteInput = {
   due_at?: string | null;
   client_id?: number | null;
   branch_id?: number | null;
+  deal_id?: number | null;
 };
 
 export type DealStageRecord = {
@@ -431,21 +444,141 @@ export type DealRecord = {
   title: string;
   amount: string;
   pipeline_id: number;
+  pipeline_slug?: string;
   stage_id: number;
   stage_code: string;
   stage_label: string;
   stage_color: string;
   client_name: string | null;
+  contact_name?: string;
+  contact_phone?: string;
+  contact_email?: string;
+  lead_source?: string;
+  lead_source_label?: string;
+  client_interest?: string;
+  visit_type?: string;
+  visit_at?: string | null;
+  desired_tariff?: string;
+  next_contact_at?: string | null;
+  manager_comment?: string;
+  loss_reason?: string;
+  days_remaining?: number | null;
+  has_overdue_task?: boolean;
   branch_name: string | null;
   assigned_to_name: string | null;
   created_at: string;
+};
+
+export type DealStageHistoryRecord = {
+  id: number;
+  from_stage_code: string | null;
+  from_stage_name: string | null;
+  to_stage_code: string;
+  to_stage_name: string;
+  changed_by_name: string | null;
+  comment: string;
+  created_at: string;
+};
+
+export type DealContactHistoryRecord = {
+  id: number;
+  contact_type: string;
+  contact_type_label: string;
+  contacted_at: string;
+  user_name: string | null;
+  comment: string;
+  created_at: string;
+};
+
+export type DealTaskRecord = {
+  id: number;
+  title: string;
+  description?: string;
+  status: string;
+  priority: string;
+  due_at: string | null;
+  assigned_to_name: string | null;
+  created_by_name: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DealContactWriteInput = {
+  contact_type: string;
+  contacted_at?: string;
+  comment?: string;
+};
+
+export type DealLinkedCall = {
+  id: number;
+  caller_phone: string;
+  line_name: string;
+  status: string;
+  status_label: string;
+  started_at: string;
+  duration: number;
+  has_recording: boolean;
+  recording_status?: "available" | "not_stored" | "unavailable";
 };
 
 export type DealDetail = DealRecord & {
   client_id: number | null;
   branch_id: number | null;
   assigned_to_id: number | null;
+  membership_id?: number | null;
+  membership_title?: string | null;
+  membership_starts_at?: string | null;
+  membership_ends_at?: string | null;
+  renewal_amount?: string | null;
+  proposed_tariff?: string;
+  source_name?: string;
+  channel?: string;
+  description?: string;
+  closed_at?: string | null;
+  stage_history?: DealStageHistoryRecord[];
+  contact_history?: DealContactHistoryRecord[];
+  tasks?: DealTaskRecord[];
+  linked_calls?: DealLinkedCall[];
   updated_at: string;
+};
+
+export type FunnelAnalytics = {
+  pipeline_slug: string;
+  total_deals: number;
+  open_deals: number;
+  won_deals?: number;
+  lost_deals?: number;
+  renewed_deals?: number;
+  not_renewed_deals?: number;
+  overdue_deals?: number;
+  conversion_rate?: number;
+  renewal_rate?: number;
+  stages: Array<{
+    code: string;
+    name: string;
+    count: number;
+    total_amount: string;
+  }>;
+};
+
+export type CrmAnalyticsSummary = {
+  total_deals: number;
+  open_deals: number;
+};
+
+export type ClientOption = {
+  id: number;
+  full_name: string;
+  phone: string;
+};
+
+export type CrmDashboardResponse = {
+  pipelines: DealPipelineRecord[];
+  active_pipeline: DealPipelineRecord | null;
+  deals: DealRecord[];
+  analytics_summary: CrmAnalyticsSummary | null;
+  branches: BranchOption[];
+  per_stage: number;
 };
 
 export type DealWriteInput = {
@@ -455,6 +588,20 @@ export type DealWriteInput = {
   stage_id?: number;
   client_id?: number | null;
   branch_id?: number | null;
+  contact_name?: string;
+  contact_phone?: string;
+  contact_email?: string;
+  lead_source?: string;
+  client_interest?: string;
+  visit_type?: string;
+  visit_at?: string | null;
+  desired_tariff?: string;
+  next_contact_at?: string | null;
+  manager_comment?: string;
+  loss_reason?: string;
+  renewal_amount?: string | number;
+  proposed_tariff?: string;
+  description?: string;
 };
 
 export type PipelineWriteInput = {
@@ -600,15 +747,46 @@ export type PublicScheduleSlotRecord = {
   trainer_display: string;
   description: string;
   restrictions: string;
+  max_participants: number;
+  seats_left: number;
+  is_enrolled: boolean;
+  enrollment_id: number | null;
+  enrollment_status: "confirmed" | "waitlist" | null;
+  can_book: boolean;
+  is_past: boolean;
+  is_started: boolean;
+  can_cancel: boolean;
+};
+
+export type PublicScheduleClientRecord = {
+  id: number;
+  name: string;
 };
 
 export type PublicSchedulePayload = {
   company_name: string;
   company_slug: string;
   weeks_ahead: number;
+  weeks_back?: number;
   date_from: string;
   date_to: string;
+  booking_enabled: boolean;
+  client: PublicScheduleClientRecord | null;
   slots: PublicScheduleSlotRecord[];
+};
+
+export type PublicClientEnrollmentRecord = {
+  id: number;
+  slot_id: number;
+  session_date: string;
+  start_time: string;
+  end_time: string;
+  display_title: string;
+  display_color: string;
+  trainer_display: string;
+  room: string;
+  status: "confirmed" | "waitlist" | "cancelled" | "completed";
+  created_at: string;
 };
 
 export type ScheduleSmsIntegrationRecord = {
@@ -822,6 +1000,65 @@ export type ChatMessageRecord = {
   created_at: string;
 };
 
+export type MessengerIntegrationRecord = {
+  id: number;
+  provider: string;
+  is_active: boolean;
+  connection_mode: "bot" | "gateway";
+  has_token: boolean;
+  has_connected_account: boolean;
+  webhook_url: string;
+  settings: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type MessengerAccountStatus =
+  | "pending"
+  | "qr"
+  | "code_required"
+  | "password_required"
+  | "ready"
+  | "error"
+  | "disconnected";
+
+export type MessengerAccountRecord = {
+  id: number;
+  provider: string;
+  gateway_session_id: string;
+  label: string;
+  phone: string;
+  status: MessengerAccountStatus;
+  error_message: string;
+  qr_data_url: string;
+  is_active: boolean;
+  connected_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type MessengerThreadRecord = {
+  id: number;
+  provider: string;
+  external_chat_id: string;
+  contact_name: string;
+  contact_phone: string;
+  client: number | null;
+  client_name: string | null;
+  last_message_at: string | null;
+  last_message_preview: string | null;
+  unread_count: number;
+};
+
+export type MessengerMessageRecord = {
+  id: number;
+  direction: "inbound" | "outbound";
+  body: string;
+  sent_at: string;
+  external_id: string;
+  author_name: string;
+};
+
 export type DriveItemRecord = {
   id: number;
   parent_id: number | null;
@@ -921,6 +1158,8 @@ export type TelephonyIntegrationRecord = {
   is_active: boolean;
   last_synced_at: string | null;
   settings: Record<string, unknown>;
+  mango_webhook_url?: string;
+  public_app_url?: string;
 };
 
 export type CallLogRecord = {

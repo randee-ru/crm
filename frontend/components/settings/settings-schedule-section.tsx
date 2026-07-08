@@ -194,7 +194,7 @@ export function SettingsScheduleSection({
       <section className="settings-card">
         <h2 className="settings-card-title">SMS-сервисы</h2>
         <p className="settings-card-description">
-          Подключите провайдера для отправки SMS-напоминаний о групповых занятиях.
+          Подключите SMS.ru для проверочных кодов при восстановлении пароля в публичном расписании.
         </p>
 
         <div className="settings-schedule-integrations">
@@ -206,7 +206,9 @@ export function SettingsScheduleSection({
                 <div>
                   <strong>{integration.title || integration.provider}</strong>
                   <span>
-                    {integration.sender_name || "без отправителя"}
+                    {integration.sender_name
+                      ? `отправитель: ${integration.sender_name}`
+                      : "стандартный SMS.ru (без имени)"}
                     {integration.has_api_key ? " · ключ сохранён" : " · ключ не задан"}
                   </span>
                 </div>
@@ -257,8 +259,12 @@ export function SettingsScheduleSection({
             <input value={newTitle} onChange={(event) => setNewTitle(event.target.value)} placeholder="Например: SMS.ru Sportmax" />
           </label>
           <label className="settings-schedule-field">
-            Имя отправителя
-            <input value={newSender} onChange={(event) => setNewSender(event.target.value)} placeholder="SPORTMAX" />
+            Имя отправителя (необязательно)
+            <input
+              value={newSender}
+              onChange={(event) => setNewSender(event.target.value)}
+              placeholder="Оставьте пустым"
+            />
           </label>
           <label className="settings-schedule-field">
             API Key

@@ -33,8 +33,7 @@ class PipelineQuerysetMixin:
         if company is None:
             return DealPipeline.objects.none()
 
-        if not DealPipeline.objects.filter(company=company, is_active=True).exists():
-            ensure_default_pipeline(company)
+        ensure_default_pipeline(company)
 
         stages_qs = DealStage.objects.annotate(deals_count=Count("deals", distinct=True)).order_by(
             "sort_order", "id"

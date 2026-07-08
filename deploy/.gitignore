@@ -1,0 +1,5 @@
+# Local-only secrets for production deploy — never commit
+.env.prod
+deploy/backups/*.dump
+deploy/backups/*.tgz
+deploy/certbot/conf/

@@ -5,12 +5,12 @@ export const mainNavigation = [
 ] as const;
 
 export const workspaceNavigation = [
+  { id: "crm", label: "CRM", href: "/dashboard", icon: "crm" },
   { id: "messages", label: "Мессенджер", href: "/dashboard/messages", icon: "messages" },
   { id: "feed", label: "Лента", href: "/", icon: "home" },
   { id: "disk", label: "Диск", href: "/dashboard/drive", icon: "disk" },
   { id: "mail", label: "Почта", href: "/dashboard/mail", icon: "mail" },
   { id: "tasks", label: "Задачи и проекты", href: "/dashboard/tasks", icon: "tasks" },
-  { id: "crm", label: "CRM", href: "/dashboard", icon: "crm" },
   { id: "marketing", label: "Маркетинг", href: "/dashboard/marketing", icon: "marketing" },
   { id: "schedule", label: "Расписание", href: "/dashboard/schedule", icon: "calendar" },
   { id: "clients", label: "Клиенты", href: "/dashboard/clients", icon: "clients" },
@@ -29,6 +29,7 @@ export const workspaceNavigation = [
 ] as const;
 
 export const workspaceSidebarLayout = [
+  { type: "items", items: ["crm"] as const },
   {
     type: "section",
     id: "collaboration",
@@ -57,7 +58,7 @@ export const workspaceSidebarLayout = [
       "reports",
     ] as const,
   },
-  { type: "items", items: ["tasks", "crm", "marketing"] as const },
+  { type: "items", items: ["tasks", "marketing"] as const },
   { type: "items", items: ["settings"] as const },
 ] as const;
 
@@ -227,13 +228,9 @@ export const marketingProviderFields: Record<
 };
 
 export const messagesTopTabs = [
-  { label: "Чаты", href: "/dashboard/messages", stub: false },
-  { label: "Чаты задач", href: "/dashboard/messages?view=task-chats", stub: true },
-  { label: "BitrixGPT", href: "/dashboard/messages?view=gpt", stub: true },
-  { label: "Каналы", href: "/dashboard/messages?view=channels", stub: true },
-  { label: "Контакт-центр", href: "/dashboard/messages?view=contact-center", stub: true },
-  { label: "Уведомления", href: "/dashboard/messages?view=notifications", stub: true },
-  { label: "Маркетплейс", href: "/dashboard/messages?view=marketplace", stub: true },
-  { label: "Настройки", href: "/dashboard/settings", stub: false },
-  { label: "Ещё", href: "/dashboard/messages?view=more", stub: true },
+  { label: "Чаты", href: "/dashboard/messages", view: "chats", stub: false },
+  { label: "МАКС", href: "/dashboard/messages?view=max", view: "max", stub: false },
+  { label: "Телеграм", href: "/dashboard/messages?view=telegram", view: "telegram", stub: false },
+  { label: "Вотсапп", href: "/dashboard/messages?view=whatsapp", view: "whatsapp", stub: false },
+  { label: "Настройки", href: "/dashboard/settings", view: "settings", stub: false },
 ] as const;

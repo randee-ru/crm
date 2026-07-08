@@ -11,6 +11,7 @@ class CrmConfig(AppConfig):
     def ready(self) -> None:
         from config.admin_registry import register_business_admin
 
+        from . import signals  # noqa: F401
         from .admin import DealAdmin, DealPipelineAdmin, DealStageAdmin, TaskAdmin
         from .models import Deal, DealPipeline, DealStage, Task
 

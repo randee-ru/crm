@@ -12,6 +12,9 @@ from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import include, path
 
+from channels.webhooks import MaxWebhookView, TelegramWebhookView, WhatsAppWebhookView
+from telephony.webhooks import MangoWebhookView
+
 from . import admin as admin_config  # noqa: F401
 from . import platform_auth_admin as platform_auth_admin_config  # noqa: F401
 
@@ -24,6 +27,10 @@ def healthcheck(_: object) -> JsonResponse:
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("health/", healthcheck),
+    path("api/mango/callback", MangoWebhookView.as_view(), name="mango-callback"),
+    path("api/channels/webhooks/max", MaxWebhookView.as_view(), name="max-webhook"),
+    path("api/channels/webhooks/telegram", TelegramWebhookView.as_view(), name="telegram-webhook"),
+    path("api/channels/webhooks/whatsapp", WhatsAppWebhookView.as_view(), name="whatsapp-webhook"),
     path("api/v1/", include("accounts.urls")),
     path("api/v1/", include("companies.urls")),
     path("api/v1/", include("employees.urls")),
@@ -33,6 +40,10 @@ urlpatterns = [
     path("api/v1/", include("bookings.urls")),
     path("api/v1/", include("attendance.urls")),
     path("api/v1/", include("messaging.urls")),
+    path("api/v1/", include("channels.urls")),
+    path("api/v1/channels/webhooks/max/", MaxWebhookView.as_view(), name="max-webhook-v1"),
+    path("api/v1/channels/webhooks/telegram/", TelegramWebhookView.as_view(), name="telegram-webhook-v1"),
+    path("api/v1/channels/webhooks/whatsapp/", WhatsAppWebhookView.as_view(), name="whatsapp-webhook-v1"),
     path("api/v1/", include("drive.urls")),
     path("api/v1/", include("mailbox.urls")),
     path("api/v1/", include("marketing.urls")),

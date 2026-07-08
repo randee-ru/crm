@@ -6,6 +6,9 @@ import type {
   AttendanceDetail,
   AttendanceOccupancyPoint,
   ChatMessageRecord,
+  MessengerIntegrationRecord,
+  MessengerMessageRecord,
+  MessengerThreadRecord,
   ChatRoomRecord,
   DriveBreadcrumbItem,
   DriveItemRecord,
@@ -24,8 +27,12 @@ import type {
   ClientRecord,
   CompanyContext,
   DealDetail,
+  DealListFilters,
   DealPipelineRecord,
   DealRecord,
+  CrmDashboardResponse,
+  ClientOption,
+  FunnelAnalytics,
   DailyReportResponse,
   GroupProgramRecord,
   GroupScheduleSlotRecord,
@@ -122,6 +129,10 @@ function buildClientQuery(companySlug: string, filters: ClientListFilters = {}):
 
   if (filters.membershipExpiresInDays) {
     params.set("membership_expires_in_days", filters.membershipExpiresInDays);
+  }
+
+  if (filters.ordering) {
+    params.set("ordering", filters.ordering);
   }
 
   if (filters.page && filters.page > 1) {
@@ -245,13 +256,105 @@ function buildDealQuery(companySlug: string, search?: string, pipelineId?: strin
   return params.toString();
 }
 
+function buildDealListQuery(companySlug: string, filters: DealListFilters = {}): string {
+  const params = new URLSearchParams({ company: companySlug });
+  if (filters.search) params.set("search", filters.search);
+  if (filters.pipelineId) params.set("pipeline", filters.pipelineId);
+  if (filters.stageId) params.set("stage", filters.stageId);
+  if (filters.page && filters.page > 1) params.set("page", String(filters.page));
+  return params.toString();
+}
+
+export async function getCrmDashboard(
+  companySlug?: string,
+  options: {
+    pipelineId?: string;
+    search?: string;
+    perStage?: number;
+  } = {},
+): Promise<CrmDashboardResponse> {
+  const slug = companySlug ?? (await getCompanySlugFromCookie());
+  const params = new URLSearchParams({
+    company: slug,
+    per_stage: String(options.perStage ?? 15),
+  });
+  if (options.pipelineId) params.set("pipeline", options.pipelineId);
+  if (options.search) params.set("search", options.search);
+  return request<CrmDashboardResponse>(`/api/v1/dashboard/?${params.toString()}`);
+}
+
+export async function getCrmFunnelAnalytics(
+  pipelineSlug: string,
+  companySlug?: string,
+): Promise<FunnelAnalytics> {
+  const slug = companySlug ?? (await getCompanySlugFromCookie());
+  const params = new URLSearchParams({ company: slug, pipeline_slug: pipelineSlug });
+  return request<FunnelAnalytics>(`/api/v1/dashboard/analytics/?${params.toString()}`);
+}
+
+export async function getKanbanStageDeals(
+  pipelineId: number,
+  stageId: number,
+  offset: number,
+  options: { search?: string; limit?: number; companySlug?: string } = {},
+): Promise<DealRecord[]> {
+  const slug = options.companySlug ?? (await getCompanySlugFromCookie());
+  const params = new URLSearchParams({
+    company: slug,
+    pipeline: String(pipelineId),
+    stage: String(stageId),
+    offset: String(offset),
+    limit: String(options.limit ?? 15),
+  });
+  if (options.search) params.set("search", options.search);
+  return request<DealRecord[]>(`/api/v1/deals/kanban/?${params.toString()}`);
+}
+
+export async function searchClientOptions(
+  search?: string,
+  ids?: number[],
+  companySlug?: string,
+): Promise<ClientOption[]> {
+  const slug = companySlug ?? (await getCompanySlugFromCookie());
+  const params = new URLSearchParams({ company: slug, page: "1" });
+  if (search && search.trim().length >= 2) params.set("search", search.trim());
+  if (ids?.length) params.set("ids", ids.join(","));
+  const page = await request<PaginatedResponse<ClientOption>>(
+    `/api/v1/clients/options/?${params.toString()}`,
+  );
+  return page.results;
+}
+
+export async function getKanbanDeals(
+  companySlug?: string,
+  search?: string,
+  pipelineId?: string,
+  perStage = 50,
+): Promise<DealRecord[]> {
+  const slug = companySlug ?? (await getCompanySlugFromCookie());
+  const params = new URLSearchParams({ company: slug, per_stage: String(perStage) });
+  if (search) params.set("search", search);
+  if (pipelineId) params.set("pipeline", pipelineId);
+  return request<DealRecord[]>(`/api/v1/deals/kanban/?${params.toString()}`);
+}
+
 export async function getDeals(
   companySlug?: string,
   search?: string,
   pipelineId?: string,
 ): Promise<DealRecord[]> {
   const slug = companySlug ?? (await getCompanySlugFromCookie());
-  return request<DealRecord[]>(`/api/v1/deals/?${buildDealQuery(slug, search, pipelineId)}`);
+  const page = await getDealsPaginated(slug, { search, pipelineId });
+  return page.results;
+}
+
+export async function getDealsPaginated(
+  companySlug?: string,
+  filters: DealListFilters = {},
+): Promise<PaginatedResponse<DealRecord>> {
+  const slug = companySlug ?? (await getCompanySlugFromCookie());
+  const query = buildDealListQuery(slug, filters);
+  return request<PaginatedResponse<DealRecord>>(`/api/v1/deals/?${query}`);
 }
 
 export async function getPipelines(companySlug?: string): Promise<DealPipelineRecord[]> {
@@ -263,6 +366,20 @@ export async function getDeal(dealId: number, companySlug?: string): Promise<Dea
   const slug = companySlug ?? (await getCompanySlugFromCookie());
   return request<DealDetail>(
     `/api/v1/deals/${dealId}/?company=${encodeURIComponent(slug)}`,
+  );
+}
+
+export async function getSalesFunnelAnalytics(companySlug?: string): Promise<FunnelAnalytics> {
+  const slug = companySlug ?? (await getCompanySlugFromCookie());
+  return request<FunnelAnalytics>(
+    `/api/v1/analytics/sales-funnel/?company=${encodeURIComponent(slug)}`,
+  );
+}
+
+export async function getRenewalFunnelAnalytics(companySlug?: string): Promise<FunnelAnalytics> {
+  const slug = companySlug ?? (await getCompanySlugFromCookie());
+  return request<FunnelAnalytics>(
+    `/api/v1/analytics/renewal-funnel/?company=${encodeURIComponent(slug)}`,
   );
 }
 
@@ -388,6 +505,37 @@ export async function getChatMessages(roomId: number, companySlug?: string): Pro
   );
 }
 
+export async function getMessengerIntegration(
+  provider: string,
+  companySlug?: string,
+): Promise<MessengerIntegrationRecord | null> {
+  const slug = companySlug ?? (await getCompanySlugFromCookie());
+  const data = await request<MessengerIntegrationRecord[]>(
+    `/api/v1/channels/integrations/?company=${encodeURIComponent(slug)}&provider=${encodeURIComponent(provider)}`,
+  );
+  return data[0] ?? null;
+}
+
+export async function getMessengerThreads(
+  provider: string,
+  companySlug?: string,
+): Promise<MessengerThreadRecord[]> {
+  const slug = companySlug ?? (await getCompanySlugFromCookie());
+  return request<MessengerThreadRecord[]>(
+    `/api/v1/channels/threads/?company=${encodeURIComponent(slug)}&provider=${encodeURIComponent(provider)}`,
+  );
+}
+
+export async function getMessengerMessages(
+  threadId: number,
+  companySlug?: string,
+): Promise<MessengerMessageRecord[]> {
+  const slug = companySlug ?? (await getCompanySlugFromCookie());
+  return request<MessengerMessageRecord[]>(
+    `/api/v1/channels/threads/${threadId}/messages/?company=${encodeURIComponent(slug)}`,
+  );
+}
+
 export async function getDriveItems(
   companySlug?: string,
   options: { parent?: number | null; trashed?: boolean; search?: string } = {},
@@ -500,6 +648,26 @@ export async function getNotifications(
   const params = new URLSearchParams({ company: slug });
   if (unreadOnly) params.set("unread", "true");
   return request<NotificationRecord[]>(`/api/v1/notifications/?${params.toString()}`);
+}
+
+export async function markAllNotificationsRead(companySlug?: string): Promise<{ updated: number }> {
+  const slug = companySlug ?? (await getCompanySlugFromCookie());
+  const params = new URLSearchParams({ company: slug });
+  return request<{ updated: number }>(`/api/v1/notifications/mark-all-read/?${params.toString()}`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export async function markNotificationRead(
+  companySlug: string,
+  notificationId: number,
+): Promise<NotificationRecord> {
+  const params = new URLSearchParams({ company: companySlug });
+  return request<NotificationRecord>(`/api/v1/notifications/${notificationId}/?${params.toString()}`, {
+    method: "PATCH",
+    body: JSON.stringify({ is_read: true }),
+  });
 }
 
 export function getApiBaseUrl(): string {

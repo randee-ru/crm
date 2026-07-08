@@ -10,7 +10,11 @@ from rest_framework.views import APIView
 from accounts.permissions import HasCompanyAccess, resolve_company_slug
 from companies.models import Company
 from notifications.models import Notification
-from notifications.serializers import NotificationMarkReadSerializer, NotificationSerializer
+from notifications.serializers import (
+    NotificationMarkReadSerializer,
+    NotificationSerializer,
+    NotificationUpdateSerializer,
+)
 from notifications.services import mark_notifications_read
 
 
@@ -43,6 +47,10 @@ class NotificationListView(ListAPIView):
         if unread in {"true", "false"}:
             queryset = queryset.filter(is_read=unread != "true")
 
+        since_id = self.request.query_params.get("since_id")
+        if since_id and since_id.isdigit():
+            queryset = queryset.filter(id__gt=int(since_id))
+
         return queryset.order_by("-created_at", "-id")
 
 
@@ -59,6 +67,19 @@ class NotificationDetailView(RetrieveUpdateAPIView):
         return Notification.objects.filter(company_q).filter(
             Q(recipient__isnull=True) | Q(recipient=self.request.user)
         )
+
+    def get_serializer_class(self):
+        if self.request.method in {"PUT", "PATCH"}:
+            return NotificationUpdateSerializer
+        return NotificationSerializer
+
+    def perform_update(self, serializer):
+        notification = serializer.save()
+        if notification.is_read and notification.read_at is None:
+            from django.utils import timezone
+
+            notification.read_at = timezone.now()
+            notification.save(update_fields=["read_at", "updated_at"])
 
 
 class NotificationMarkAllReadView(APIView):

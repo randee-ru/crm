@@ -61,6 +61,31 @@ class ClientListApiTest(TestCase):
     def auth_headers(self) -> dict[str, str]:
         return {"HTTP_AUTHORIZATION": f"Token {self.token.key}"}
 
+    def test_client_list_uses_registration_date_over_import_created_at(self) -> None:
+        imported_client = Client.objects.create(
+            company=self.company,
+            branch=self.branch,
+            first_name="Мария",
+            last_name="Сидорова",
+            phone="+79992223344",
+            registration_date="2019-04-01",
+        )
+
+        response = self.http.get("/api/v1/clients/?company=sportmax", **self.auth_headers())
+        self.assertEqual(response.status_code, 200)
+        results = {item["id"]: item for item in response.json()["results"]}
+
+        # У импортированного клиента реальная историческая дата регистрации,
+        # а не технический момент создания строки в БД при импорте.
+        self.assertEqual(results[imported_client.id]["registration_date"], "2019-04-01")
+
+        # У клиента без registration_date (заведён прямо в CRM) честно
+        # показываем дату создания записи.
+        self.assertEqual(
+            results[self.client_record.id]["registration_date"],
+            self.client_record.created_at.date().isoformat(),
+        )
+
     def test_client_list_requires_authentication(self) -> None:
         response = self.http.get("/api/v1/clients/?company=sportmax")
         self.assertEqual(response.status_code, 401)
@@ -74,7 +99,7 @@ class ClientListApiTest(TestCase):
         payload = response.json()
         self.assertEqual(payload["count"], 1)
         self.assertEqual(len(payload["results"]), 1)
-        self.assertEqual(payload["results"][0]["full_name"], "Иван Петров")
+        self.assertEqual(payload["results"][0]["full_name"], "Петров Иван")
         self.assertEqual(payload["results"][0]["membership_status"], "active")
         self.assertEqual(payload["results"][0]["birth_date"], "1990-05-12")
         self.assertIsNotNone(payload["results"][0]["membership_end"])
@@ -98,7 +123,7 @@ class ClientListApiTest(TestCase):
         payload = response.json()
         self.assertEqual(payload["count"], 1)
         self.assertEqual(len(payload["results"]), 1)
-        self.assertEqual(payload["results"][0]["full_name"], "Мария Орлова")
+        self.assertEqual(payload["results"][0]["full_name"], "Орлова Мария")
 
     def test_client_list_ignores_short_search(self) -> None:
         response = self.http.get(
@@ -108,7 +133,7 @@ class ClientListApiTest(TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload["count"], 1)
-        self.assertEqual(payload["results"][0]["full_name"], "Иван Петров")
+        self.assertEqual(payload["results"][0]["full_name"], "Петров Иван")
 
     def test_client_list_supports_client_status_filter(self) -> None:
         self.client_record.client_status = "active"
@@ -151,7 +176,66 @@ class ClientListApiTest(TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload["count"], 1)
-        self.assertEqual(payload["results"][0]["full_name"], "Иван Петров")
+        self.assertEqual(payload["results"][0]["full_name"], "Петров Иван")
+
+    def test_client_list_supports_ordering_by_name(self) -> None:
+        Client.objects.create(
+            company=self.company,
+            branch=self.branch,
+            first_name="Мария",
+            last_name="Абрамова",
+            phone="+79992223344",
+        )
+
+        response = self.http.get(
+            "/api/v1/clients/?company=sportmax&ordering=name",
+            **self.auth_headers(),
+        )
+        self.assertEqual(response.status_code, 200)
+        names = [item["full_name"] for item in response.json()["results"]]
+        self.assertEqual(names, ["Абрамова Мария", "Петров Иван"])
+
+        desc_response = self.http.get(
+            "/api/v1/clients/?company=sportmax&ordering=-name",
+            **self.auth_headers(),
+        )
+        desc_names = [item["full_name"] for item in desc_response.json()["results"]]
+        self.assertEqual(desc_names, ["Петров Иван", "Абрамова Мария"])
+
+    def test_client_list_supports_ordering_by_registration_date(self) -> None:
+        Client.objects.create(
+            company=self.company,
+            branch=self.branch,
+            first_name="Светлана",
+            last_name="Раннева",
+            phone="+79993334455",
+            registration_date="2018-01-01",
+        )
+
+        response = self.http.get(
+            "/api/v1/clients/?company=sportmax&ordering=registration_date",
+            **self.auth_headers(),
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()["results"]
+        self.assertEqual(payload[0]["full_name"], "Раннева Светлана")
+
+    def test_client_list_ordering_combined_with_distinct_filter_does_not_error(self) -> None:
+        # membership_expires_in_days вызывает .distinct() — вместе с
+        # сортировкой по аннотированному полю Postgres требует, чтобы поле
+        # сортировки было в SELECT; проверяем, что запрос не падает.
+        response = self.http.get(
+            "/api/v1/clients/?company=sportmax&membership_expires_in_days=30&ordering=-membership_end",
+            **self.auth_headers(),
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_client_list_ignores_unknown_ordering_key(self) -> None:
+        response = self.http.get(
+            "/api/v1/clients/?company=sportmax&ordering=not-a-real-field",
+            **self.auth_headers(),
+        )
+        self.assertEqual(response.status_code, 200)
 
     def test_client_list_supports_membership_expiry_filter(self) -> None:
         Client.objects.create(
@@ -178,7 +262,7 @@ class ClientListApiTest(TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload["count"], 1)
-        self.assertEqual(payload["results"][0]["full_name"], "Иван Петров")
+        self.assertEqual(payload["results"][0]["full_name"], "Петров Иван")
 
     def test_client_list_pagination(self) -> None:
         for index in range(5):
@@ -225,7 +309,7 @@ class ClientListApiTest(TestCase):
         )
         self.assertEqual(response.status_code, 201)
         payload = response.json()
-        self.assertEqual(payload["full_name"], "Елена Климова")
+        self.assertEqual(payload["full_name"], "Климова Елена")
         self.assertEqual(Client.objects.filter(company=self.company).count(), 2)
 
     def test_client_detail_and_update(self) -> None:

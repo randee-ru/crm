@@ -4,12 +4,13 @@ from rest_framework import serializers
 
 from branches.models import Branch
 from clients.models import Client
-from crm.models import Task
+from crm.models import Deal, Task
 
 
 class TaskListSerializer(serializers.ModelSerializer):
     client_name = serializers.CharField(source="client.full_name", read_only=True, default=None)
     branch_name = serializers.CharField(source="branch.name", read_only=True, default=None)
+    deal_id = serializers.IntegerField(source="deal.id", read_only=True, default=None)
     assigned_to_name = serializers.SerializerMethodField()
     created_by_name = serializers.SerializerMethodField()
 
@@ -21,6 +22,7 @@ class TaskListSerializer(serializers.ModelSerializer):
             "status",
             "priority",
             "due_at",
+            "deal_id",
             "client_name",
             "branch_name",
             "assigned_to_name",
@@ -70,6 +72,12 @@ class TaskWriteSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True,
     )
+    deal_id = serializers.PrimaryKeyRelatedField(
+        queryset=Deal.objects.all(),
+        source="deal",
+        required=False,
+        allow_null=True,
+    )
 
     class Meta:
         model = Task
@@ -81,6 +89,7 @@ class TaskWriteSerializer(serializers.ModelSerializer):
             "due_at",
             "client_id",
             "branch_id",
+            "deal_id",
         ]
 
     def validate_client_id(self, client):
@@ -94,6 +103,12 @@ class TaskWriteSerializer(serializers.ModelSerializer):
         if branch and company and branch.company_id != company.id:
             raise serializers.ValidationError("Филиал должен принадлежать текущей компании.")
         return branch
+
+    def validate_deal_id(self, deal):
+        company = self.context.get("company")
+        if deal and company and deal.company_id != company.id:
+            raise serializers.ValidationError("Сделка должна принадлежать текущей компании.")
+        return deal
 
     def create(self, validated_data: dict) -> Task:
         validated_data["company"] = self.context["company"]

@@ -84,6 +84,11 @@ class Client(TimeStampedModel):
     club_access_blocked = models.BooleanField("Блок доступа в клуб", default=False)
     group_programs_blocked = models.BooleanField("Блок групповых программ", default=False)
     is_deleted = models.BooleanField("Удалён в 1С", default=False)
+    schedule_portal_password = models.CharField(
+        "Пароль личного кабинета расписания",
+        max_length=128,
+        blank=True,
+    )
 
     class Meta:
         verbose_name = "Клиент"
@@ -110,7 +115,7 @@ class Client(TimeStampedModel):
 
     @property
     def full_name(self) -> str:
-        parts = [self.first_name, self.last_name, self.middle_name]
+        parts = [self.last_name, self.first_name, self.middle_name]
         return " ".join(part for part in parts if part and part != "-").strip() or self.phone
 
     @property

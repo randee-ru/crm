@@ -10,9 +10,23 @@ Frontend CRM Kit на Next.js (App Router).
 | Вход | `/login` |
 | CRM dashboard | `/dashboard` — канбан сделок / список клиентов |
 | Клиенты | `/dashboard/clients/*` |
+| Абонементы | `/dashboard/memberships/*` |
+| Бронирования | `/dashboard/bookings/*` |
+| Посещаемость | `/dashboard/attendance/*` |
+| Тренеры | `/dashboard/trainers/*` |
+| Сотрудники | `/dashboard/employees/*` |
 | Задачи | `/dashboard/tasks/*` |
 | Расписание | `/dashboard/schedule` |
+| Продажи | `/dashboard/sales` |
+| Платежи | `/dashboard/payments` |
 | Профиль | `/dashboard/profile` |
+| Телефония | `/dashboard/telephony` |
+| Дневной отчёт | `/dashboard/daily-report` |
+| Отчёты и аналитика | `/dashboard/reports` |
+| Диск | `/dashboard/drive` |
+| Почта | `/dashboard/mail` |
+| Сообщения | `/dashboard/messages` |
+| Маркетинг | `/dashboard/marketing` |
 | Настройки | `/dashboard/settings` — инструменты, воронки CRM |
 
 ## CRM Kanban

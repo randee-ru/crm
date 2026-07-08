@@ -55,10 +55,10 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                 <LoginForm />
               )}
 
-              <div className="mt-5 flex items-center justify-between text-sm">
-                <span className="text-slate-600">
-                  {inviteToken ? "Вход по приглашению" : "Demo после `seed_demo`"}
-                </span>
+              <div className="mt-5 flex items-center justify-end text-sm">
+                {inviteToken ? (
+                  <span className="mr-auto text-slate-600">Вход по приглашению</span>
+                ) : null}
                 <Link href="/" className="text-sky-500 hover:text-sky-600">
                   На главную
                 </Link>

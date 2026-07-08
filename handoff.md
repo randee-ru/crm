@@ -4,231 +4,194 @@
 
 ## Цель
 
-CRM Kit — коммерческая SaaS CRM для сервисного бизнеса. Первая вертикаль — **фитнес-клубы**.
+CRM Kit — коммерческая SaaS CRM для сервисного бизнеса. Первая вертикаль — **фитнес-клубы** (клиент Sportmax).
 
-## Текущее состояние
+---
 
-### Инфраструктура
+## Production (уже развёрнуто и опубликовано)
+
+> Состояние на **2026-07-08**: полный стек поднят на сервере, SSL работает, данные клиентов восстановлены, публичное расписание и CallCheck-авторизация задеплоены. Дальнейшая разработка может идти локально, но **боевая система уже онлайн**.
+
+### URL и доступ в CRM
+
+| Что | Значение |
+|-----|----------|
+| Сайт CRM | https://crm.sportmax.fit |
+| Логин админа | `admin` / `121351` |
+| Компания (slug) | `sportmax` |
+| Healthcheck | https://crm.sportmax.fit/health/ |
+| Публичное расписание | https://crm.sportmax.fit/schedule/sportmax (нужен embed token из настроек расписания) |
+
+### SSH / сервер
+
+| Параметр | Значение |
+|----------|----------|
+| IP | `159.194.233.15` |
+| Hostname | `dnmxzbulte` |
+| SSH | `ssh root@159.194.233.15` (ключ с машины разработки; пароль не хранится в репо) |
+| Каталог приложения | `/opt/crm-kit` |
+| Env файл | `/opt/crm-kit/.env.prod` (**не в git**) |
+| Compose | `docker-compose.prod.yml` + `--env-file .env.prod` |
+
+```bash
+# Подключиться
+ssh root@159.194.233.15
+
+# Статус контейнеров
+cd /opt/crm-kit
+docker compose -f docker-compose.prod.yml --env-file .env.prod ps
+
+# Логи
+docker compose -f docker-compose.prod.yml --env-file .env.prod logs -f backend frontend nginx
+
+# Пересборка после выкладки кода
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build backend frontend
+
+# Тесты на сервере
+docker compose -f docker-compose.prod.yml --env-file .env.prod exec -T backend \
+  python manage.py test schedule.tests.test_public_booking -v 1
+```
+
+### Сервисы Docker (prod)
+
+| Контейнер | Роль | Порт |
+|-----------|------|------|
+| `crm-kit-nginx-1` | HTTPS/HTTP reverse proxy | `80`, `443` |
+| `crm-kit-frontend-1` | Next.js | `3000` (внутри) |
+| `crm-kit-backend-1` | Django / Gunicorn | `8000` (внутри) |
+| `crm-kit-postgres-1` | PostgreSQL 17 | `5432` (внутри) |
+| `crm-kit-redis-1` | Redis / кэш / сессии CallCheck | `6379` (внутри) |
+| `crm-kit-messenger-gateway-1` | WhatsApp / Telegram / MAX gateway | `8787` (внутри) |
+
+Сертификаты Let's Encrypt: `/opt/crm-kit/deploy/certbot/conf/`. Nginx конфиги: `deploy/nginx/https.conf` → `deploy/nginx/default.conf`.
+
+### Как выкатывать изменения с локальной машины
+
+```bash
+# Пример точечного rsync + rebuild (секреты не копировать)
+rsync -avz ./backend/schedule/ root@159.194.233.15:/opt/crm-kit/backend/schedule/
+rsync -avz ./frontend/components/schedule/ root@159.194.233.15:/opt/crm-kit/frontend/components/schedule/
+ssh root@159.194.233.15 'cd /opt/crm-kit && docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build backend frontend'
+```
+
+Полный bootstrap (первый подъём): `deploy/server-bootstrap.sh`, `deploy/bring-up.sh`.
+
+**Не коммитить / не синкать в git:** `.env.prod`, `deploy/certbot/conf/`, `deploy/backups/*.tgz|*.dump`, `gateway/data/sessions/`.
+
+### SMS.ru / CallCheck (публичное расписание)
+
+- Интеграция SMS.ru в настройках расписания (api_id в БД; опционально `SMS_RU_API_ID` в env).
+- **Имя отправителя в CRM пустое** — SMS с буквенным именем (`sportmax`) *не* используем для кодов (абонплата операторов).
+- **Первый вход / сброс пароля** публичного расписания: **SMS.ru CallCheck** (клиент звонит на выданный номер → подтверждение → email + пароль). Дальше вход **телефон + пароль**.
+- Исходящие SMS (если есть) логируются в карточку клиента → вкладка **SMS** (`ClientMessage`, `message_type=sms`).
+- API CallCheck: `https://sms.ru/callcheck/add`, `https://sms.ru/callcheck/status` (док: https://sms.ru/api/call).
+
+Публичные auth-эндпоинты:
+
+```
+POST /api/v1/public/schedule/<slug>/auth/login
+POST /api/v1/public/schedule/<slug>/auth/forgot-password   # старт CallCheck
+GET  /api/v1/public/schedule/<slug>/auth/callcheck-status?check_id=...
+POST /api/v1/public/schedule/<slug>/auth/reset-password    # check_id + email + new_password
+```
+
+Прокси с реальным IP клиента: Next route `frontend/app/api/public/schedule/...`.
+
+### Правила записи на групповые занятия (prod)
+
+- Запись закрывается **за 1 час до начала**.
+- После старта занятия запись недоступна (`can_book=false`, UI: «Идёт сейчас» / «Запись закрыта»).
+- Кнопка «Войти и записаться» скрывается, если `!can_book`.
+
+---
+
+## Текущее состояние продукта
+
+### Инфраструктура (код)
 
 - Django backend + Next.js frontend
-- PostgreSQL через Docker Compose
+- PostgreSQL через Docker Compose (локально и prod)
 - Token-auth, httpOnly cookie, middleware на frontend
-- `seed_demo` — компании `sportmax`, `fitpro`, демо-данные
+- Production compose: `docker-compose.prod.yml`, entrypoint `deploy/backend-entrypoint.sh`
+- Messenger gateway: `gateway/` (Node)
 
 ### Backend-модули (рабочие)
 
 - `companies`, `branches`, `accounts` — SaaS core
-- `clients` — CRUD клиентов, профиль, сообщения
-- `crm` — задачи, сделки, воронки (`DealPipeline`, `DealStage`)
-- `schedule` — **групповое расписание** (`GroupProgram`, `GroupScheduleSlot` с `session_date`), настройки, SMS-интеграции, записи на занятия
-- `telephony` — Mango Office, журнал звонков, локальное хранение записей (1 год)
+- `clients` — CRUD клиентов, профиль, сообщения (`ClientMessage` в т.ч. SMS)
+- `crm` — задачи, сделки, воронки, fitness funnel automation
+- `schedule` — групповое расписание, публичный embed, CallCheck auth, записи
+- `channels` — WhatsApp / Telegram / MAX через gateway
+- `telephony` — Mango Office, click-to-call, webhooks, журнал звонков
 - `employees` — тренеры
 - `bookings`, `attendance`, `sales`, `payments`, `memberships`
-- `marketing` — интеграции (в т.ч. SMS для рассылок)
-- `automation` — очередь событий, правила, действия
-- `notifications` — уведомления для панели и automation actions
-- `reports` — daily report + analytics overview
-- `integrations` — реестр внешних интеграций и webhook log
+- `marketing`, `automation`, `notifications`, `reports`, `integrations`
 
-### Stage 5 progress
+### Frontend (ключевое)
 
-- `Сотрудники` закрыты до полного цикла: приглашения, принятие по ссылке, активация доступа, редактирование ролей и филиалов
-- `Абонементы` переведены с мокового экрана на реальный CRUD:
-  - список с поиском и фильтром по статусу
-  - карточка абонемента
-  - создание, редактирование и удаление
-  - backend API и тесты покрывают list/create/detail/update/delete
-- `Посещаемость` переведена на рабочий CRUD:
-  - список, фильтры и график посещаемости
-  - создание, карточка записи, редактирование и удаление
-  - backend API и тесты покрывают list/create/detail/update/delete
-- Убрана правая колонка с CRM-экрана сделок, чтобы основная воронка была шире и чище
-- Добавлен отдельный `Дневной отчет` в `/dashboard/daily-report`:
-  - собирает телефонию, мессенджеры, заявки сайта, посещения, продажи и платежи
-  - работает по дате и использует backend-агрегатор
-  - план и источники отображаются в боковой колонке
-- `Тренеры` переведены на CRUD и доведены до полноценного профиля:
-  - список с поиском, фильтром по активности, типу работы и статусу аренды
-  - карточка тренера в стиле карточки клиента (hero, статы, сайдбар, toggle-редактирование)
-  - тип работы — `trains_gym_floor` / `trains_group_programs` (можно совмещать, минимум один обязателен)
-  - фото (`ImageField`, до 3 МБ), заслуги/регалии и публичное описание (`bio`) — задел под будущую выгрузку на сайт/в приложение, публичного API пока нет
-  - `TrainerRentPayment` — история оплат аренды тренажёрного зала по датам (`paid_at` хранит точный день, `period` нормализуется до месяца только для проверки «оплачено ли в этом месяце»)
-  - `TrainerAccessCard` — карты доступа (СКУД/RFID), у тренера может быть несколько (уникальность номера карты в рамках компании), статусы `active`/`blocked`/`lost`
-  - backend API и тесты покрывают list/create/detail/update/delete + rent-payments и access-cards CRUD
-- У клиента появились 2 независимые бизнес-блокировки:
-  - `club_access_blocked` — блок входа/прохода в клуб, влияет на посещаемость, бронирования и записи
-  - `group_programs_blocked` — блок только для групповых программ
-  - изменять/снимать блокировки могут только роли `owner` / `admin` / `manager`
-  - блокировки видны в списке клиентов, в карточке клиента и в модалке записи на групповое занятие
-  - поиск клиентов в расписании теперь использует API + локальный fallback по уже загруженным клиентам, чтобы не терять клиента, который есть в базе
-- Остальные пункты Stage 5 ещё в очереди: бронирования, продажи, платежи, UX-полировка Bitrix24
-
-### Stage 8-11 progress
-
-- `Stage 8` started: есть backend каркас `automation` и `notifications`, а уведомления уже подаются в UI из backend
-- `Stage 9` started: отдельный модуль `reports` и экран `/dashboard/reports`
-- `Stage 10` started: модуль `integrations` с реестром подключений и webhook log
-- `Stage 11` started: добавлен CI workflow и production checklist
-
-### Frontend
-
-- Dashboard CRM (канбан сделок + список клиентов)
-- CRUD клиентов, **редизайн карточки клиента**
-- **Расписание групповых программ** — `/dashboard/schedule`
-- **Телефония** — `/dashboard/telephony` (вынесена в секцию «Фитнес»)
-- **Сотрудники** — `/dashboard/employees`, приглашения, карточка доступа, настройки ролей/филиалов
-- Настройки: **инструменты** (реально скрывают/показывают пункты меню, не localStorage-заглушка), воронки CRM, **расписание** (лимиты, SMS-напоминания, SMS-сервисы), **интеграции** (сводка по телефонии/SMS/маркетингу + CRUD для Sigur/RFID/турникетов/платёжных/партнёрских адаптеров)
-- UI в стиле Bitrix24, иконки lucide-react
-- Локальный dev: `http://127.0.0.1:3000`
+- Dashboard CRM, канбан сделок, список/карточка клиентов
+- Расписание `/dashboard/schedule`, публичное `/schedule/[slug]` и embed
+- Телефония, сообщения (мессенджеры), сотрудники, настройки
+- UI в стиле Bitrix24
 
 ### Расписание (ключевая фича)
 
 **Модель данных:**
 
-- `GroupProgram` — каталог программ (22 шт., seed при первом запросе)
-- `GroupScheduleSlot` — **конкретное занятие на дату** (`session_date` + `start_time` / `end_time`), не повтор по дню недели
-- `GroupSlotEnrollment` — записи клиентов на слот
-- `ScheduleSettings` — лимит участников, часы SMS-напоминаний
-- `ScheduleSmsIntegration` — провайдеры SMS (SMS.ru, SMSC и др.)
+- `GroupProgram` — каталог программ
+- `GroupScheduleSlot` — занятие на дату (`session_date` + время)
+- `GroupSlotEnrollment` — записи клиентов
+- `ScheduleSettings` — лимиты, публикация, `embed_token`
+- `ScheduleSmsIntegration` — SMS.ru и др.
+- `Client.schedule_portal_password` — пароль портала расписания
+- `Client.email` — собирается при первом входе после CallCheck
 
-**API:**
+**Поведение UI публичного расписания:**
 
-```
-GET    /api/v1/schedule/programs/?company=<slug>
-GET    /api/v1/schedule/group-slots/?company=<slug>&from=YYYY-MM-DD&to=YYYY-MM-DD
-POST   /api/v1/schedule/group-slots/?company=<slug>
-PATCH  /api/v1/schedule/group-slots/<id>/?company=<slug>
-DELETE /api/v1/schedule/group-slots/<id>/?company=<slug>
-GET    /api/v1/schedule/settings/?company=<slug>
-PATCH  /api/v1/schedule/settings/?company=<slug>
-GET/POST /api/v1/schedule/sms-integrations/?company=<slug>
-GET/PATCH/DELETE /api/v1/schedule/sms-integrations/<id>/?company=<slug>
-GET/POST /api/v1/schedule/group-slots/<id>/enrollments/?company=<slug>
-```
-
-**Frontend:**
-
-| Путь | Назначение |
-|------|------------|
-| `frontend/components/schedule/schedule-workspace.tsx` | Календарь, drag-and-drop, модалка редактирования |
-| `frontend/components/schedule/schedule-week-swiper.tsx` | Навигация по неделям (Swiper) |
-| `frontend/lib/schedule-week.ts` | Даты, форматирование недели |
-| `frontend/app/actions/schedule.ts` | Server actions |
-| `frontend/components/settings/settings-schedule-section.tsx` | Настройки расписания |
-
-**Поведение UI:**
-
-- Календарь показывает **конкретные даты** (не «каждый понедельник»)
-- Перелистывание недель — стрелки и свайп (Swiper)
-- Перетаскивание программы создаёт слот **только на выбранную дату**
-- Карандаш на карточке — редактирование + список записавшихся
-
-### Телефония
-
-- Стриминг и локальный кэш записей в `media/telephony/recordings/`
-- Авто-архивация новых звонков (signal + sync)
-- Sticky sidebar, прокрутка только списка звонков
-
-### Настройки меню и интеграции
-
-- `Company.disabled_modules` (JSONField, список id пунктов `workspaceNavigation` из `frontend/lib/nav.ts`) — единственный источник правды о том, что скрыто в боковом меню.
-- API: `GET/PATCH /api/v1/company/module-settings/` (`backend/companies/views.py`).
-- `frontend/lib/settings.ts` → `settingsTools` — список тумблеров 1:1 с реальными пунктами меню (группа «Совместная работа» скрывает разом messages/disk/mail, остальное — по одному пункту).
-- `components/sidebar.tsx` фильтрует `workspaceNavigation`/`workspaceSidebarLayout` по `disabledModules`, которые прокидываются через `DashboardShell → WorkspaceChrome → Sidebar` (данные берутся из `getAuthSession()`, эндпоинт `/api/v1/auth/me/`).
-- Настройки → «Интеграции»: верхний блок — реальный статус телефонии/SMS-расписания/маркетинга со ссылками на их настоящие разделы; нижний блок — CRUD поверх ранее не используемого `backend/integrations` (`IntegrationConnection`) для Sigur/RFID/турникетов/платёжных/партнёрских адаптеров. Синхронизации с реальными системами пока нет — это просто учёт подключений.
-- Sigur доведён на один шаг дальше:
-  - при создании подключения для `SIGUR` автоматически генерируется `proxy_inbound_key`
-  - добавлен endpoint `POST /api/v1/integrations/sigur/inbound/events/`
-  - в `scripts/sigur-proxy/` лежит локальный proxy-скрипт и пример `.env` для копирования проходов из локальной сети в backend
-  - это ещё не полноценная двусторонняя синхронизация, но уже есть безопасный входящий канал и заготовка для локального агента
-- Попутно закрыт баг: `clients/contracts/sales/payments/bookings/attendance/marketing/telephony/employees/integrations` регистрировали свои модели в Django admin напрямую через `@admin.register`, игнорируя `ADMIN_ENABLE_BUSINESS_MODELS=False` — теперь везде используется `register_business_admin` из `config/admin_registry.py`.
-- И ещё один: `REST_FRAMEWORK.DEFAULT_PARSER_CLASSES` содержал только `JSONParser` — загрузка файлов (аватар пользователя, фото тренера) падала с 415. Добавлены `MultiPartParser`/`FormParser`.
-
-### Сотрудники / приглашения
-
-- модель `EmployeeInvitation`
-- API:
-  - `GET/POST /api/v1/staff/invitations/`
-  - `GET/PATCH/DELETE /api/v1/staff/invitations/<id>/`
-  - `GET /api/v1/staff/dashboard/`
-  - `GET/PATCH /api/v1/staff/memberships/<id>/`
-  - `POST /api/v1/auth/accept-invite/`
-- фронт:
-  - `/login?invite=<token>` открывает форму принятия приглашения
-  - `/dashboard/employees` показывает список сотрудников, приглашения и быстрые действия
-  - `/dashboard/employees/<id>` редактирует доступ конкретного сотрудника
+- Вход: телефон + пароль
+- Первый вход / сброс: звонок CallCheck → email + пароль
+- Нормализация телефона: `+7` / `7` / `8` / 10 цифр без удвоения ведущей `7`
+- Модалка «Подробнее», скрытие кнопки записи если нельзя записаться
 
 ## Локальный запуск
 
 ```bash
-docker compose up -d postgres
+docker compose up -d postgres redis
 cd backend && ../.venv/bin/python manage.py runserver 127.0.0.1:8000 --settings=config.settings.dev
 cd frontend && npm run dev
+# опционально gateway:
+cd gateway && npm start
 ```
 
-Логин: `admin` / `121351`, компания `sportmax`
+Логин: `admin` / `121351`, компания `sportmax`  
+Локальный UI: `http://127.0.0.1:3000`
 
 **Важно:** не запускать `npm run build` при работающем `npm run dev` (битый кэш `.next`).
 
-Миграции расписания:
-
-```bash
-cd backend && ../.venv/bin/python manage.py migrate schedule --settings=config.settings.dev
-```
-
-## Ключевые файлы
+## Ключевые файлы (свежие)
 
 | Область | Пути |
 |---------|------|
-| Групповое расписание | `backend/schedule/models.py`, `group_views.py`, `group_serializers.py` |
-| Программы (seed) | `backend/schedule/group_programs.py` |
-| Расписание UI | `frontend/components/schedule/` |
-| Настройки расписания | `frontend/app/dashboard/settings/page.tsx` → `section=schedule` |
-| Телефония | `backend/telephony/`, `frontend/components/telephony/` |
-| Канбан | `frontend/components/crm-kanban-board.tsx` |
-| Навигация | `frontend/lib/nav.ts` |
-| Тренеры (профиль, аренда) | `backend/employees/models.py`, `frontend/components/trainers/trainer-profile-panel.tsx`, `trainer-rent-panel.tsx` |
-| Настройки меню | `backend/companies/views.py`, `frontend/lib/settings.ts`, `frontend/components/sidebar.tsx` |
-| Интеграции | `backend/integrations/`, `frontend/components/settings/settings-integrations-section.tsx` |
+| CallCheck / портал расписания | `backend/schedule/client_auth.py`, `sms.py`, `public_booking*.py` |
+| Публичное UI auth | `frontend/components/schedule/schedule-embed-auth-panel.tsx` |
+| Телефон нормализация | `frontend/lib/phone.ts`, `backend/telephony/phone.py` |
+| Prod deploy | `docker-compose.prod.yml`, `deploy/` |
+| Messenger gateway | `gateway/`, `backend/channels/` |
 
 ## Документация
 
 - **Указатель:** `docs/README.md`
-- **Уроки:** `docs/lessons/` (01–21)
+- **Уроки:** `docs/lessons/`
 - **API:** `docs/api/`
-- **Этапы:** `docs/stages/` (01–08)
+- **Этапы:** `docs/stages/`
+- **Воронки:** `docs/crm-funnels.md`
 
 ## Следующие шаги
 
-- Закрыть `Stage 5` по очереди:
-  - бронирования
-  - посещаемость
-  - продажи
-  - платежи
-- Доработать UX под Bitrix24: выровнять меню, верхние панели, таблицы и карточки
-- Добить документацию и уроки на русском
-- История приглашений и действия: повторная отправка, отмена, деактивация, журнал изменений
-- Довести дневной отчет до полного цикла:
-  - подключить отдельный модуль отзывов и оценок
-  - точнее разделить источники Telegram / WhatsApp / MAX на уровне интеграций
-  - добавить явный признак "продление" в продажах
-- Довести UX блокировок клиента:
-  - отдельный блок в карточке клиента уже есть, но можно сделать ещё более Bitrix24-похожую подачу
-  - при необходимости добавить подсказки менеджеру в booking/attendance/forms на странице клиента
-- Stage 8:
-  - расширять automation rules для продаж, бронирований, оплат и посещаемости
-  - добавлять реальные notification сценарии из бизнес-событий
-- Stage 9:
-  - расширить отчёты по менеджерам, филиалам и источникам
-- Stage 10:
-  - подключать реальные Sigur / RFID / платежи / турникеты (сейчас в `integrations` только учёт подключений, без реальной синхронизации)
-- Stage 11:
-  - добавить monitoring, backup runbooks и security flags
-- Публичный API для карточек тренеров (сайт/приложение) — поля `photo`, `achievements`, `bio` уже есть в модели, но наружу (без токена компании) пока не отдаются
-- Известный фоновый баг: `GET /api/v1/notifications/?company=<slug>` отдаёт 500 (чинится в отдельной сессии/фоновой задаче на момент написания)
-- Отправка SMS-напоминаний по cron (используя `ScheduleSettings.sms_reminder_hours` + `ScheduleSmsIntegration`)
-- Дублирование недели / шаблон расписания (массовое создание слотов на диапазон дат)
-- Привязка `Booking` к `GroupScheduleSlot`
-- OpenAI транскрипция звонков — требует активного billing на аккаунте OpenAI
-- Inline-редактор воронок в settings
-- История смены этапов сделки
+- Убрать/не использовать буквенный sender `sportmax` в кабинете SMS.ru (если остался default) — для CallCheck не нужен
+- Webhook CallCheck от SMS.ru (сейчас polling статуса) — ускорит UX
+- SMS-напоминания по cron (`ScheduleSettings.sms_reminder_hours`) — по желанию, без буквенного имени
+- Monitoring, бэкапы БД по расписанию, disk cleanup на сервере (~80% disk, 2GB RAM)
+- Полировка Stage 5 UX: продажи, платежи, бронь/посещаемость
+- Sigur / RFID — полноценная синхронизация
+- OpenAI транскрипция звонков — нужен billing OpenAI

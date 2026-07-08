@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { MembershipForm } from "@/components/memberships/membership-form";
-import { DashboardShell } from "@/components/dashboard-shell";
 import { WorkspaceCard } from "@/components/workspace-card";
 import { getBranches, getClients, getCompanyContext } from "@/lib/api";
 
@@ -16,7 +15,6 @@ export default async function NewMembershipPage() {
   ]);
 
   return (
-    <DashboardShell>
       <div className="workspace-content min-h-0 flex-1">
         <WorkspaceCard className="clients-workspace-card min-w-0 flex-1">
           <header className="clients-module-header">
@@ -41,6 +39,5 @@ export default async function NewMembershipPage() {
           </section>
         </WorkspaceCard>
       </div>
-    </DashboardShell>
   );
 }

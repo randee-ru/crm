@@ -121,3 +121,41 @@ export async function deleteMembershipAction(membershipId: number): Promise<void
   revalidatePath("/dashboard/memberships");
   redirect("/dashboard/memberships");
 }
+
+export async function deleteMembershipsBulkAction(ids: number[]): Promise<ActionState> {
+  const uniqueIds = [...new Set(ids.filter((id) => Number.isFinite(id) && id > 0))];
+  if (uniqueIds.length === 0) {
+    return { error: "Не выбрано ни одного абонемента." };
+  }
+
+  const companySlug = await getCompanySlugFromCookie();
+  const headers = await getAuthHeaders();
+  let deleted = 0;
+
+  for (const membershipId of uniqueIds) {
+    const response = await fetch(
+      `${API_BASE_URL}/api/v1/memberships/${membershipId}/?company=${encodeURIComponent(companySlug)}`,
+      {
+        method: "DELETE",
+        headers,
+      },
+    );
+    if (response.ok) {
+      deleted += 1;
+    }
+  }
+
+  revalidatePath("/dashboard/memberships");
+
+  if (deleted === 0) {
+    return { error: "Не удалось удалить выбранные абонементы." };
+  }
+
+  if (deleted < uniqueIds.length) {
+    return {
+      success: `Удалено ${deleted} из ${uniqueIds.length}. Часть записей не удалось удалить.`,
+    };
+  }
+
+  return { success: `Удалено абонементов: ${deleted}.` };
+}

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Cake } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { ClientForm } from "@/components/client-form";
+import { ClickToCallChip } from "@/components/telephony/click-to-call-chip";
 import { TelephonyAudioPlayer } from "@/components/telephony/telephony-audio-player";
 import {
   IconArrowLeft,
@@ -24,6 +25,21 @@ import {
   getClientInitials,
 } from "@/lib/api";
 import type { BranchOption, ClientDetail, ClientProfile } from "@/lib/types";
+
+const MESSENGER_CHANNEL_LABELS: Record<string, string> = {
+  max: "МАКС",
+  telegram: "Телеграм",
+  whatsapp: "Вотсапп",
+  sms_ru: "SMS.ru",
+};
+
+function formatClientMessageChannel(channel: string, messageType: string): string {
+  const key = channel.trim().toLowerCase();
+  if (key && MESSENGER_CHANNEL_LABELS[key]) {
+    return MESSENGER_CHANNEL_LABELS[key];
+  }
+  return channel || messageType || "Сообщение";
+}
 
 const tabs = [
   { id: "main", label: "Обзор" },
@@ -93,7 +109,7 @@ function buildTimeline(profile: ClientProfile): TimelineItem[] {
       id: `message-${message.id}`,
       at: message.sent_at || "",
       kind: "message",
-      title: message.channel || message.message_type || "Сообщение",
+      title: formatClientMessageChannel(message.channel, message.message_type),
       body: message.body,
       meta: [message.kind, message.phone].filter(Boolean).join(" · "),
     });
@@ -213,10 +229,9 @@ export function ClientProfilePanel({ profile, client, branches, canManageBlocks 
             </div>
             <div className="client-card-header-meta">
               {profile.phone ? (
-                <a href={`tel:${profile.phone}`} className="client-card-meta-chip">
-                  <IconPhone size={14} />
+                <ClickToCallChip phone={profile.phone} clientId={profile.id}>
                   {profile.phone}
-                </a>
+                </ClickToCallChip>
               ) : null}
               {profile.email ? (
                 <a href={`mailto:${profile.email}`} className="client-card-meta-chip">
@@ -608,7 +623,7 @@ function MessageList({
       {messages.map((item) => (
         <article key={item.id} className="client-card-message">
           <header>
-            <strong>{item.channel || item.message_type}</strong>
+            <strong>{formatClientMessageChannel(item.channel, item.message_type)}</strong>
             <span>{formatDateTime(item.sent_at)}</span>
           </header>
           <p>{item.body || "—"}</p>

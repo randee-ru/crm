@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { DashboardShell } from "@/components/dashboard-shell";
 import { WorkspaceCard } from "@/components/workspace-card";
 
 export const metadata: Metadata = {
@@ -10,7 +9,6 @@ export const metadata: Metadata = {
 
 export default function NewContractPage() {
   return (
-    <DashboardShell>
       <div className="workspace-content min-h-0 flex-1">
         <WorkspaceCard className="contracts-workspace-card min-w-0 flex-1 p-6">
           <h1 className="text-xl font-semibold text-[var(--text)]">Создание договора</h1>
@@ -22,6 +20,5 @@ export default function NewContractPage() {
           </Link>
         </WorkspaceCard>
       </div>
-    </DashboardShell>
   );
 }

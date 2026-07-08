@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import type { ComponentProps } from "react";
 
-import { DashboardShell } from "@/components/dashboard-shell";
 import { ModulePageLayout } from "@/components/module-page-layout";
 import { WidgetCard } from "@/components/widget-card";
 import { WorkspaceCard } from "@/components/workspace-card";
@@ -171,7 +170,6 @@ const quickLinks: { label: string; href: ComponentProps<typeof Link>["href"] }[]
 ];
 
   return (
-    <DashboardShell>
       <ModulePageLayout
         sidebar={
           <>
@@ -317,6 +315,5 @@ const quickLinks: { label: string; href: ComponentProps<typeof Link>["href"] }[]
           </div>
         </WorkspaceCard>
       </ModulePageLayout>
-    </DashboardShell>
   );
 }

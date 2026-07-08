@@ -1,4 +1,4 @@
-# API: clients CRUD
+# API: CRUD клиентов
 
 ## Назначение
 

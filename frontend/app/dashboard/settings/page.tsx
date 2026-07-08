@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { DashboardShell } from "@/components/dashboard-shell";
 import { SettingsIntegrationsSection } from "@/components/settings/settings-integrations-section";
 import { SettingsLayout } from "@/components/settings/settings-layout";
 import { SettingsPipelinesSection } from "@/components/settings/settings-pipelines-section";
@@ -90,7 +89,6 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
   }
 
   return (
-    <DashboardShell>
       <SettingsLayout activeSection={section}>
         {section === "tools" ? (
           <SettingsToolsSection initialDisabledModules={disabledModules} />
@@ -153,6 +151,5 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
           </div>
         )}
       </SettingsLayout>
-    </DashboardShell>
   );
 }

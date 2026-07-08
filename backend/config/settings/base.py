@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "bookings.apps.BookingsConfig",
     "attendance.apps.AttendanceConfig",
     "messaging.apps.MessagingConfig",
+    "channels.apps.ChannelsConfig",
     "drive.apps.DriveConfig",
     "mailbox.apps.MailboxConfig",
     "marketing.apps.MarketingConfig",
@@ -131,6 +132,14 @@ SECURE_HSTS_PRELOAD = os.getenv("DJANGO_SECURE_HSTS_PRELOAD", "false").lower() i
 # Операционные CRM-модели в /admin/ только для dev-отладки.
 # В production сотрудники работают через frontend + REST API.
 ADMIN_ENABLE_BUSINESS_MODELS = False
+
+MESSENGER_GATEWAY_URL = os.getenv("MESSENGER_GATEWAY_URL", "http://127.0.0.1:8787").rstrip("/")
+MESSENGER_GATEWAY_SECRET = os.getenv("MESSENGER_GATEWAY_SECRET", "dev-gateway-secret")
+TELEGRAM_API_ID = int(os.getenv("TELEGRAM_API_ID", "0") or 0)
+TELEGRAM_API_HASH = os.getenv("TELEGRAM_API_HASH", "")
+
+# SMS.ru: api_id из личного кабинета. Без имени отправителя — стандартный SMS.ru (без ежемесячной платы).
+SMS_RU_API_ID = os.getenv("SMS_RU_API_ID", "").strip()
 
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": [

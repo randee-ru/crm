@@ -33,6 +33,15 @@ function readTaskInput(formData: FormData) {
   };
 }
 
+export async function listTasksAction(filters: {
+  search?: string;
+  status?: string;
+  due?: "today" | "overdue";
+} = {}) {
+  const { getTasks } = await import("@/lib/api");
+  return getTasks(undefined, filters);
+}
+
 export async function createTaskAction(
   _prevState: ActionState,
   formData: FormData,

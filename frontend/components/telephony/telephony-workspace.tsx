@@ -68,6 +68,9 @@ export function TelephonyWorkspace({ integration, dashboard, initialTab }: Telep
     api_url: integration.api_url,
     api_key: "",
     api_secret: "",
+    public_app_url: integration.public_app_url || "",
+    click_to_call_extension: String(integration.settings?.click_to_call_extension || ""),
+    click_to_call_line: String(integration.settings?.click_to_call_line || ""),
   });
   const [player, setPlayer] = useState<ActivePlayer | null>(null);
   const [modalText, setModalText] = useState<string | null>(null);
@@ -111,6 +114,12 @@ export function TelephonyWorkspace({ integration, dashboard, initialTab }: Telep
         api_url: settings.api_url,
         ...(settings.api_key ? { api_key: settings.api_key } : {}),
         ...(settings.api_secret ? { api_secret: settings.api_secret } : {}),
+        settings: {
+          ...(integration.settings || {}),
+          public_app_url: settings.public_app_url.trim(),
+          click_to_call_extension: settings.click_to_call_extension.trim(),
+          click_to_call_line: settings.click_to_call_line.trim(),
+        },
       });
       setMessage("Настройки сохранены");
     } catch (error) {
@@ -383,8 +392,59 @@ export function TelephonyWorkspace({ integration, dashboard, initialTab }: Telep
               placeholder={integration.has_api_secret ? "Оставьте пустым, чтобы не менять" : ""}
             />
           </label>
+
+          <div className="telephony-webhook-box">
+            <div className="telephony-webhook-head">
+              <strong>Webhook для Mango Office</strong>
+              <span>Вставьте этот адрес во «Внешние системы»</span>
+            </div>
+            <div className="telephony-webhook-url-row">
+              <code className="telephony-webhook-url">
+                {integration.mango_webhook_url || `${settings.public_app_url || "https://ваш-ngrok.ngrok-free.dev"}/api/mango/callback`}
+              </code>
+              <button
+                type="button"
+                className="telephony-webhook-copy"
+                onClick={() => {
+                  const url =
+                    integration.mango_webhook_url ||
+                    `${settings.public_app_url.replace(/\/$/, "")}/api/mango/callback`;
+                  void navigator.clipboard.writeText(url);
+                  setMessage("Адрес webhook скопирован");
+                }}
+              >
+                Копировать
+              </button>
+            </div>
+          </div>
+
+          <label>
+            Публичный URL (ngrok)
+            <input
+              value={settings.public_app_url}
+              onChange={(event) => setSettings((prev) => ({ ...prev, public_app_url: event.target.value }))}
+              placeholder="https://appliable-desperately-moshe.ngrok-free.dev"
+            />
+          </label>
+          <label>
+            Внутренний номер Mango (click-to-call)
+            <input
+              value={settings.click_to_call_extension}
+              onChange={(event) => setSettings((prev) => ({ ...prev, click_to_call_extension: event.target.value }))}
+              placeholder="например 4"
+            />
+          </label>
+          <label>
+            Линия исходящего (АОН)
+            <input
+              value={settings.click_to_call_line}
+              onChange={(event) => setSettings((prev) => ({ ...prev, click_to_call_line: event.target.value }))}
+              placeholder="74951203639"
+            />
+          </label>
           <p className="telephony-settings-hint">
-            Ключи Mango и OpenAI подхватываются из настроек и переменных окружения автоматически.
+            При клике на номер в карточке клиента CRM звонит через Mango на ваш добавочный, затем соединяет с клиентом.
+            Укажите URL из ngrok без слэша в конце. После смены ngrok обновите здесь и в Mango Office.
           </p>
           <button type="button" className="btn-primary" onClick={() => void handleSaveSettings()}>
             Сохранить

@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 
 import { AttendanceDeleteButton } from "@/components/attendance/attendance-delete-button";
 import { AttendanceForm } from "@/components/attendance/attendance-form";
-import { DashboardShell } from "@/components/dashboard-shell";
 import { WidgetCard } from "@/components/widget-card";
 import {
   getAttendanceRecord,
@@ -65,7 +64,6 @@ export default async function AttendanceDetailPage({ params }: AttendanceDetailP
   }
 
   return (
-    <DashboardShell>
       <div className="workspace-content min-h-0 flex-1">
         <div className="attendance-workspace-shell min-w-0 flex-1">
           <div className="attendance-workspace-main">
@@ -136,6 +134,5 @@ export default async function AttendanceDetailPage({ params }: AttendanceDetailP
           </aside>
         </div>
       </div>
-    </DashboardShell>
   );
 }

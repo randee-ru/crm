@@ -22,7 +22,7 @@ export function LoginForm() {
         <input
           name="username"
           type="text"
-          defaultValue="admin"
+          required
           autoComplete="username"
           className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[var(--accent)] focus:bg-white"
         />
@@ -33,7 +33,7 @@ export function LoginForm() {
         <input
           name="password"
           type="password"
-          defaultValue="121351"
+          required
           autoComplete="current-password"
           className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[var(--accent)] focus:bg-white"
         />
@@ -47,9 +47,6 @@ export function LoginForm() {
         {isPending ? "Вход..." : "Войти"}
       </button>
 
-      <p className="text-xs leading-5 text-slate-500">
-        Demo: `admin` / `121351` после команды `seed_demo`.
-      </p>
     </form>
   );
 }

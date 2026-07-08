@@ -11,12 +11,65 @@ import {
   membershipStatusLabels,
 } from "@/lib/api";
 
+export type ClientSortKey =
+  | "name"
+  | "client_status"
+  | "membership_title"
+  | "birth_date"
+  | "membership_end"
+  | "branch"
+  | "registration_date"
+  | "path";
+
 type ClientsTableProps = {
   clients: ClientRecord[];
   emptyMessage: string;
+  ordering?: string;
+  onSortChange?: (key: ClientSortKey) => void;
 };
 
-export function ClientsTable({ clients, emptyMessage }: ClientsTableProps) {
+function SortableHeader({
+  label,
+  sortKey,
+  ordering,
+  onSortChange,
+}: {
+  label: string;
+  sortKey: ClientSortKey;
+  ordering?: string;
+  onSortChange?: (key: ClientSortKey) => void;
+}) {
+  const isDescending = ordering === `-${sortKey}`;
+  const isActive = ordering === sortKey || isDescending;
+
+  return (
+    <th className="px-3">
+      <button
+        type="button"
+        onClick={() => onSortChange?.(sortKey)}
+        className={`inline-flex items-center gap-1.5 whitespace-nowrap font-medium transition hover:text-[var(--accent-strong)] ${
+          isActive ? "text-[var(--accent-strong)]" : "text-[var(--text)]"
+        }`}
+      >
+        {label}
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          className={`h-3.5 w-3.5 shrink-0 transition-transform ${isActive ? "opacity-100" : "opacity-40"} ${
+            isDescending ? "rotate-180" : ""
+          }`}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <path d="M12 19V5M5 12l7-7 7 7" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+    </th>
+  );
+}
+
+export function ClientsTable({ clients, emptyMessage, ordering, onSortChange }: ClientsTableProps) {
   if (clients.length === 0) {
     return (
       <div className="crm-empty-state">
@@ -41,21 +94,29 @@ export function ClientsTable({ clients, emptyMessage }: ClientsTableProps) {
             <th className="w-10 px-4">
               <span className="inline-block h-4 w-4 rounded border border-[var(--line-strong)] bg-white" />
             </th>
-            <th className="px-3">
-              <span className="inline-flex items-center gap-1.5">
-                Контакт
-                <svg aria-hidden="true" viewBox="0 0 24 24" className="h-3.5 w-3.5 opacity-40" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-                </svg>
-              </span>
-            </th>
-            <th className="px-3">Статус</th>
-            <th className="px-3">Абонемент</th>
-            <th className="px-3">ДР</th>
-            <th className="px-3">Абонемент до</th>
-            <th className="px-3">Филиал</th>
-            <th className="px-3">Создан</th>
-            <th className="px-3">Путь клиента</th>
+            <SortableHeader label="Контакт" sortKey="name" ordering={ordering} onSortChange={onSortChange} />
+            <SortableHeader label="Статус" sortKey="client_status" ordering={ordering} onSortChange={onSortChange} />
+            <SortableHeader
+              label="Абонемент"
+              sortKey="membership_title"
+              ordering={ordering}
+              onSortChange={onSortChange}
+            />
+            <SortableHeader label="День рождения" sortKey="birth_date" ordering={ordering} onSortChange={onSortChange} />
+            <SortableHeader
+              label="Абонемент до"
+              sortKey="membership_end"
+              ordering={ordering}
+              onSortChange={onSortChange}
+            />
+            <SortableHeader label="Филиал" sortKey="branch" ordering={ordering} onSortChange={onSortChange} />
+            <SortableHeader
+              label="Создан"
+              sortKey="registration_date"
+              ordering={ordering}
+              onSortChange={onSortChange}
+            />
+            <SortableHeader label="Путь клиента" sortKey="path" ordering={ordering} onSortChange={onSortChange} />
           </tr>
         </thead>
         <tbody className="divide-y divide-[var(--line)]">
@@ -110,7 +171,7 @@ export function ClientsTable({ clients, emptyMessage }: ClientsTableProps) {
                 {client.membership_end ? formatClientDate(client.membership_end) : "—"}
               </td>
               <td className="px-3 py-3 text-[var(--text)]">{client.branch_name ?? "—"}</td>
-              <td className="px-3 py-3 text-[var(--muted)]">{formatClientDate(client.created_at)}</td>
+              <td className="px-3 py-3 text-[var(--muted)]">{formatClientDate(client.registration_date)}</td>
               <td className="max-w-[200px] truncate px-3 py-3 text-[var(--muted)]">
                 {getClientPathLabel(client)}
               </td>
