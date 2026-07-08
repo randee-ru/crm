@@ -93,6 +93,11 @@ def notify_call_ringing(
 
     display_name = client.full_name if client else format_phone_display(normalized or caller_phone)
     line_label = line_name or "Ресепшен"
+    send_telegram_notification(
+        "📲 Звонит клиент\n"
+        f"{company.name}\n"
+        f"{display_name} · {line_label}",
+    )
     return create_notification(
         company=company,
         kind=Notification.Kind.CRM,
