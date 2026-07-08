@@ -27,6 +27,7 @@ from crm.deal_serializers import (
 from crm.models import Deal, DealContactHistory, DealStageHistory, Task
 from crm.pipelines import ensure_default_pipeline
 from core.pagination import DealListPagination
+from notifications.telegram import send_telegram_notification
 
 
 class DealQuerysetMixin:
@@ -206,11 +207,18 @@ class DealListCreateView(DealQuerysetMixin, ListCreateAPIView):
         )
         write_serializer.is_valid(raise_exception=True)
         self.perform_create(write_serializer)
+        deal = write_serializer.instance
         read_serializer = DealListSerializer(
-            write_serializer.instance,
+            deal,
             context=self.get_serializer_context(),
         )
         headers = self.get_success_headers(read_serializer.data)
+        client_label = deal.client.full_name if deal.client_id else (deal.contact_phone or deal.title)
+        send_telegram_notification(
+            "📈 Новый лид/сделка\n"
+            f"{deal.company.name}\n"
+            f"{deal.title} · {client_label}",
+        )
         return Response(read_serializer.data, status=201, headers=headers)
 
 

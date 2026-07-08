@@ -20,6 +20,7 @@ from accounts.permissions import (
 )
 from branches.models import Branch
 from clients.models import Client
+from notifications.telegram import send_telegram_notification
 from clients.serializers import (
     BranchOptionSerializer,
     ClientDetailSerializer,
@@ -188,11 +189,17 @@ class ClientListCreateView(ClientQuerysetMixin, ListCreateAPIView):
         )
         write_serializer.is_valid(raise_exception=True)
         self.perform_create(write_serializer)
+        client = write_serializer.instance
         read_serializer = ClientListSerializer(
-            write_serializer.instance,
+            client,
             context=self.get_serializer_context(),
         )
         headers = self.get_success_headers(read_serializer.data)
+        send_telegram_notification(
+            "🆕 Новый клиент\n"
+            f"{client.company.name}\n"
+            f"{client.full_name} · {client.phone}",
+        )
         return Response(read_serializer.data, status=201, headers=headers)
 
 

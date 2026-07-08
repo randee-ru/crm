@@ -9,6 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from companies.models import Company
+from notifications.telegram import send_telegram_notification
 from schedule.client_auth import (
     login_schedule_portal,
     poll_callcheck_status,
@@ -294,6 +295,14 @@ class PublicScheduleSlotEnrollView(PublicScheduleAccessMixin, APIView):
             slot=slot,
             enrollment=enrollment,
             user_ip=extract_client_ip(request),
+        )
+
+        program_title = slot.custom_title or slot.program.title
+        send_telegram_notification(
+            "🗓 Новая запись на занятие\n"
+            f"{company.name}\n"
+            f"{client.full_name} · {client.phone}\n"
+            f"{program_title} · {slot.session_date:%d.%m.%Y} {slot.start_time:%H:%M}",
         )
 
         return Response(

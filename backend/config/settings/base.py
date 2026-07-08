@@ -138,8 +138,19 @@ MESSENGER_GATEWAY_SECRET = os.getenv("MESSENGER_GATEWAY_SECRET", "dev-gateway-se
 TELEGRAM_API_ID = int(os.getenv("TELEGRAM_API_ID", "0") or 0)
 TELEGRAM_API_HASH = os.getenv("TELEGRAM_API_HASH", "")
 
+# Бот для push-уведомлений владельцу системы (новые записи, сообщения, лиды, ошибки).
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_NOTIFY_CHAT_ID = os.getenv("TELEGRAM_NOTIFY_CHAT_ID", "")
+
 # SMS.ru: api_id из личного кабинета. Без имени отправителя — стандартный SMS.ru (без ежемесячной платы).
 SMS_RU_API_ID = os.getenv("SMS_RU_API_ID", "").strip()
+
+# Хосты публичного расписания. Через них embed-token не требуется.
+PUBLIC_SCHEDULE_HOSTS = [
+    host.strip().lower()
+    for host in os.getenv("PUBLIC_SCHEDULE_HOSTS", "schedule.sportmax.fit").split(",")
+    if host.strip()
+]
 
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": [
@@ -156,6 +167,24 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
+}
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "telegram_errors": {
+            "level": "ERROR",
+            "class": "notifications.logging_handlers.TelegramErrorHandler",
+        },
+    },
+    "loggers": {
+        "django.request": {
+            "handlers": ["telegram_errors"],
+            "level": "ERROR",
+            "propagate": True,
+        },
+    },
 }
 
 from config.unfold import get_unfold_settings  # noqa: E402

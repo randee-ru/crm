@@ -46,6 +46,32 @@ _trusted = [
 ]
 if _public_app_url and _public_app_url not in _trusted:
     _trusted.append(_public_app_url)
+
+# Публичное расписание + ЛК клиентов.
+for _extra_host in [
+    host.strip()
+    for host in os.getenv(
+        "PUBLIC_SCHEDULE_HOSTS",
+        "schedule.sportmax.fit,lk.sportmax.fit",
+    ).split(",")
+    if host.strip()
+]:
+    if _extra_host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(_extra_host)
+    _extra_origin = f"https://{_extra_host}"
+    if _extra_origin not in _trusted:
+        _trusted.append(_extra_origin)
+for _extra_host in [
+    host.strip()
+    for host in os.getenv("CLIENT_LK_HOSTS", "lk.sportmax.fit").split(",")
+    if host.strip()
+]:
+    if _extra_host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(_extra_host)
+    _extra_origin = f"https://{_extra_host}"
+    if _extra_origin not in _trusted:
+        _trusted.append(_extra_origin)
+
 CSRF_TRUSTED_ORIGINS = _trusted
 
 try:
@@ -80,5 +106,7 @@ MESSENGER_GATEWAY_URL = os.getenv("MESSENGER_GATEWAY_URL", MESSENGER_GATEWAY_URL
 MESSENGER_GATEWAY_SECRET = os.getenv("MESSENGER_GATEWAY_SECRET", MESSENGER_GATEWAY_SECRET)
 TELEGRAM_API_ID = int(os.getenv("TELEGRAM_API_ID", str(TELEGRAM_API_ID)) or 0)
 TELEGRAM_API_HASH = os.getenv("TELEGRAM_API_HASH", TELEGRAM_API_HASH)
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", TELEGRAM_BOT_TOKEN)
+TELEGRAM_NOTIFY_CHAT_ID = os.getenv("TELEGRAM_NOTIFY_CHAT_ID", TELEGRAM_NOTIFY_CHAT_ID)
 
 ADMIN_ENABLE_BUSINESS_MODELS = False

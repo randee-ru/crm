@@ -24,6 +24,9 @@ def _load_dotenv(path: Path) -> None:
 _load_dotenv(BASE_DIR / "backend" / ".env")
 _load_dotenv(BASE_DIR / ".env")
 
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", TELEGRAM_BOT_TOKEN)
+TELEGRAM_NOTIFY_CHAT_ID = os.getenv("TELEGRAM_NOTIFY_CHAT_ID", TELEGRAM_NOTIFY_CHAT_ID)
+
 DEBUG = True
 _hosts = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,0.0.0.0").split(",")
 ALLOWED_HOSTS = [host.strip() for host in _hosts if host.strip()]

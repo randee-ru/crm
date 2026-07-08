@@ -11,6 +11,7 @@ from channels.models import MessengerAccount, MessengerIntegration, MessengerMes
 from clients.models import Client, ClientMessage
 from companies.models import Company
 from notifications.emitters import resolve_client_by_phone
+from notifications.telegram import send_telegram_notification
 from telephony.phone import normalize_phone
 
 
@@ -121,6 +122,18 @@ def record_messenger_message(
     if update_preview:
         update_thread_preview(thread, message)
     sync_client_message(company=thread.company, thread=thread, message=message)
+
+    if direction == MessageDirection.INBOUND:
+        preview = (message.body or "").replace("\n", " ").strip()
+        if len(preview) > 200:
+            preview = f"{preview[:197]}..."
+        contact = thread.contact_name or thread.contact_phone or "Клиент"
+        send_telegram_notification(
+            "💬 Новое сообщение от клиента\n"
+            f"{thread.company.name} · {_provider_label(thread.provider)}\n"
+            f"{contact}: {preview}",
+        )
+
     return message
 
 
