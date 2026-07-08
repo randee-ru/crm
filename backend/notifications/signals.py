@@ -7,6 +7,7 @@ from crm.models import Deal, Task
 from messaging.models import ChatMessage
 from notifications.emitters import (
     notify_call_logged,
+    notify_call_telegram,
     notify_chat_message,
     notify_deal_stage_changed,
     notify_task_created,
@@ -19,6 +20,7 @@ def emit_call_notification(sender, instance: CallLog, created: bool, **kwargs) -
     if not created:
         return
     notify_call_logged(instance)
+    notify_call_telegram(instance)
 
 
 @receiver(post_save, sender=ChatMessage)

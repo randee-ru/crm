@@ -178,12 +178,11 @@ LOGGING = {
             "class": "notifications.logging_handlers.TelegramErrorHandler",
         },
     },
-    "loggers": {
-        "django.request": {
-            "handlers": ["telegram_errors"],
-            "level": "ERROR",
-            "propagate": True,
-        },
+    # Ловим ERROR+ из любого логгера проекта (django.request, наши app-логгеры и т.д.)
+    # одним root-хендлером, чтобы не дублировать сообщения в Telegram.
+    "root": {
+        "handlers": ["telegram_errors"],
+        "level": "ERROR",
     },
 }
 

@@ -12,6 +12,7 @@ from crm.models import Deal, Task
 from messaging.models import ChatMessage
 from notifications.models import Notification
 from notifications.services import create_notification
+from notifications.telegram import send_telegram_notification
 from telephony.lead_deals_service import find_open_lead_deal_for_phone
 from telephony.models import CallLog
 from telephony.phone import normalize_phone
@@ -155,6 +156,31 @@ def notify_call_logged(call: CallLog) -> Notification | None:
             duration=call.duration,
         ),
     )
+
+
+def notify_call_telegram(call: CallLog) -> None:
+    direction_label = "Входящий" if call.direction == CallLog.Direction.INCOMING else "Исходящий"
+    status_labels = {
+        CallLog.Status.ANSWERED: "отвечен",
+        CallLog.Status.MISSED: "пропущен",
+    }
+    status_label = status_labels.get(call.status, call.status)
+    caller = format_phone_display(call.caller_phone or call.from_number)
+    target = format_phone_display(call.target_phone or call.to_number)
+    duration_label = f"{call.duration // 60}:{call.duration % 60:02d}"
+
+    lines = [
+        f"📞 {direction_label} звонок · {status_label}",
+        call.company.name,
+        f"{caller} → {target}",
+    ]
+    if call.client_id:
+        lines.append(f"Клиент: {call.client.full_name}")
+    if call.line_name:
+        lines.append(f"Линия: {call.line_name}")
+    lines.append(f"Длительность: {duration_label}")
+
+    send_telegram_notification("\n".join(lines))
 
 
 def notify_chat_message(message: ChatMessage) -> Notification | None:

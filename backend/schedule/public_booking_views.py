@@ -49,7 +49,17 @@ class PublicScheduleLoginView(PublicScheduleAccessMixin, APIView):
         try:
             payload = login_schedule_portal(company, phone, password)
         except ValueError as exc:
+            send_telegram_notification(
+                "🚫 Неудачный вход в личный кабинет\n"
+                f"{company.name}\n"
+                f"{phone} · {exc}",
+            )
             return Response({"detail": str(exc)}, status=400)
+        send_telegram_notification(
+            "🔓 Вход в личный кабинет\n"
+            f"{company.name}\n"
+            f"{payload['client_name']} · {payload['phone']}",
+        )
         return Response(payload)
 
 
@@ -112,7 +122,17 @@ class PublicScheduleResetPasswordView(PublicScheduleAccessMixin, APIView):
                 email=email,
             )
         except ValueError as exc:
+            send_telegram_notification(
+                "🚫 Ошибка сброса пароля личного кабинета\n"
+                f"{company.name}\n"
+                f"{phone} · {exc}",
+            )
             return Response({"detail": str(exc)}, status=400)
+        send_telegram_notification(
+            "🔑 Пароль установлен, вход выполнен\n"
+            f"{company.name}\n"
+            f"{payload['client_name']} · {payload['phone']}",
+        )
         return Response(payload)
 
 
@@ -284,9 +304,17 @@ class PublicScheduleSlotEnrollView(PublicScheduleAccessMixin, APIView):
         if slot is None:
             return Response({"detail": "Занятие не найдено."}, status=404)
 
+        program_title = slot.custom_title or slot.program.title
         try:
             enrollment = create_public_enrollment(slot=slot, client=client)
         except ValueError as exc:
+            send_telegram_notification(
+                "⚠️ Ошибка записи на занятие\n"
+                f"{company.name}\n"
+                f"{client.full_name} · {client.phone}\n"
+                f"{program_title} · {slot.session_date:%d.%m.%Y} {slot.start_time:%H:%M}\n"
+                f"Причина: {exc}",
+            )
             return Response({"detail": str(exc)}, status=400)
 
         send_enrollment_confirmation_sms(
@@ -297,7 +325,6 @@ class PublicScheduleSlotEnrollView(PublicScheduleAccessMixin, APIView):
             user_ip=extract_client_ip(request),
         )
 
-        program_title = slot.custom_title or slot.program.title
         send_telegram_notification(
             "🗓 Новая запись на занятие\n"
             f"{company.name}\n"
