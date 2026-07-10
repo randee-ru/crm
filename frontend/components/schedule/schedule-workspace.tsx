@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import {
   createGroupProgramAction,
@@ -49,6 +50,9 @@ const DAY_END_MINUTES = DAY_END_HOUR * 60;
 const MAX_SLOT_END_MINUTES = DAY_END_MINUTES - 1;
 const HOUR_HEIGHT = 116;
 const SLOT_DRAG_THRESHOLD = 6;
+const MENU_WIDTH = 220;
+const MENU_HEIGHT = 120;
+const MENU_OFFSET = 8;
 const DRAG_PROGRAM = "application/x-crm-program-id";
 const DRAG_SLOT = "application/x-crm-slot-id";
 
@@ -167,6 +171,12 @@ function slotTitle(slot: GroupScheduleSlotRecord): string {
 
 function slotColor(slot: GroupScheduleSlotRecord, program?: GroupProgramRecord): string {
   return slot.color || slot.display_color || program?.color || slot.program_color || "#2f6fed";
+}
+
+function clampMenuPosition(clientX: number, clientY: number) {
+  const x = Math.max(MENU_OFFSET, Math.min(clientX + MENU_OFFSET, window.innerWidth - MENU_WIDTH - MENU_OFFSET));
+  const y = Math.max(MENU_OFFSET, Math.min(clientY + MENU_OFFSET, window.innerHeight - MENU_HEIGHT - MENU_OFFSET));
+  return { x, y };
 }
 
 function formatEnrollmentTimestamp(value: string): string {
@@ -773,6 +783,22 @@ export function ScheduleWorkspace({
     }
   }
 
+  function openProgramMenu(program: GroupProgramRecord, event: React.MouseEvent<HTMLElement>) {
+    event.preventDefault();
+    setProgramMenu({
+      program,
+      ...clampMenuPosition(event.clientX, event.clientY),
+    });
+  }
+
+  function openSlotMenu(slot: GroupScheduleSlotRecord, event: React.MouseEvent<HTMLElement>) {
+    event.preventDefault();
+    setSlotMenu({
+      slot,
+      ...clampMenuPosition(event.clientX, event.clientY),
+    });
+  }
+
   function handlePrint() {
     try {
       const exportData = buildScheduleExportData(companyName, weekStart, slots);
@@ -857,14 +883,7 @@ export function ScheduleWorkspace({
                   event.dataTransfer.setData(DRAG_PROGRAM, String(program.id));
                   event.dataTransfer.effectAllowed = "copy";
                 }}
-                onContextMenu={(event) => {
-                  event.preventDefault();
-                  setProgramMenu({
-                    program,
-                    x: event.clientX,
-                    y: event.clientY,
-                  });
-                }}
+                onContextMenu={(event) => openProgramMenu(program, event)}
                 style={{
                   background: `linear-gradient(135deg, ${program.color}18 0%, #ffffff 55%)`,
                   borderColor: `${program.color}55`,
@@ -880,25 +899,19 @@ export function ScheduleWorkspace({
                       {program.code}
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    className="schedule-program-card-menu"
-                    aria-label="Действия направления"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setProgramMenu((current) =>
-                        current && current.program.id === program.id
-                          ? null
-                          : {
-                              program,
-                              x: event.clientX,
-                              y: event.clientY,
-                            },
-                      );
-                    }}
-                  >
-                    •••
-                  </button>
+                    <button
+                      type="button"
+                      className="schedule-program-card-menu"
+                      aria-label="Действия направления"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setProgramMenu((current) =>
+                          current && current.program.id === program.id ? null : { program, ...clampMenuPosition(event.clientX, event.clientY) },
+                        );
+                      }}
+                    >
+                      •••
+                    </button>
                 </div>
                 <p>{program.description}</p>
                 {program.room || program.trainer_display ? (
@@ -989,14 +1002,7 @@ export function ScheduleWorkspace({
                                   background: `linear-gradient(145deg, ${color} 0%, ${color}dd 100%)`,
                                   boxShadow: `0 8px 20px ${color}44`,
                                 }}
-                                onContextMenu={(event) => {
-                                  event.preventDefault();
-                                  setSlotMenu({
-                                    slot,
-                                    x: event.clientX,
-                                    y: event.clientY,
-                                  });
-                                }}
+                                onContextMenu={(event) => openSlotMenu(slot, event)}
                               >
                                 <div
                                   className="schedule-event-toolbar"
@@ -1060,52 +1066,58 @@ export function ScheduleWorkspace({
         />
       ) : null}
 
-      {programMenu ? (
-        <div
-          ref={programMenuRef}
-          className="schedule-program-menu"
-          style={{ left: `${programMenu.x}px`, top: `${programMenu.y}px` }}
-          onClick={(event) => event.stopPropagation()}
-        >
-          <button type="button" onClick={() => void copyProgram(programMenu.program)}>
-            Скопировать
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setProgramMenu(null);
-              openEditProgram(programMenu.program);
-            }}
-          >
-            Редактировать
-          </button>
-          <button type="button" onClick={() => void removeProgram(programMenu.program.id)}>
-            Удалить
-          </button>
-        </div>
-      ) : null}
+      {typeof document !== "undefined" && programMenu
+        ? createPortal(
+            <div
+              ref={programMenuRef}
+              className="schedule-program-menu"
+              style={{ left: `${programMenu.x}px`, top: `${programMenu.y}px` }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <button type="button" onClick={() => void copyProgram(programMenu.program)}>
+                Скопировать
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setProgramMenu(null);
+                  openEditProgram(programMenu.program);
+                }}
+              >
+                Редактировать
+              </button>
+              <button type="button" onClick={() => void removeProgram(programMenu.program.id)}>
+                Удалить
+              </button>
+            </div>,
+            document.body,
+          )
+        : null}
 
-      {slotMenu ? (
-        <div
-          ref={slotMenuRef}
-          className="schedule-program-menu"
-          style={{ left: `${slotMenu.x}px`, top: `${slotMenu.y}px` }}
-          onClick={(event) => event.stopPropagation()}
-        >
-          <button type="button" onClick={() => void copySlot(slotMenu.slot)}>
-            Копировать
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              openEdit(slotMenu.slot);
-              setSlotMenu(null);
-            }}
-          >
-            Редактировать
-          </button>
-        </div>
-      ) : null}
+      {typeof document !== "undefined" && slotMenu
+        ? createPortal(
+            <div
+              ref={slotMenuRef}
+              className="schedule-program-menu"
+              style={{ left: `${slotMenu.x}px`, top: `${slotMenu.y}px` }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <button type="button" onClick={() => void copySlot(slotMenu.slot)}>
+                Копировать
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  openEdit(slotMenu.slot);
+                  setSlotMenu(null);
+                }}
+              >
+                Редактировать
+              </button>
+            </div>,
+            document.body,
+          )
+        : null}
 
       {edit ? (
         <SlotEditorModal
