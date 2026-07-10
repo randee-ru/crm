@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from django.contrib.auth import get_user_model
 from django.test import Client as DjangoClient, TestCase
@@ -9,9 +9,11 @@ from rest_framework.authtoken.models import Token
 
 from accounts.models import CompanyMembership
 from branches.models import Branch
+from bookings.models import Booking
 from clients.models import Client
 from companies.models import Company
 from memberships.models import Membership
+from schedule.models import GroupProgram, GroupScheduleSlot, GroupSlotEnrollment
 
 
 class ClientListApiTest(TestCase):
@@ -125,6 +127,30 @@ class ClientListApiTest(TestCase):
         self.assertEqual(len(payload["results"]), 1)
         self.assertEqual(payload["results"][0]["full_name"], "Орлова Мария")
 
+    def test_client_list_supports_phone_search_with_formatting(self) -> None:
+        client = Client.objects.create(
+            company=self.company,
+            branch=self.branch,
+            first_name="Александра",
+            last_name="Цыганкова",
+            middle_name="Дмитриевна",
+            phone="+7 (910) 486-11-40",
+            email="lexiko@internet.ru",
+            external_id="staff-11",
+            manager_name="Менеджер по продажам",
+            client_status="former",
+            client_status_label="Бывший",
+        )
+
+        response = self.http.get(
+            "/api/v1/clients/?company=sportmax&search=79104861140",
+            **self.auth_headers(),
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["results"][0]["id"], client.id)
+
     def test_client_list_ignores_short_search(self) -> None:
         response = self.http.get(
             "/api/v1/clients/?company=sportmax&search=Пе",
@@ -134,6 +160,27 @@ class ClientListApiTest(TestCase):
         payload = response.json()
         self.assertEqual(payload["count"], 1)
         self.assertEqual(payload["results"][0]["full_name"], "Петров Иван")
+
+    def test_client_options_supports_phone_search_with_formatting(self) -> None:
+        client = Client.objects.create(
+            company=self.company,
+            branch=self.branch,
+            first_name="Оксана",
+            last_name="Смелкова",
+            middle_name="Владимировна",
+            phone="+7 (980) 186-15-36",
+            email="oksanasmelkova702@gmail.com",
+            external_id="staff-10",
+        )
+
+        response = self.http.get(
+            "/api/v1/clients/options/?company=sportmax&search=79801861536",
+            **self.auth_headers(),
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()["results"]
+        self.assertEqual(len(payload), 1)
+        self.assertEqual(payload[0]["id"], client.id)
 
     def test_client_list_supports_client_status_filter(self) -> None:
         self.client_record.client_status = "active"
@@ -364,3 +411,85 @@ class ClientListApiTest(TestCase):
         payload = response.json()
         self.assertEqual(len(payload), 1)
         self.assertEqual(payload[0]["name"], "Main Hall")
+
+
+class ClientProfileApiTest(TestCase):
+    def setUp(self) -> None:
+        self.http = DjangoClient()
+        self.user = get_user_model().objects.create_user(
+            username="manager",
+            password="admin12345",
+        )
+        self.company = Company.objects.create(name="Sportmax Fitness", slug="sportmax")
+        self.branch = Branch.objects.create(company=self.company, name="Main Hall")
+        CompanyMembership.objects.create(
+            user=self.user,
+            company=self.company,
+            branch=self.branch,
+            role=CompanyMembership.Role.MANAGER,
+        )
+        self.client_record = Client.objects.create(
+            company=self.company,
+            branch=self.branch,
+            first_name="Иван",
+            last_name="Петров",
+            phone="+79991112233",
+        )
+        self.program = GroupProgram.objects.create(
+            company=self.company,
+            title="Йога",
+            code="YOGA",
+            description="Описание",
+            color="#123456",
+            sort_order=1,
+            is_active=True,
+        )
+        self.slot = GroupScheduleSlot.objects.create(
+            company=self.company,
+            program=self.program,
+            branch=self.branch,
+            session_date=timezone.localdate() + timedelta(days=1),
+            start_time=datetime.strptime("09:00", "%H:%M").time(),
+            end_time=datetime.strptime("10:00", "%H:%M").time(),
+            room="Main Hall",
+        )
+        self.token = Token.objects.create(user=self.user)
+
+        Booking.objects.create(
+            company=self.company,
+            branch=self.branch,
+            client=self.client_record,
+            title="Функциональная тренировка",
+            starts_at=timezone.now() - timedelta(days=2),
+            ends_at=timezone.now() - timedelta(days=2) + timedelta(hours=1),
+            status=Booking.Status.COMPLETED,
+            source="1c",
+            room="Зал №1",
+            lesson_type="group",
+            payment_basis="Абонемент",
+        )
+        GroupSlotEnrollment.objects.create(
+            company=self.company,
+            slot=self.slot,
+            client=self.client_record,
+            status=GroupSlotEnrollment.Status.CANCELLED,
+            notes="Запись через расписание",
+        )
+
+    def auth_headers(self) -> dict[str, str]:
+        return {"HTTP_AUTHORIZATION": f"Token {self.token.key}"}
+
+    def test_client_profile_includes_bookings_and_group_enrollments(self) -> None:
+        response = self.http.get(
+            f"/api/v1/clients/{self.client_record.id}/profile/?company=sportmax",
+            **self.auth_headers(),
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertGreaterEqual(len(payload["lessons"]), 2)
+        titles = {item["title"]: item for item in payload["lessons"]}
+        self.assertIn("Функциональная тренировка", titles)
+        self.assertIn("Йога", titles)
+        self.assertEqual(titles["Функциональная тренировка"]["source"], "1c")
+        self.assertEqual(titles["Йога"]["source"], "schedule")
+        self.assertEqual(titles["Йога"]["status"], "cancelled")

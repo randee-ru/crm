@@ -89,6 +89,7 @@ export function ScheduleWeekSwiper({ weekStart, onWeekChange, children }: Schedu
         spaceBetween={20}
         speed={300}
         resistanceRatio={0.72}
+        allowTouchMove={false}
         onSwiper={(swiper) => {
           swiperRef.current = swiper;
         }}

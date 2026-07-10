@@ -47,7 +47,8 @@ const HOURS = Array.from({ length: DAY_END_HOUR - DAY_START_HOUR }, (_, index) =
 const DAY_START_MINUTES = 7 * 60;
 const DAY_END_MINUTES = DAY_END_HOUR * 60;
 const MAX_SLOT_END_MINUTES = DAY_END_MINUTES - 1;
-const HOUR_HEIGHT = 96;
+const HOUR_HEIGHT = 116;
+const SLOT_DRAG_THRESHOLD = 6;
 const DRAG_PROGRAM = "application/x-crm-program-id";
 const DRAG_SLOT = "application/x-crm-slot-id";
 
@@ -79,6 +80,12 @@ type ProgramMenuState = {
   y: number;
 };
 
+type SlotMenuState = {
+  slot: GroupScheduleSlotRecord;
+  x: number;
+  y: number;
+};
+
 type DaySlotLayout = {
   slot: GroupScheduleSlotRecord;
   top: string;
@@ -94,6 +101,16 @@ type EnrollmentTooltipState = {
   title: string;
   items: GroupSlotEnrollmentRecord[];
   loading: boolean;
+};
+
+type SlotDragState = {
+  slotId: number;
+  pointerId: number;
+  startX: number;
+  startY: number;
+  currentX: number;
+  currentY: number;
+  active: boolean;
 };
 
 const ENROLLMENT_STATUS_OPTIONS: Array<{
@@ -205,8 +222,8 @@ function buildDaySlotLayouts(daySlots: GroupScheduleSlotRecord[]): DaySlotLayout
     for (const { item, laneIndex } of assigned) {
       const top = ((item.start - DAY_START_MINUTES) / (DAY_END_MINUTES - DAY_START_MINUTES)) * 100;
       const durationMinutes = item.end - item.start;
-      const heightPx = Math.max((durationMinutes / 60) * HOUR_HEIGHT - 4, 88);
-      const stackOffsetPx = laneIndex * 22;
+      const heightPx = Math.max((durationMinutes / 60) * HOUR_HEIGHT - 6, 108);
+      const stackOffsetPx = laneIndex * 26;
       layouts.push({
         slot: item.slot,
         top: laneIndex === 0 ? `${top}%` : `calc(${top}% + ${stackOffsetPx}px)`,
@@ -268,13 +285,17 @@ export function ScheduleWorkspace({
   const [edit, setEdit] = useState<EditState | null>(null);
   const [programEditor, setProgramEditor] = useState<ProgramEditorState | null>(null);
   const [programMenu, setProgramMenu] = useState<ProgramMenuState | null>(null);
+  const [slotMenu, setSlotMenu] = useState<SlotMenuState | null>(null);
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [showPublish, setShowPublish] = useState(false);
   const [showSocial, setShowSocial] = useState(false);
   const [publishSettings, setPublishSettings] = useState(scheduleSettings);
+  const [draggingSlotId, setDraggingSlotId] = useState<number | null>(null);
   const dayRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const slotDragRef = useRef<SlotDragState | null>(null);
   const programMenuRef = useRef<HTMLDivElement | null>(null);
+  const slotMenuRef = useRef<HTMLDivElement | null>(null);
   const skipInitialWeekFetch = useRef(true);
 
   useEffect(() => {
@@ -282,6 +303,13 @@ export function ScheduleWorkspace({
   }, [programs]);
 
   const programsById = useMemo(() => new Map(programList.map((item) => [item.id, item])), [programList]);
+  const groupTrainers = useMemo(
+    () =>
+      trainers
+        .filter((trainer) => trainer.is_active && trainer.trains_group_programs)
+        .sort((a, b) => a.last_name.localeCompare(b.last_name) || a.first_name.localeCompare(b.first_name)),
+    [trainers],
+  );
 
   useEffect(() => {
     const from = formatLocalDate(weekStart);
@@ -315,6 +343,12 @@ export function ScheduleWorkspace({
   }, [isDragging]);
 
   useEffect(() => {
+    return () => {
+      slotDragRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!programMenu) return;
     const handleMouseDown = (event: MouseEvent) => {
       if (programMenuRef.current && event.target instanceof Node && programMenuRef.current.contains(event.target)) {
@@ -337,6 +371,30 @@ export function ScheduleWorkspace({
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [programMenu]);
+
+  useEffect(() => {
+    if (!slotMenu) return;
+    const handleMouseDown = (event: MouseEvent) => {
+      if (slotMenuRef.current && event.target instanceof Node && slotMenuRef.current.contains(event.target)) {
+        return;
+      }
+      setSlotMenu(null);
+    };
+    const closeMenu = () => setSlotMenu(null);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeMenu();
+    };
+    window.addEventListener("mousedown", handleMouseDown);
+    window.addEventListener("scroll", closeMenu, true);
+    window.addEventListener("resize", closeMenu);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("mousedown", handleMouseDown);
+      window.removeEventListener("scroll", closeMenu, true);
+      window.removeEventListener("resize", closeMenu);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [slotMenu]);
 
   const filteredPrograms = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -390,6 +448,8 @@ export function ScheduleWorkspace({
   }
 
   async function saveProgram(payload: {
+    trainer: number | null;
+    room: string;
     title: string;
     code: string;
     description: string;
@@ -437,7 +497,10 @@ export function ScheduleWorkspace({
     setBusy(true);
     setMessage("");
     try {
+      const copiedTrainer = program.trainer && groupTrainers.some((item) => item.id === program.trainer) ? program.trainer : null;
       const created = await createGroupProgramAction({
+        trainer: copiedTrainer,
+        room: program.room,
         title: makeUniqueProgramTitle(program.title),
         code: program.code ? `${program.code}-COPY` : "",
         description: program.description,
@@ -455,8 +518,142 @@ export function ScheduleWorkspace({
     }
   }
 
+  async function copySlot(slot: GroupScheduleSlotRecord) {
+    setBusy(true);
+    setMessage("");
+    try {
+      const copiedTrainer = slot.trainer && groupTrainers.some((item) => item.id === slot.trainer) ? slot.trainer : null;
+      const created = await createGroupScheduleSlotAction({
+        program: slot.program,
+        session_date: slot.session_date,
+        start_time: slot.start_time,
+        end_time: slot.end_time,
+        room: slot.room,
+        trainer_name: slot.trainer_name,
+        trainer: copiedTrainer,
+        description: slot.description,
+        restrictions: slot.restrictions,
+        custom_title: slot.custom_title,
+        color: slot.color,
+        max_participants: slot.max_participants,
+        branch: slot.branch,
+        is_active: slot.is_active,
+      });
+      setSlots((prev) => [...prev, created]);
+      setSlotMenu(null);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Не удалось скопировать занятие");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function beginDrag() {
     setIsDragging(true);
+  }
+
+  function clearSlotDragState() {
+    slotDragRef.current = null;
+    setDragOverDate(null);
+    setDraggingSlotId(null);
+    setIsDragging(false);
+  }
+
+  function findDayBodyAtPoint(clientX: number, clientY: number) {
+    const element = document.elementFromPoint(clientX, clientY);
+    const body = element instanceof Element ? element.closest<HTMLElement>(".schedule-day-body") : null;
+    const sessionDate = body?.dataset.sessionDate;
+    if (!sessionDate) return null;
+    const ref = dayRefs.current[sessionDate];
+    return {
+      sessionDate,
+      body: ref ?? body,
+    };
+  }
+
+  function startSlotDrag(slot: GroupScheduleSlotRecord, event: React.PointerEvent<HTMLDivElement>) {
+    if (busy || event.button !== 0) return;
+    if (event.target instanceof Element && event.target.closest("button")) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const dragTarget = event.currentTarget;
+    const nextState: SlotDragState = {
+      slotId: slot.id,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      currentX: event.clientX,
+      currentY: event.clientY,
+      active: false,
+    };
+    slotDragRef.current = nextState;
+    try {
+      dragTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // Ignore browsers that do not support pointer capture in this context.
+    }
+
+    const cleanup = () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerCancel);
+      try {
+        dragTarget.releasePointerCapture(event.pointerId);
+      } catch {
+        // Ignore capture release errors.
+      }
+      clearSlotDragState();
+    };
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const current = slotDragRef.current;
+      if (!current || current.pointerId !== moveEvent.pointerId) return;
+
+      current.currentX = moveEvent.clientX;
+      current.currentY = moveEvent.clientY;
+
+      const distance = Math.hypot(moveEvent.clientX - current.startX, moveEvent.clientY - current.startY);
+      if (!current.active && distance < SLOT_DRAG_THRESHOLD) {
+        return;
+      }
+
+      if (!current.active) {
+        current.active = true;
+        setDraggingSlotId(current.slotId);
+        setIsDragging(true);
+      }
+
+      const targetDay = findDayBodyAtPoint(moveEvent.clientX, moveEvent.clientY);
+      setDragOverDate(targetDay?.sessionDate ?? null);
+      moveEvent.preventDefault();
+    };
+
+    const handlePointerUp = (endEvent: PointerEvent) => {
+      const current = slotDragRef.current;
+      if (!current || current.pointerId !== endEvent.pointerId) {
+        cleanup();
+        return;
+      }
+
+      const targetDay = current.active ? findDayBodyAtPoint(endEvent.clientX, endEvent.clientY) : null;
+      if (current.active && targetDay?.body) {
+        const rect = targetDay.body.getBoundingClientRect();
+        const startMinutes = snapMinutesFromPointer(endEvent.clientY - rect.top);
+        void moveSlot(current.slotId, targetDay.sessionDate, startMinutes);
+      }
+
+      cleanup();
+    };
+
+    const handlePointerCancel = () => {
+      cleanup();
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerCancel);
   }
 
   async function createSlot(programId: number, sessionDate: string, startMinutes: number) {
@@ -594,7 +791,7 @@ export function ScheduleWorkspace({
           <span className="schedule-hero-badge">Групповые программы</span>
           <h1>Расписание</h1>
           <p>
-            {companyName} · каждое занятие привязано к конкретной дате. Перетащите программу на нужный день и время.
+            {companyName} · перетаскивайте занятия по времени, а через правый клик можно быстро копировать блок.
           </p>
         </div>
         <div className="schedule-hero-actions">
@@ -704,6 +901,12 @@ export function ScheduleWorkspace({
                   </button>
                 </div>
                 <p>{program.description}</p>
+                {program.room || program.trainer_display ? (
+                  <div className="schedule-program-card-meta">
+                    {program.room ? <span>{program.room}</span> : null}
+                    {program.trainer_display ? <span>{program.trainer_display}</span> : null}
+                  </div>
+                ) : null}
               </article>
             ))}
           </div>
@@ -753,6 +956,7 @@ export function ScheduleWorkspace({
                           ref={(node) => {
                             dayRefs.current[sessionDate] = node;
                           }}
+                          data-session-date={sessionDate}
                           className={`schedule-day-body${dragOverDate === sessionDate ? " schedule-day-body--active" : ""}`}
                           style={{ height: boardHeight }}
                           onDragOver={(event) => {
@@ -776,8 +980,7 @@ export function ScheduleWorkspace({
                             return (
                               <div
                                 key={slot.id}
-                                className="schedule-event"
-                                draggable={!busy}
+                                className={`schedule-event${draggingSlotId === slot.id ? " schedule-event--dragging" : ""}`}
                                 style={{
                                   top,
                                   height,
@@ -786,14 +989,19 @@ export function ScheduleWorkspace({
                                   background: `linear-gradient(145deg, ${color} 0%, ${color}dd 100%)`,
                                   boxShadow: `0 8px 20px ${color}44`,
                                 }}
-                                onDragStart={(event) => {
-                                  beginDrag();
-                                  event.stopPropagation();
-                                  event.dataTransfer.setData(DRAG_SLOT, String(slot.id));
-                                  event.dataTransfer.effectAllowed = "move";
+                                onContextMenu={(event) => {
+                                  event.preventDefault();
+                                  setSlotMenu({
+                                    slot,
+                                    x: event.clientX,
+                                    y: event.clientY,
+                                  });
                                 }}
                               >
-                                <div className="schedule-event-toolbar">
+                                <div
+                                  className="schedule-event-toolbar"
+                                  onPointerDown={(pointerEvent) => startSlotDrag(slot, pointerEvent)}
+                                >
                                   <span className="schedule-event-grip" aria-hidden="true">
                                     <IconGrip size={12} />
                                   </span>
@@ -877,13 +1085,35 @@ export function ScheduleWorkspace({
         </div>
       ) : null}
 
+      {slotMenu ? (
+        <div
+          ref={slotMenuRef}
+          className="schedule-program-menu"
+          style={{ left: `${slotMenu.x}px`, top: `${slotMenu.y}px` }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <button type="button" onClick={() => void copySlot(slotMenu.slot)}>
+            Копировать
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              openEdit(slotMenu.slot);
+              setSlotMenu(null);
+            }}
+          >
+            Редактировать
+          </button>
+        </div>
+      ) : null}
+
       {edit ? (
         <SlotEditorModal
           slot={edit.slot}
           slotDate={edit.slotDate}
           program={edit.program}
           programs={programList}
-          trainers={trainers}
+          trainers={groupTrainers}
           clients={clients}
           busy={busy}
           onClose={() => setEdit(null)}
@@ -906,6 +1136,7 @@ export function ScheduleWorkspace({
         <ProgramEditorModal
           mode={programEditor.mode}
           program={programEditor.program}
+          trainers={groupTrainers}
           busy={busy}
           onClose={() => setProgramEditor(null)}
           onSave={saveProgram}
@@ -953,6 +1184,7 @@ function SlotEditorModal({
   onDelete: () => void;
   onEnrollmentChange: (slotId: number, count: number) => void;
 }) {
+  const trainerOptions = trainers;
   const [programId, setProgramId] = useState(String(slot.program));
   const [customTitle, setCustomTitle] = useState(slot.custom_title);
   const [maxParticipants, setMaxParticipants] = useState(
@@ -962,7 +1194,9 @@ function SlotEditorModal({
   const [color, setColor] = useState(slot.color || slot.display_color || program.color);
   const [room, setRoom] = useState(slot.room);
   const [trainerName, setTrainerName] = useState(slot.trainer_name || slot.trainer_display);
-  const [trainerId, setTrainerId] = useState(slot.trainer ? String(slot.trainer) : "");
+  const [trainerId, setTrainerId] = useState(
+    slot.trainer && trainerOptions.some((item) => item.id === slot.trainer) ? String(slot.trainer) : "",
+  );
   const [description, setDescription] = useState(slot.description || program.description);
   const [restrictions, setRestrictions] = useState(slot.restrictions);
   const [startTime, setStartTime] = useState(slot.start_time.slice(0, 5));
@@ -1311,12 +1545,13 @@ function SlotEditorModal({
               }}
             >
               <option value="">Не выбран</option>
-              {trainers.map((trainer) => (
+              {trainerOptions.map((trainer) => (
                 <option key={trainer.id} value={trainer.id}>
                   {trainer.full_name}
                 </option>
               ))}
             </select>
+            <span className="schedule-modal-field-hint">Показываем только тренеров групповых программ.</span>
           </label>
           <label className="schedule-modal-full">
             Имя тренера
@@ -1373,15 +1608,19 @@ function SlotEditorModal({
 function ProgramEditorModal({
   mode,
   program,
+  trainers,
   busy,
   onClose,
   onSave,
 }: {
   mode: "create" | "edit";
   program: GroupProgramRecord | null;
+  trainers: TrainerRecord[];
   busy: boolean;
   onClose: () => void;
   onSave: (payload: {
+    trainer: number | null;
+    room: string;
     title: string;
     code: string;
     description: string;
@@ -1396,6 +1635,10 @@ function ProgramEditorModal({
   const [color, setColor] = useState(program?.color ?? "#2f6fed");
   const [sortOrder, setSortOrder] = useState(String(program?.sort_order ?? 0));
   const [isActive, setIsActive] = useState(program?.is_active ?? true);
+  const [room, setRoom] = useState(program?.room ?? "");
+  const [trainerId, setTrainerId] = useState(
+    program?.trainer && trainers.some((item) => item.id === program.trainer) ? String(program.trainer) : "",
+  );
 
   useEffect(() => {
     setTitle(program?.title ?? "");
@@ -1404,7 +1647,9 @@ function ProgramEditorModal({
     setColor(program?.color ?? "#2f6fed");
     setSortOrder(String(program?.sort_order ?? 0));
     setIsActive(program?.is_active ?? true);
-  }, [program]);
+    setRoom(program?.room ?? "");
+    setTrainerId(program?.trainer && trainers.some((item) => item.id === program.trainer) ? String(program.trainer) : "");
+  }, [program, trainers]);
 
   return (
     <div className="schedule-modal-backdrop" onClick={onClose}>
@@ -1413,7 +1658,7 @@ function ProgramEditorModal({
           <div>
             <span className="schedule-modal-code">{mode === "edit" ? "Направление" : "Новое направление"}</span>
             <h2>{title || "Без названия"}</h2>
-            <p>Управление каталогом групповых программ и левого списка расписания.</p>
+            <p>Каталог групповых программ, плюс зал и тренер по умолчанию для будущих занятий.</p>
           </div>
           <button type="button" className="schedule-modal-close" onClick={onClose} aria-label="Закрыть">
             <IconClose size={18} />
@@ -1424,6 +1669,25 @@ function ProgramEditorModal({
           <label className="schedule-modal-full">
             Название
             <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Например, Йога" />
+          </label>
+          <label className="schedule-modal-full">
+            Зал
+            <input value={room} onChange={(event) => setRoom(event.target.value)} placeholder="Cycle Studio, Main Hall…" />
+          </label>
+          <label className="schedule-modal-full">
+            Тренер
+            <select
+              value={trainerId}
+              onChange={(event) => setTrainerId(event.target.value)}
+            >
+              <option value="">Не выбран</option>
+              {trainers.map((trainer) => (
+                <option key={trainer.id} value={trainer.id}>
+                  {trainer.full_name}
+                </option>
+              ))}
+            </select>
+            <span className="schedule-modal-field-hint">Показываем только тренеров групповых программ.</span>
           </label>
           <label>
             Код
@@ -1477,6 +1741,8 @@ function ProgramEditorModal({
             disabled={busy || !title.trim()}
             onClick={() =>
               onSave({
+                trainer: trainerId ? Number(trainerId) : null,
+                room,
                 title: title.trim(),
                 code: code.trim(),
                 description: description.trim(),

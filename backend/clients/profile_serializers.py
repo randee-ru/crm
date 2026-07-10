@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+from datetime import datetime
+
+from django.utils import timezone
 from rest_framework import serializers
 
 from attendance.models import AttendanceRecord
 from bookings.models import Booking
 from clients.models import Client, ClientLead, ClientMessage
 from crm.models import Deal
+from schedule.models import GroupSlotEnrollment
 from sales.models import Sale
 from telephony.lines import resolve_call_log_line_display
 from telephony.models import CallLog
@@ -142,6 +146,23 @@ class ClientLessonSerializer(serializers.ModelSerializer):
         ]
 
 
+def _serialize_group_enrollment(enrollment: GroupSlotEnrollment) -> dict[str, str | int]:
+    slot = enrollment.slot
+    starts_at = timezone.make_aware(datetime.combine(slot.session_date, slot.start_time))
+    ends_at = timezone.make_aware(datetime.combine(slot.session_date, slot.end_time))
+    return {
+        "id": enrollment.id,
+        "title": slot.custom_title or slot.program.title,
+        "starts_at": starts_at.isoformat(),
+        "ends_at": ends_at.isoformat(),
+        "status": enrollment.status,
+        "room": slot.room,
+        "lesson_type": "group",
+        "payment_basis": enrollment.notes or "Запись на групповое занятие",
+        "source": "schedule",
+    }
+
+
 class ClientProfileSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(read_only=True)
     branch_name = serializers.CharField(source="branch.name", read_only=True, default=None)
@@ -224,8 +245,37 @@ class ClientProfileSerializer(serializers.ModelSerializer):
         return ClientDealSerializer(self._limit(qs), many=True).data
 
     def get_lessons(self, client: Client) -> list[dict]:
-        qs = client.bookings.order_by("-starts_at")
-        return ClientLessonSerializer(self._limit(qs), many=True).data
+        items: list[tuple[datetime, dict]] = []
+
+        booking_qs = client.bookings.order_by("-starts_at", "-id")
+        for booking in self._limit(booking_qs):
+            items.append(
+                (
+                    booking.starts_at,
+                    {
+                        "id": booking.id,
+                        "title": booking.title,
+                        "starts_at": booking.starts_at.isoformat(),
+                        "ends_at": booking.ends_at.isoformat(),
+                        "status": booking.status,
+                        "room": booking.room,
+                        "lesson_type": booking.lesson_type,
+                        "payment_basis": booking.payment_basis,
+                        "source": booking.source,
+                    },
+                )
+            )
+
+        enrollment_qs = (
+            client.group_slot_enrollments.select_related("slot__program", "slot__branch", "slot__trainer")
+            .order_by("-created_at", "-id")
+        )
+        for enrollment in self._limit(enrollment_qs):
+            payload = _serialize_group_enrollment(enrollment)
+            items.append((timezone.make_aware(datetime.combine(enrollment.slot.session_date, enrollment.slot.start_time)), payload))
+
+        items.sort(key=lambda item: item[0], reverse=True)
+        return [payload for _, payload in items[:50]]
 
     def get_memberships(self, client: Client) -> list[dict]:
         memberships = client.memberships.order_by("-starts_at")

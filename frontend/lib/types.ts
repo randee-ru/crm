@@ -272,6 +272,8 @@ export type StaffMembershipRecord = {
   first_name: string;
   last_name: string;
   display_name: string;
+  phone: string;
+  birth_date: string | null;
   role: string;
   is_active: boolean;
   branch_id: number | null;
@@ -316,6 +318,8 @@ export type StaffMembershipUpdateInput = {
   first_name: string;
   last_name: string;
   email: string;
+  phone?: string;
+  birth_date?: string | null;
   role: string;
   is_active: boolean;
   branch_id?: number | null;
@@ -334,6 +338,8 @@ export type StaffMembershipCreateInput = {
   first_name: string;
   last_name: string;
   email: string;
+  phone?: string;
+  birth_date?: string | null;
   password: string;
   role: string;
   branch_id?: number | null;
@@ -662,6 +668,9 @@ export type ScheduleWriteInput = {
 
 export type GroupProgramRecord = {
   id: number;
+  trainer: number | null;
+  trainer_display: string;
+  room: string;
   title: string;
   code: string;
   description: string;
@@ -671,6 +680,8 @@ export type GroupProgramRecord = {
 };
 
 export type GroupProgramWriteInput = {
+  trainer?: number | null;
+  room?: string;
   title: string;
   code?: string;
   description?: string;

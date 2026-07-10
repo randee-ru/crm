@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from django.db.models import DateField, OuterRef, Q, QuerySet, Subquery
+from django.db.models import DateField, OuterRef, Prefetch, Q, QuerySet, Subquery
 from django.db.models.functions import Cast, Coalesce
 from django.utils import timezone
 from rest_framework.authentication import TokenAuthentication
@@ -30,7 +30,9 @@ from clients.serializers import (
 )
 from clients.profile_serializers import ClientProfileSerializer
 from core.pagination import ClientListPagination
+from core.search import digits_only, normalize_search
 from memberships.models import Membership
+from schedule.models import GroupSlotEnrollment
 
 
 def get_company_from_request(request: Request):
@@ -67,8 +69,43 @@ class ClientQuerysetMixin:
                 "bookings",
                 "memberships",
                 "call_logs",
+                Prefetch(
+                    "group_slot_enrollments",
+                    queryset=GroupSlotEnrollment.objects.select_related("slot__program", "slot__branch", "slot__trainer"),
+                ),
             )
         )
+
+
+def apply_client_search(queryset: QuerySet[Client], search: str) -> QuerySet[Client]:
+    search, digits = normalize_search(search)
+    if len(search) < 3:
+        return queryset
+
+    conditions = (
+        Q(first_name__icontains=search)
+        | Q(last_name__icontains=search)
+        | Q(middle_name__icontains=search)
+        | Q(email__icontains=search)
+        | Q(external_id__icontains=search)
+        | Q(client_status_label__icontains=search)
+        | Q(manager_name__icontains=search)
+        | Q(lead_source__icontains=search)
+        | Q(acquisition_channel__icontains=search)
+        | Q(club_name__icontains=search)
+        | Q(membership_name__icontains=search)
+        | Q(membership_status__icontains=search)
+        | Q(contract_ref__icontains=search)
+        | Q(card_number__icontains=search)
+        | Q(passport__icontains=search)
+        | Q(notes__icontains=search)
+    )
+
+    if digits:
+        queryset = queryset.annotate(phone_digits=digits_only("phone"))
+        conditions |= Q(phone_digits__icontains=digits)
+
+    return queryset.filter(conditions)
 
 
 class ClientListCreateView(ClientQuerysetMixin, ListCreateAPIView):
@@ -103,15 +140,7 @@ class ClientListCreateView(ClientQuerysetMixin, ListCreateAPIView):
         )
 
         search = self.request.query_params.get("search", "").strip()
-        if len(search) >= 3:
-            queryset = queryset.filter(
-                Q(first_name__icontains=search)
-                | Q(last_name__icontains=search)
-                | Q(middle_name__icontains=search)
-                | Q(phone__icontains=search)
-                | Q(email__icontains=search)
-                | Q(external_id__icontains=search)
-            )
+        queryset = apply_client_search(queryset, search)
 
         client_status = self.request.query_params.get("client_status", "").strip()
         if client_status:
@@ -283,12 +312,14 @@ class ClientOptionsView(ClientQuerysetMixin, ListAPIView):
         if len(search) < 2:
             return queryset.none()
 
-        return queryset.filter(
-            Q(first_name__icontains=search)
-            | Q(last_name__icontains=search)
-            | Q(middle_name__icontains=search)
-            | Q(phone__icontains=search)
-        )
+        search, digits = normalize_search(search)
+        conditions = Q(first_name__icontains=search) | Q(last_name__icontains=search) | Q(middle_name__icontains=search)
+        conditions |= Q(email__icontains=search) | Q(external_id__icontains=search)
+        if digits:
+            queryset = queryset.annotate(phone_digits=digits_only("phone"))
+            conditions |= Q(phone_digits__icontains=digits)
+
+        return queryset.filter(conditions)
 
 
 class CompanyContextView(APIView):

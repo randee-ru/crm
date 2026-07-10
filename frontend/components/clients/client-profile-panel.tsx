@@ -8,6 +8,7 @@ import { ClickToCallChip } from "@/components/telephony/click-to-call-chip";
 import { TelephonyAudioPlayer } from "@/components/telephony/telephony-audio-player";
 import {
   IconArrowLeft,
+  IconCalendarCheck,
   IconCheckCircle,
   IconFile,
   IconIdCard,
@@ -41,6 +42,25 @@ function formatClientMessageChannel(channel: string, messageType: string): strin
   return channel || messageType || "Сообщение";
 }
 
+function formatLessonStatus(status: string): string {
+  const key = status.trim().toLowerCase();
+  if (key === "confirmed") return "Запланировано";
+  if (key === "completed") return "Проведено";
+  if (key === "cancelled") return "Отменено";
+  if (key === "waitlist") return "Лист ожидания";
+  if (key === "draft") return "Черновик";
+  return status || "Занятие";
+}
+
+function formatLessonSource(source: string): string {
+  const key = source.trim().toLowerCase();
+  if (!key) return "";
+  if (key.includes("schedule") || key.includes("group")) return "Расписание";
+  if (key.includes("1c") || key.includes("1с")) return "1C";
+  if (key === "crm" || key === "manual") return "CRM";
+  return source;
+}
+
 const tabs = [
   { id: "main", label: "Обзор" },
   { id: "memberships", label: "Членства" },
@@ -66,7 +86,7 @@ type TabId = (typeof tabs)[number]["id"];
 type TimelineItem = {
   id: string;
   at: string;
-  kind: "call" | "message" | "lead" | "deal" | "sale" | "event";
+  kind: "call" | "message" | "lesson" | "lead" | "deal" | "sale" | "event";
   title: string;
   body?: string;
   meta?: string;
@@ -147,6 +167,24 @@ function buildTimeline(profile: ClientProfile): TimelineItem[] {
     });
   }
 
+  for (const lesson of profile.lessons) {
+    items.push({
+      id: `lesson-${lesson.id}`,
+      at: lesson.starts_at,
+      kind: "lesson",
+      title:
+        lesson.status === "cancelled"
+          ? `Отмена занятия · ${lesson.title}`
+          : lesson.status === "completed"
+            ? `Занятие проведено · ${lesson.title}`
+            : `Запись на занятие · ${lesson.title}`,
+      body: lesson.payment_basis || undefined,
+      meta: [formatLessonStatus(lesson.status), lesson.room, formatLessonSource(lesson.source), lesson.lesson_type]
+        .filter(Boolean)
+        .join(" · "),
+    });
+  }
+
   if (profile.registration_date) {
     items.push({
       id: "registered",
@@ -177,6 +215,8 @@ function tabCount(profile: ClientProfile, tabId: TabId): number | null {
   switch (tabId) {
     case "calls":
       return profile.calls.length || null;
+    case "lessons":
+      return profile.lessons.length || null;
     case "sales":
       return profile.sales.length || null;
     case "memberships":
@@ -450,13 +490,14 @@ export function ClientProfilePanel({ profile, client, branches, canManageBlocks 
 
         {tab === "lessons" ? (
           <DataTable
-            headers={["Занятие", "Начало", "Окончание", "Зал", "Статус"]}
+            headers={["Занятие", "Начало", "Окончание", "Зал", "Статус", "Источник"]}
             rows={profile.lessons.map((item) => [
               item.title,
               formatDateTime(item.starts_at),
               formatDateTime(item.ends_at),
               item.room || "—",
-              item.status,
+              formatLessonStatus(item.status),
+              formatLessonSource(item.source) || "—",
             ])}
             empty="Занятий нет"
           />
@@ -554,6 +595,7 @@ function SidebarCard({ title, children }: { title: string; children: ReactNode }
 function TimelineIcon({ kind }: { kind: TimelineItem["kind"] }) {
   if (kind === "call") return <IconPhoneIncoming size={14} />;
   if (kind === "message") return <IconMail size={14} />;
+  if (kind === "lesson") return <IconCalendarCheck size={14} />;
   if (kind === "sale") return <IconCheckCircle size={14} />;
   if (kind === "deal") return <IconFile size={14} />;
   return <IconCheckCircle size={14} />;

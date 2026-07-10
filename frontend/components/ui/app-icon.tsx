@@ -191,6 +191,10 @@ export function IconCheckCircle({ className, size = 16, strokeWidth = 1.75 }: Ic
   return <CheckCircle2 className={className} size={size} strokeWidth={strokeWidth} aria-hidden />;
 }
 
+export function IconCalendarCheck({ className, size = 16, strokeWidth = 1.75 }: IconProps) {
+  return <CalendarCheck className={className} size={size} strokeWidth={strokeWidth} aria-hidden />;
+}
+
 export function IconChevronLeft({ className, size = 16, strokeWidth = 1.75 }: IconProps) {
   return <ChevronLeft className={className} size={size} strokeWidth={strokeWidth} aria-hidden />;
 }
