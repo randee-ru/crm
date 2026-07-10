@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import mimetypes
 import re
 import time
@@ -14,6 +15,8 @@ from django.utils import timezone
 from companies.models import Company
 from telephony.mango_client import download_mango_recording, resolve_mango_config
 from telephony.models import CallLog, TelephonyIntegration
+
+logger = logging.getLogger(__name__)
 
 
 def recording_retention_days() -> int:
@@ -32,6 +35,28 @@ def recording_extension(content_type: str) -> str:
 def safe_recording_filename(recording_id: str, extension: str) -> str:
     safe_id = re.sub(r"[^A-Za-z0-9._-]+", "_", recording_id).strip("._")[:100]
     return f"{safe_id or 'recording'}.{extension}"
+
+
+def _local_recording_exists(call: CallLog) -> bool:
+    if not call.recording_file or not call.recording_file.name:
+        return False
+
+    try:
+        return call.recording_file.storage.exists(call.recording_file.name)
+    except Exception:
+        logger.warning(
+            "Failed to check local recording file for company=%s call=%s path=%s",
+            call.company.slug,
+            call.id,
+            call.recording_file.name,
+        )
+        return False
+
+
+def _open_local_recording(call: CallLog):
+    if not _local_recording_exists(call):
+        raise FileNotFoundError(call.recording_file.name if call.recording_file else "")
+    return call.recording_file.open("rb")
 
 
 def archive_call_recording(call: CallLog, config=None) -> bool:
@@ -112,10 +137,13 @@ def purge_old_recordings(company: Company | None = None, retention_days: int | N
 
 
 def read_call_recording_bytes(call: CallLog) -> tuple[bytes, str]:
-    if call.recording_file:
+    if _local_recording_exists(call):
         content_type, _ = mimetypes.guess_type(call.recording_file.name)
-        with call.recording_file.open("rb") as handle:
+        with _open_local_recording(call) as handle:
             return handle.read(), content_type or "audio/mpeg"
+
+    if not call.recording_id:
+        raise ValueError("Локальная запись отсутствует")
 
     integration = TelephonyIntegration.objects.filter(company=call.company).first()
     config = resolve_mango_config(integration) if integration else None
@@ -125,11 +153,11 @@ def read_call_recording_bytes(call: CallLog) -> tuple[bytes, str]:
 
 
 def build_local_recording_response(call: CallLog) -> FileResponse:
-    if not call.recording_file:
+    if not _local_recording_exists(call):
         raise ValueError("Локальная запись отсутствует")
 
     content_type, _ = mimetypes.guess_type(call.recording_file.name)
-    response = FileResponse(call.recording_file.open("rb"), content_type=content_type or "audio/mpeg")
+    response = FileResponse(_open_local_recording(call), content_type=content_type or "audio/mpeg")
     response["Accept-Ranges"] = "bytes"
     response["Cache-Control"] = "private, max-age=86400"
     return response

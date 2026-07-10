@@ -16,6 +16,7 @@ from rest_framework.views import APIView
 from accounts.permissions import HasCompanyAccess, resolve_company_slug
 from clients.views import get_company_from_request
 from core.pagination import ClientListPagination
+from core.search import digits_only, normalize_search
 from telephony.lines import filter_calls_by_line_key, summarize_line_counts
 from telephony.models import CallLog, TelephonyIntegration
 from telephony.serializers import (
@@ -111,16 +112,33 @@ class CallLogListView(TelephonyQuerysetMixin, ListAPIView):
         elif status == "missed":
             queryset = queryset.filter(status=CallLog.Status.MISSED)
 
+        search, digits = normalize_search(search)
         if len(search) >= 3:
-            queryset = queryset.filter(
+            conditions = (
                 Q(caller_phone__icontains=search)
                 | Q(target_phone__icontains=search)
                 | Q(line_name__icontains=search)
                 | Q(line_number__icontains=search)
                 | Q(client__first_name__icontains=search)
                 | Q(client__last_name__icontains=search)
+                | Q(client__middle_name__icontains=search)
                 | Q(client__phone__icontains=search)
+                | Q(client__email__icontains=search)
             )
+            if digits:
+                queryset = queryset.annotate(
+                    caller_phone_digits=digits_only("caller_phone"),
+                    target_phone_digits=digits_only("target_phone"),
+                    line_number_digits=digits_only("line_number"),
+                    client_phone_digits=digits_only("client__phone"),
+                )
+                conditions |= (
+                    Q(caller_phone_digits__icontains=digits)
+                    | Q(target_phone_digits__icontains=digits)
+                    | Q(line_number_digits__icontains=digits)
+                    | Q(client_phone_digits__icontains=digits)
+                )
+            queryset = queryset.filter(conditions)
 
         line = self.request.query_params.get("line", "").strip()
         if line:
@@ -232,7 +250,7 @@ class CallRecordingStreamView(TelephonyQuerysetMixin, APIView):
 
     def get(self, request: Request, call_id: int) -> HttpResponse:
         from telephony.mango_client import resolve_call_recording_stream, resolve_mango_config
-        from telephony.recording_storage import build_local_recording_response
+        from telephony.recording_storage import build_local_recording_response, _local_recording_exists
 
         call = self.get_calls_queryset().filter(id=call_id).first()
         if call is None:
@@ -242,7 +260,13 @@ class CallRecordingStreamView(TelephonyQuerysetMixin, APIView):
             return HttpResponse(recording_unavailable_message(call), status=404)
 
         if call.recording_file:
-            return build_local_recording_response(call)
+            if _local_recording_exists(call):
+                return build_local_recording_response(call)
+            call.recording_file = ""
+            call.recording_archived_at = None
+            call.save(update_fields=["recording_file", "recording_archived_at", "updated_at"])
+            if not call.recording_id:
+                return HttpResponse(recording_unavailable_message(call), status=404)
 
         integration = TelephonyIntegration.objects.filter(company=call.company).first()
         config = resolve_mango_config(integration) if integration else None
@@ -271,7 +295,7 @@ class CallRecordingStreamView(TelephonyQuerysetMixin, APIView):
 
 class CallTranscribeView(TelephonyQuerysetMixin, APIView):
     def post(self, request: Request, call_id: int) -> Response:
-        from telephony.recording_storage import read_call_recording_bytes
+        from telephony.recording_storage import _local_recording_exists, read_call_recording_bytes
         from telephony.transcription import generate_call_report, transcribe_audio
 
         call = self.get_calls_queryset().filter(id=call_id).first()
@@ -279,7 +303,7 @@ class CallTranscribeView(TelephonyQuerysetMixin, APIView):
             return Response({"detail": "Call not found."}, status=404)
         if call.transcription_text and not request.data.get("force"):
             return Response({"transcription_text": call.transcription_text, "cached": True})
-        if not call.recording_id and not call.recording_file:
+        if not call.recording_id and not _local_recording_exists(call):
             return Response({"detail": "Recording not available."}, status=404)
 
         try:

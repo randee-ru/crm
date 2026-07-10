@@ -4,6 +4,7 @@ from datetime import datetime
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.http import HttpResponse
 from django.test import Client as DjangoClient, TestCase
 from django.utils import timezone
 from rest_framework.authtoken.models import Token
@@ -236,3 +237,30 @@ class CallRecordingPlaybackViewTest(TestCase):
 
         self.assertEqual(response.status_code, 404)
         self.assertIn("Mango Office", response.content.decode())
+
+    @patch("telephony.services.get_mango_calls", side_effect=RuntimeError("Mango Office API error: 500 <html>boom</html>"))
+    def test_stream_returns_not_stored_message_after_refresh_exception(self, get_mango_calls) -> None:
+        response = self.http.get(
+            f"/api/v1/telephony/calls/{self.call.id}/stream/?company=sportmax",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertIn("Mango Office", response.content.decode())
+
+    @patch("telephony.mango_client.resolve_call_recording_stream")
+    def test_stream_falls_back_when_local_recording_file_is_missing(self, resolve_call_recording_stream) -> None:
+        self.call.recording_id = "recording-123"
+        self.call.recording_file = "telephony/recordings/2026/07/missing.mp3"
+        self.call.save(update_fields=["recording_id", "recording_file", "updated_at"])
+        resolve_call_recording_stream.return_value = (HttpResponse(b"audio-bytes", content_type="audio/mpeg"), None)
+
+        response = self.http.get(
+            f"/api/v1/telephony/calls/{self.call.id}/stream/?company=sportmax",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, b"audio-bytes")
+        self.call.refresh_from_db()
+        self.assertFalse(self.call.recording_file)
