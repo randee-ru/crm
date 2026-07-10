@@ -12,6 +12,7 @@ import type { ClientRecord } from "@/lib/types";
 
 const PAGE_SIZE = 100;
 const SEARCH_MIN_LENGTH = 3;
+const SEARCH_DEBOUNCE_MS = 800;
 
 const statusOptions = [
   ["", "Все статусы"],
@@ -141,7 +142,7 @@ export function ClientsListWorkspace({ totalCount, activeCount = 0 }: ClientsLis
           ordering,
         );
       }
-    }, 350);
+    }, SEARCH_DEBOUNCE_MS);
 
     return () => window.clearTimeout(timer);
   }, [
@@ -384,7 +385,7 @@ export function ClientsListWorkspace({ totalCount, activeCount = 0 }: ClientsLis
       ) : null}
 
       {searchPending ? (
-        <p className="clients-search-hint">Введите минимум 3 символа для поиска</p>
+        <p className="clients-search-hint">Введите минимум 3 символа и подождите паузу перед поиском</p>
       ) : null}
 
       {!loading && !error && count > 0 ? (
@@ -402,7 +403,7 @@ export function ClientsListWorkspace({ totalCount, activeCount = 0 }: ClientsLis
           error
             ? "Backend недоступен или сессия истекла."
             : searchPending
-              ? "Продолжайте ввод — поиск начнётся от 3 символов."
+              ? "Продолжайте ввод — поиск начнётся после паузы."
               : "По текущему фильтру клиенты не найдены."
         }
       />

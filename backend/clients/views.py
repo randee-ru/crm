@@ -30,7 +30,7 @@ from clients.serializers import (
 )
 from clients.profile_serializers import ClientProfileSerializer
 from core.pagination import ClientListPagination
-from core.search import digits_only, normalize_search
+from core.search import digits_only, normalize_search, split_search_terms
 from memberships.models import Membership
 from schedule.models import GroupSlotEnrollment
 
@@ -82,30 +82,36 @@ def apply_client_search(queryset: QuerySet[Client], search: str) -> QuerySet[Cli
     if len(search) < 3:
         return queryset
 
-    conditions = (
-        Q(first_name__icontains=search)
-        | Q(last_name__icontains=search)
-        | Q(middle_name__icontains=search)
-        | Q(email__icontains=search)
-        | Q(external_id__icontains=search)
-        | Q(client_status_label__icontains=search)
-        | Q(manager_name__icontains=search)
-        | Q(lead_source__icontains=search)
-        | Q(acquisition_channel__icontains=search)
-        | Q(club_name__icontains=search)
-        | Q(membership_name__icontains=search)
-        | Q(membership_status__icontains=search)
-        | Q(contract_ref__icontains=search)
-        | Q(card_number__icontains=search)
-        | Q(passport__icontains=search)
-        | Q(notes__icontains=search)
-    )
+    terms = split_search_terms(search) or [search]
+    text_conditions = None
+    for term in terms:
+        term_conditions = (
+            Q(first_name__icontains=term)
+            | Q(last_name__icontains=term)
+            | Q(middle_name__icontains=term)
+            | Q(email__icontains=term)
+            | Q(external_id__icontains=term)
+            | Q(client_status_label__icontains=term)
+            | Q(manager_name__icontains=term)
+            | Q(lead_source__icontains=term)
+            | Q(acquisition_channel__icontains=term)
+            | Q(club_name__icontains=term)
+            | Q(membership_name__icontains=term)
+            | Q(membership_status__icontains=term)
+            | Q(contract_ref__icontains=term)
+            | Q(card_number__icontains=term)
+            | Q(passport__icontains=term)
+            | Q(notes__icontains=term)
+        )
+        text_conditions = term_conditions if text_conditions is None else text_conditions & term_conditions
 
+    conditions = text_conditions
     if digits:
         queryset = queryset.annotate(phone_digits=digits_only("phone"))
-        conditions |= Q(phone_digits__icontains=digits)
+        phone_condition = Q(phone_digits__icontains=digits)
+        conditions = phone_condition if conditions is None else conditions | phone_condition
 
-    return queryset.filter(conditions)
+    return queryset.filter(conditions) if conditions is not None else queryset
 
 
 class ClientListCreateView(ClientQuerysetMixin, ListCreateAPIView):
@@ -313,13 +319,25 @@ class ClientOptionsView(ClientQuerysetMixin, ListAPIView):
             return queryset.none()
 
         search, digits = normalize_search(search)
-        conditions = Q(first_name__icontains=search) | Q(last_name__icontains=search) | Q(middle_name__icontains=search)
-        conditions |= Q(email__icontains=search) | Q(external_id__icontains=search)
+        terms = split_search_terms(search) or [search]
+        text_conditions = None
+        for term in terms:
+            term_conditions = (
+                Q(first_name__icontains=term)
+                | Q(last_name__icontains=term)
+                | Q(middle_name__icontains=term)
+                | Q(email__icontains=term)
+                | Q(external_id__icontains=term)
+            )
+            text_conditions = term_conditions if text_conditions is None else text_conditions & term_conditions
+
+        conditions = text_conditions
         if digits:
             queryset = queryset.annotate(phone_digits=digits_only("phone"))
-            conditions |= Q(phone_digits__icontains=digits)
+            phone_condition = Q(phone_digits__icontains=digits)
+            conditions = phone_condition if conditions is None else conditions | phone_condition
 
-        return queryset.filter(conditions)
+        return queryset.filter(conditions) if conditions is not None else queryset
 
 
 class CompanyContextView(APIView):

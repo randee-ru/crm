@@ -127,6 +127,26 @@ class ClientListApiTest(TestCase):
         self.assertEqual(len(payload["results"]), 1)
         self.assertEqual(payload["results"][0]["full_name"], "Орлова Мария")
 
+    def test_client_list_supports_multiword_search_in_any_order(self) -> None:
+        Client.objects.create(
+            company=self.company,
+            branch=self.branch,
+            first_name="Алексей",
+            last_name="Алексеев",
+            middle_name="Иванович",
+            phone="+79992223344",
+        )
+
+        for query in ("Алексей Алексеев", "Алексеев Алексей", "Алексеев Иванович"):
+            response = self.http.get(
+                f"/api/v1/clients/?company=sportmax&search={query}",
+                **self.auth_headers(),
+            )
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertEqual(payload["count"], 1)
+            self.assertEqual(payload["results"][0]["full_name"], "Алексеев Алексей Иванович")
+
     def test_client_list_supports_phone_search_with_formatting(self) -> None:
         client = Client.objects.create(
             company=self.company,
@@ -181,6 +201,26 @@ class ClientListApiTest(TestCase):
         payload = response.json()["results"]
         self.assertEqual(len(payload), 1)
         self.assertEqual(payload[0]["id"], client.id)
+
+    def test_client_options_supports_multiword_search_in_any_order(self) -> None:
+        client = Client.objects.create(
+            company=self.company,
+            branch=self.branch,
+            first_name="Алексей",
+            last_name="Алексеев",
+            middle_name="Иванович",
+            phone="+79994445566",
+        )
+
+        for query in ("Алексей Алексеев", "Алексеев Алексей"):
+            response = self.http.get(
+                f"/api/v1/clients/options/?company=sportmax&search={query}",
+                **self.auth_headers(),
+            )
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()["results"]
+            self.assertEqual(len(payload), 1)
+            self.assertEqual(payload[0]["id"], client.id)
 
     def test_client_list_supports_client_status_filter(self) -> None:
         self.client_record.client_status = "active"
