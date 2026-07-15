@@ -27,7 +27,13 @@ async function readStreamError(response: Response): Promise<string> {
     if (payload?.detail) return payload.detail;
   }
   const text = await response.text().catch(() => "");
-  if (text.trim()) return text.trim();
+  const trimmed = text.trim();
+  if (trimmed) {
+    if (contentType.includes("text/html") || /^<!doctype html/i.test(trimmed) || /^<html[\s>]/i.test(trimmed)) {
+      return `Ошибка загрузки записи (${response.status})`;
+    }
+    return trimmed;
+  }
   return `Ошибка загрузки записи (${response.status})`;
 }
 

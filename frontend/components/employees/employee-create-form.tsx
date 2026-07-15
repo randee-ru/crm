@@ -4,6 +4,8 @@ import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { createEmployeeAction, inviteEmployeeAction } from "@/app/actions/employees";
+import { workspaceGroupOptions } from "@/lib/access-groups";
+import { formatRussianPhoneInput } from "@/lib/phone";
 import type { ActionState, BranchOption } from "@/lib/types";
 
 type EmployeeCreateFormProps = {
@@ -12,20 +14,13 @@ type EmployeeCreateFormProps = {
 
 const initialState: ActionState = {};
 
-const roleOptions = [
-  { value: "employee", label: "Сотрудник" },
-  { value: "manager", label: "Менеджер" },
-  { value: "admin", label: "Администратор" },
-  { value: "owner", label: "Владелец" },
-] as const;
-
 function RoleAndBranchFields({ branches }: { branches: BranchOption[] }) {
   return (
     <div className="grid gap-3 md:grid-cols-2">
       <label className="block">
-        <span className="mb-1 block text-[12px] font-medium text-[var(--muted)]">Роль</span>
-        <select name="role" defaultValue="employee" className="form-field">
-          {roleOptions.map((option) => (
+        <span className="mb-1 block text-[12px] font-medium text-[var(--muted)]">Группа</span>
+        <select name="role" defaultValue="reception" className="form-field">
+          {workspaceGroupOptions.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
@@ -104,6 +99,7 @@ function InviteForm({ branches }: { branches: BranchOption[] }) {
 
 function DirectCreateForm({ branches }: { branches: BranchOption[] }) {
   const [state, formAction, isPending] = useActionState(createEmployeeAction, initialState);
+  const [phone, setPhone] = useState("");
 
   return (
     <form action={formAction} className="space-y-3">
@@ -126,6 +122,26 @@ function DirectCreateForm({ branches }: { branches: BranchOption[] }) {
         <span className="mb-1 block text-[12px] font-medium text-[var(--muted)]">Email (логин)</span>
         <input name="email" type="email" required placeholder="olga@club.ru" className="form-field" />
       </label>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <label className="block">
+          <span className="mb-1 block text-[12px] font-medium text-[var(--muted)]">Телефон</span>
+          <input
+            name="phone"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            value={phone}
+            onChange={(event) => setPhone(formatRussianPhoneInput(event.target.value))}
+            placeholder="+7 (900) 000-00-00"
+            className="form-field"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-[12px] font-medium text-[var(--muted)]">Дата рождения</span>
+          <input name="birth_date" type="date" className="form-field" />
+        </label>
+      </div>
 
       <label className="block">
         <span className="mb-1 block text-[12px] font-medium text-[var(--muted)]">Пароль</span>

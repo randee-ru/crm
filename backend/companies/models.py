@@ -6,6 +6,48 @@ from django.utils.text import slugify
 from core.models import TimeStampedModel
 
 
+WORKSPACE_MODULE_IDS: tuple[str, ...] = (
+    "crm",
+    "messages",
+    "feed",
+    "disk",
+    "mail",
+    "tasks",
+    "marketing",
+    "schedule",
+    "clients",
+    "contracts",
+    "memberships",
+    "trainers",
+    "employees",
+    "bookings",
+    "attendance",
+    "telephony",
+    "sales",
+    "payments",
+    "daily-report",
+    "reports",
+    "settings",
+)
+
+
+def _disabled_modules_for(visible_modules: set[str]) -> tuple[str, ...]:
+    return tuple(module for module in WORKSPACE_MODULE_IDS if module not in visible_modules)
+
+
+DEFAULT_ROLE_DISABLED_MODULES: dict[str, tuple[str, ...]] = {
+    "admin": (),
+    "manager": (),
+    "reception": _disabled_modules_for({"crm", "messages", "feed", "disk", "mail", "schedule", "clients"}),
+    "user": _disabled_modules_for({"messages", "feed", "disk", "mail", "schedule"}),
+}
+
+ROLE_ALIASES: dict[str, str] = {
+    "employee": "reception",
+    "staff": "user",
+}
+
+
 class Company(TimeStampedModel):
     """Компания - это tenant в CRM Kit.
 
@@ -41,17 +83,39 @@ class Company(TimeStampedModel):
             self.slug = slugify(self.name)
         super().save(*args, **kwargs)
 
+    @staticmethod
+    def normalize_role(role: str | None) -> str:
+        if not role:
+            return ""
+        return ROLE_ALIASES.get(role, role)
+
+    def normalized_role_disabled_modules(self) -> dict[str, list[str]]:
+        normalized: dict[str, list[str]] = {}
+        for role, modules in (self.role_disabled_modules or {}).items():
+            canonical_role = self.normalize_role(role)
+            if not canonical_role:
+                continue
+            bucket = normalized.setdefault(canonical_role, [])
+            for module in modules:
+                if module not in bucket:
+                    bucket.append(module)
+        return normalized
+
     def effective_disabled_modules(self, role: str) -> list[str]:
         """Модули меню, скрытые для конкретной роли: общие + ролевые.
 
         Владелец (owner) всегда видит полное меню — это защита от случайной
         самоблокировки.
         """
-        if role == "owner":
+        canonical_role = self.normalize_role(role)
+        if canonical_role == "owner":
             return list(self.disabled_modules)
-        merged = set(self.disabled_modules) | set(self.role_disabled_modules.get(role, []))
+        role_specific = self.normalized_role_disabled_modules().get(
+            canonical_role,
+            list(DEFAULT_ROLE_DISABLED_MODULES.get(canonical_role, ())),
+        )
+        merged = set(self.disabled_modules) | set(role_specific)
         return sorted(merged)
 
     def __str__(self) -> str:
         return self.name
-

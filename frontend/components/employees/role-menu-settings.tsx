@@ -4,20 +4,23 @@ import { useMemo, useState, useTransition } from "react";
 
 import { updateRoleModuleSettingsAction } from "@/app/actions/company";
 import { SettingsToggle } from "@/components/settings/settings-toggle";
+import { workspaceGroupLabels, type WorkspaceGroupId } from "@/lib/access-groups";
 import { settingsTools } from "@/lib/settings";
 import type { CompanyModuleSettings } from "@/lib/types";
 
 const CONFIGURABLE_ROLES = [
-  { id: "manager", label: "Менеджер" },
-  { id: "employee", label: "Сотрудник (ресепшен и т.п.)" },
-] as const;
+  { id: "admin", label: workspaceGroupLabels.admin },
+  { id: "manager", label: workspaceGroupLabels.manager },
+  { id: "reception", label: workspaceGroupLabels.reception },
+  { id: "user", label: workspaceGroupLabels.user },
+] as const satisfies ReadonlyArray<{ id: WorkspaceGroupId; label: string }>;
 
 type RoleMenuSettingsProps = {
   initialSettings: CompanyModuleSettings;
 };
 
 export function RoleMenuSettings({ initialSettings }: RoleMenuSettingsProps) {
-  const [role, setRole] = useState<(typeof CONFIGURABLE_ROLES)[number]["id"]>("employee");
+  const [role, setRole] = useState<(typeof CONFIGURABLE_ROLES)[number]["id"]>("reception");
   const [roleDisabledModules, setRoleDisabledModules] = useState(initialSettings.role_disabled_modules);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -52,10 +55,10 @@ export function RoleMenuSettings({ initialSettings }: RoleMenuSettingsProps) {
 
   return (
     <section className="rounded-2xl border border-[var(--line)] bg-white p-4">
-      <h2 className="text-[16px] font-semibold text-[var(--text)]">Что видит роль в меню</h2>
+      <h2 className="text-[16px] font-semibold text-[var(--text)]">Что видит группа в меню</h2>
       <p className="mt-1 text-[13px] text-[var(--muted)]">
-        Владелец всегда видит полное меню. Для остальных ролей можно скрыть лишние разделы — например,
-        ресепшену не обязательно видеть «Продажи» или «Маркетинг».
+        Владелец всегда видит полное меню. Для остальных групп можно скрыть лишние разделы,
+        чтобы каждому сотруднику показывать только нужные инструменты.
       </p>
 
       <div className="mt-3 flex gap-2">

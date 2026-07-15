@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
-import { maybeAutoSyncMangoAction } from "@/app/actions/telephony";
 import { TelephonyPageClient } from "@/components/telephony/telephony-page-client";
 import { WorkspaceCard } from "@/components/workspace-card";
 import { getTelephonyDashboard, getTelephonyIntegration } from "@/lib/api";
@@ -38,10 +37,6 @@ export default async function TelephonyPage() {
 
   try {
     [integration, dashboard] = await Promise.all([getTelephonyIntegration(), getTelephonyDashboard()]);
-    await maybeAutoSyncMangoAction(integration).catch(() => null);
-    if (integration.provider === "mango" && integration.has_api_key) {
-      [integration, dashboard] = await Promise.all([getTelephonyIntegration(), getTelephonyDashboard()]);
-    }
     offline = false;
   } catch {
     offline = true;

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from django.db.models import Q
 from rest_framework.authentication import TokenAuthentication
-from rest_framework.generics import ListAPIView, RetrieveUpdateAPIView
+from rest_framework.generics import ListAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -54,7 +54,7 @@ class NotificationListView(ListAPIView):
         return queryset.order_by("-created_at", "-id")
 
 
-class NotificationDetailView(RetrieveUpdateAPIView):
+class NotificationDetailView(RetrieveUpdateDestroyAPIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated, HasCompanyAccess]
     serializer_class = NotificationSerializer

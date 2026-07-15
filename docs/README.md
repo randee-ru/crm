@@ -14,7 +14,7 @@
 | Продолжить в другой сессии | [handoff.md](../handoff.md) |
 | Roadmap продукта | [roadmap.md](./roadmap.md) |
 
-**Демо-логин** (после `seed_demo`): `admin` / `121351`, компания `sportmax`.
+**Демо-логин** (после `seed_demo`): `admin` / `<demo-password>`, компания `sportmax`.
 
 ---
 
@@ -114,6 +114,7 @@ Next.js, API-клиент.
 | [overview.md](./overview.md) | Продукт и принципы |
 | [platform-admin-vs-crm.md](./architecture/platform-admin-vs-crm.md) | Admin ≠ рабочий CRM |
 | [crm-module.md](./architecture/crm-module.md) | Задачи, сделки, воронки |
+| [crm-workflow-scenario.md](./crm-workflow-scenario.md) | Сценарий работы CRM-воронок |
 
 ---
 

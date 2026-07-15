@@ -19,7 +19,6 @@ from schedule.otp_protection import (
     assert_russian_mobile,
     enforce_otp_ip_limits,
     enforce_otp_phone_limits,
-    verify_otp_captcha,
 )
 from schedule.sms import (
     SmsSendError,
@@ -34,6 +33,7 @@ logger = logging.getLogger(__name__)
 SESSION_SALT = "schedule-client-session"
 SESSION_MAX_AGE = 60 * 60 * 24 * 90
 CALLCHECK_TTL_SECONDS = 300
+CALLCHECK_CONFIRMED_TTL_SECONDS = 900
 PASSWORD_RESET_CACHE_PREFIX = "schedule_callcheck"
 MIN_PASSWORD_LENGTH = 4
 
@@ -112,9 +112,15 @@ def _session_payload(client: Client) -> dict[str, str | int]:
 def login_schedule_portal(company: Company, phone: str, password: str) -> dict[str, str | int]:
     client = _resolve_bookable_client(company, phone)
     if not client.schedule_portal_password:
-        raise ValueError("Пароль ещё не задан. Нажмите «Забыли пароль?» и подтвердите номер звонком.")
+        raise ValueError(
+            "Для этого номера пароль ещё не создан. Нажмите «Забыли пароль?» "
+            "и подтвердите номер звонком, чтобы задать новый пароль."
+        )
     if not check_client_portal_password(client, password):
-        raise ValueError("Неверный логин или пароль.")
+        raise ValueError(
+            "Неверный пароль. Проверьте раскладку, Caps Lock и попробуйте снова. "
+            "Если пароль не помните, нажмите «Забыли пароль?» и подтвердите номер звонком."
+        )
     return _session_payload(client)
 
 
@@ -128,6 +134,7 @@ def _store_callcheck(
     call_phone_pretty: str,
     call_phone_html: str,
     confirmed: bool = False,
+    ttl_seconds: int = CALLCHECK_TTL_SECONDS,
 ) -> None:
     cache.set(
         _callcheck_cache_key(check_id),
@@ -141,7 +148,7 @@ def _store_callcheck(
             "call_phone_html": call_phone_html,
             "confirmed": confirmed,
         },
-        CALLCHECK_TTL_SECONDS,
+        ttl_seconds,
     )
 
 
@@ -155,13 +162,10 @@ def request_password_reset(
     phone: str,
     *,
     user_ip: str = "",
-    challenge_id: str = "",
-    captcha_answer: str = "",
     honeypot: str = "",
 ) -> dict[str, str]:
     """Старт подтверждения номера звонком (SMS.ru CallCheck)."""
     assert_honeypot_empty(honeypot)
-    verify_otp_captcha(challenge_id, captcha_answer)
     enforce_otp_ip_limits(company_slug=company.slug, client_ip=user_ip)
 
     client = _resolve_bookable_client(company, phone)
@@ -184,6 +188,7 @@ def request_password_reset(
             call_phone_pretty=call_phone_pretty,
             call_phone_html=call_phone_pretty,
             confirmed=True,
+            ttl_seconds=CALLCHECK_CONFIRMED_TTL_SECONDS,
         )
         return {
             "detail": "Тестовый режим: звонок считается подтверждённым. Задайте email и пароль.",
@@ -231,7 +236,7 @@ def poll_callcheck_status(company: Company, check_id: str) -> dict[str, str | bo
 
     stored = _load_callcheck(check_id)
     if stored is None:
-        raise ValueError("Проверка истекла. Начните подтверждение заново.")
+        raise ValueError("Подтверждение устарело. Начните заново и получите новый звонок.")
     if int(stored.get("company_id") or 0) != company.id:
         raise ValueError("Проверка не найдена.")
 
@@ -255,7 +260,7 @@ def poll_callcheck_status(company: Company, check_id: str) -> dict[str, str | bo
 
     if status["confirmed"]:
         stored["confirmed"] = True
-        cache.set(_callcheck_cache_key(check_id), stored, CALLCHECK_TTL_SECONDS)
+        cache.set(_callcheck_cache_key(check_id), stored, CALLCHECK_CONFIRMED_TTL_SECONDS)
         return {
             "status": "confirmed",
             "detail": "Номер подтверждён. Задайте email и пароль.",
@@ -264,7 +269,7 @@ def poll_callcheck_status(company: Company, check_id: str) -> dict[str, str | bo
         }
     if status["expired"]:
         cache.delete(_callcheck_cache_key(check_id))
-        raise ValueError("Время на звонок истекло. Начните подтверждение заново.")
+        raise ValueError("Подтверждение устарело. Нажмите «Забыли пароль?» ещё раз и повторите звонок.")
 
     return {
         "status": "pending",
@@ -286,7 +291,10 @@ def reset_schedule_password(
     check_id = str(check_id or "").strip()
     stored = _load_callcheck(check_id)
     if stored is None:
-        raise ValueError("Проверка истекла. Подтвердите номер звонком ещё раз.")
+        raise ValueError(
+            "Подтверждение устарело. Нажмите «Забыли пароль?» ещё раз, "
+            "подтвердите номер звонком и сразу задайте пароль."
+        )
     if int(stored.get("company_id") or 0) != company.id:
         raise ValueError("Проверка не найдена.")
     if str(stored.get("phone") or "") != normalized:
@@ -296,7 +304,7 @@ def reset_schedule_password(
         # На всякий случай один раз перепроверим у SMS.ru.
         poll = poll_callcheck_status(company, check_id)
         if poll.get("status") != "confirmed":
-            raise ValueError("Сначала подтвердите номер звонком.")
+            raise ValueError("Сначала подтвердите номер звонком, затем задайте пароль.")
         stored = _load_callcheck(check_id) or stored
 
     email_value = _validate_email(email)
@@ -319,16 +327,12 @@ def request_schedule_otp(
     phone: str,
     *,
     user_ip: str = "",
-    challenge_id: str = "",
-    captcha_answer: str = "",
     honeypot: str = "",
 ) -> dict[str, str]:
     return request_password_reset(
         company,
         phone,
         user_ip=user_ip,
-        challenge_id=challenge_id,
-        captcha_answer=captcha_answer,
         honeypot=honeypot,
     )
 

@@ -10,16 +10,19 @@ type ClientFormProps = {
   client?: ClientDetail;
   mode: "create" | "edit";
   canManageBlocks?: boolean;
+  compact?: boolean;
 };
 
 const initialState: ActionState = {};
 
-export function ClientForm({ branches, client, mode, canManageBlocks = false }: ClientFormProps) {
+export function ClientForm({ branches, client, mode, canManageBlocks = false, compact = false }: ClientFormProps) {
   const action = mode === "create" ? createClientAction : updateClientAction.bind(null, client!.id);
   const [state, formAction, isPending] = useActionState(action, initialState);
 
+  const wrapperClassName = compact ? "space-y-4 client-form client-form--compact" : "space-y-4";
+
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} className={wrapperClassName}>
       {state.error ? (
         <div className="rounded border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">
           {state.error}
@@ -31,7 +34,7 @@ export function ClientForm({ branches, client, mode, canManageBlocks = false }: 
         </div>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className={compact ? "grid gap-3" : "grid gap-4 md:grid-cols-2"}>
         <label className="block">
           <span className="mb-1 block text-[13px] font-medium text-[var(--text)]">Фамилия</span>
           <input
@@ -68,6 +71,14 @@ export function ClientForm({ branches, client, mode, canManageBlocks = false }: 
           />
         </label>
         <label className="block">
+          <span className="mb-1 block text-[13px] font-medium text-[var(--text)]">Дополнительный телефон</span>
+          <input
+            name="secondary_phone"
+            defaultValue={client?.secondary_phone ?? ""}
+            className="form-field"
+          />
+        </label>
+        <label className="block">
           <span className="mb-1 block text-[13px] font-medium text-[var(--text)]">Email</span>
           <input
             name="email"
@@ -86,7 +97,7 @@ export function ClientForm({ branches, client, mode, canManageBlocks = false }: 
             className="form-field"
           />
         </label>
-        <label className="block md:col-span-2">
+        <label className={compact ? "block" : "block md:col-span-2"}>
           <span className="mb-1 block text-[13px] font-medium text-[var(--text)]">Филиал</span>
           <select
             name="branch_id"
@@ -101,7 +112,7 @@ export function ClientForm({ branches, client, mode, canManageBlocks = false }: 
             ))}
           </select>
         </label>
-        <label className="block md:col-span-2">
+        <label className={compact ? "block" : "block md:col-span-2"}>
           <span className="mb-1 block text-[13px] font-medium text-[var(--text)]">Комментарий</span>
           <textarea
             name="notes"
@@ -123,7 +134,7 @@ export function ClientForm({ branches, client, mode, canManageBlocks = false }: 
       </label>
 
       {canManageBlocks ? (
-        <div className="grid gap-3 rounded-xl border border-[var(--line)] bg-white/80 p-4 md:grid-cols-2">
+        <div className={compact ? "grid gap-3 rounded-xl border border-[var(--line)] bg-white/80 p-4" : "grid gap-3 rounded-xl border border-[var(--line)] bg-white/80 p-4 md:grid-cols-2"}>
           <label className="flex items-start gap-2 text-[13px] text-[var(--text)]">
             <input
               name="club_access_blocked"

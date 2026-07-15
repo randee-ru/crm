@@ -104,6 +104,32 @@ class StaffApiTest(TestCase):
         self.assertFalse(payload["is_active"])
         self.assertEqual(payload["branch_name"], "Pool")
 
+    def test_membership_patch_phone_and_birth_date(self) -> None:
+        membership = CompanyMembership.objects.get(user=self.user, company=self.company)
+
+        response = self.http.patch(
+            f"/api/v1/staff/memberships/{membership.id}/?company=sportmax",
+            data={
+                "first_name": "Сергей",
+                "last_name": "Иванов",
+                "email": "sergey@sportmax.local",
+                "phone": "8(906) 965-85-51",
+                "birth_date": "2006-11-28",
+                "role": CompanyMembership.Role.MANAGER,
+                "is_active": True,
+            },
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["phone"], "79069658551")
+        self.assertEqual(payload["birth_date"], "2006-11-28")
+        membership.user.refresh_from_db()
+        profile = membership.user.profile
+        self.assertEqual(profile.phone, "79069658551")
+        self.assertEqual(profile.birth_date.isoformat(), "2006-11-28")
+
     def test_membership_direct_create(self) -> None:
         response = self.http.post(
             "/api/v1/staff/memberships/?company=sportmax",
@@ -130,6 +156,37 @@ class StaffApiTest(TestCase):
             content_type="application/json",
         )
         self.assertEqual(login_response.status_code, 200)
+
+    def test_membership_delete(self) -> None:
+        other = get_user_model().objects.create_user(
+            username="to-delete",
+            password="admin12345",
+            email="delete-me@sportmax.local",
+            first_name="Удалить",
+            last_name="Тест",
+        )
+        membership = CompanyMembership.objects.create(
+            user=other,
+            company=self.company,
+            branch=self.branch,
+            role=CompanyMembership.Role.EMPLOYEE,
+        )
+
+        response = self.http.delete(
+            f"/api/v1/staff/memberships/{membership.id}/?company=sportmax",
+            **self.auth_headers(),
+        )
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(CompanyMembership.objects.filter(id=membership.id).exists())
+
+    def test_membership_delete_rejects_self(self) -> None:
+        membership = CompanyMembership.objects.get(user=self.user, company=self.company)
+        response = self.http.delete(
+            f"/api/v1/staff/memberships/{membership.id}/?company=sportmax",
+            **self.auth_headers(),
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertTrue(CompanyMembership.objects.filter(id=membership.id).exists())
 
     def test_membership_direct_create_rejects_existing_active_email(self) -> None:
         response = self.http.post(

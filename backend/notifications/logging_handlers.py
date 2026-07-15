@@ -12,6 +12,16 @@ class TelegramErrorHandler(logging.Handler):
     _IGNORED_MESSAGE_MARKERS = (
         "Invalid HTTP_HOST header",
         "DisallowedHost",
+        "Для этого номера пароль ещё не создан",
+        "Клиент с таким номером не найден",
+        "Доступ в клуб ограничен",
+        "Запись на групповые занятия недоступна",
+        "Подтверждение звонком временно недоступно",
+        "Подтверждение устарело",
+        "Проверка не найдена",
+        "Неверный ответ на проверку",
+        "Слишком много запросов",
+        "Код уже отправлен",
     )
 
     def emit(self, record: logging.LogRecord) -> None:
@@ -25,6 +35,12 @@ class TelegramErrorHandler(logging.Handler):
             return
         if record.name == "django.security.DisallowedHost":
             return
+        if record.exc_info:
+            exc_type = record.exc_info[0]
+            if exc_type and exc_type.__name__ == "ValueError" and any(
+                marker in message for marker in self._IGNORED_MESSAGE_MARKERS
+            ):
+                return
 
         if len(message) > 3500:
             message = f"{message[:3500]}..."

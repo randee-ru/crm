@@ -20,3 +20,6 @@ DATABASES = {
 PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.MD5PasswordHasher",
 ]
+
+# Тестам не нужен боевой Telegram-логгер, а его импорт тянет лишние зависимости.
+LOGGING_CONFIG = None

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 
 import { SettingsIntegrationsSection } from "@/components/settings/settings-integrations-section";
 import { SettingsLayout } from "@/components/settings/settings-layout";
@@ -35,15 +36,19 @@ function resolveSection(section?: string): SettingsSectionId {
 export default async function SettingsPage({ searchParams }: SettingsPageProps) {
   const params = await searchParams;
   const section = resolveSection(params.section);
+  const session = await getAuthSession();
+  const disabledModules = session?.company?.disabled_modules ?? [];
+  if (
+    !session ||
+    disabledModules.includes("settings") ||
+    (section === "employees" && disabledModules.includes("employees"))
+  ) {
+    notFound();
+  }
+
   let pipelines = [] as Awaited<ReturnType<typeof getPipelines>>;
   let scheduleSettings = null as Awaited<ReturnType<typeof getScheduleSettings>> | null;
   let scheduleSmsIntegrations = [] as Awaited<ReturnType<typeof getScheduleSmsIntegrations>>;
-  let disabledModules: string[] = [];
-
-  if (section === "tools") {
-    const session = await getAuthSession();
-    disabledModules = session?.company?.disabled_modules ?? [];
-  }
 
   if (section === "pipelines") {
     try {
@@ -89,7 +94,7 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
   }
 
   return (
-      <SettingsLayout activeSection={section}>
+    <SettingsLayout activeSection={section}>
         {section === "tools" ? (
           <SettingsToolsSection initialDisabledModules={disabledModules} />
         ) : section === "pipelines" ? (
@@ -109,7 +114,7 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
         ) : section === "employees" ? (
           <div className="settings-card settings-card--placeholder">
             <p className="settings-placeholder-text">
-              Раздел сотрудников уже доступен. Здесь управляются приглашения, роли, филиалы и
+              Раздел сотрудников уже доступен. Здесь управляются приглашения, группы, филиалы и
               карточки доступа персонала.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
@@ -150,6 +155,6 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
             </div>
           </div>
         )}
-      </SettingsLayout>
+    </SettingsLayout>
   );
 }

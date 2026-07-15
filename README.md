@@ -36,7 +36,7 @@ npm run dev
 
 - Frontend: http://localhost:3000
 - Backend: http://127.0.0.1:8000
-- Логин: `admin` / `121351` (после `seed_demo`)
+- Логин: `admin` / `<demo-password>` (после `seed_demo`)
 
 ## Документация
 

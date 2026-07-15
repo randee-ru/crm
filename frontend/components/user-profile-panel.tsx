@@ -7,13 +7,7 @@ import { useEffect, useState } from "react";
 import { logoutAction } from "@/app/actions/auth";
 import { useUserPanel } from "@/components/user-panel-provider";
 import { UserAvatar } from "@/components/user-avatar";
-
-const roleLabels: Record<string, string> = {
-  owner: "Владелец",
-  admin: "Администратор",
-  manager: "Менеджер",
-  staff: "Сотрудник",
-};
+import { workspaceGroupLabels } from "@/lib/access-groups";
 
 function PanelIcon({ children }: { children: React.ReactNode }) {
   return (
@@ -131,7 +125,7 @@ export function UserProfilePanel() {
   const hours = String(Math.floor(workSeconds / 3600)).padStart(2, "0");
   const minutes = String(Math.floor((workSeconds % 3600) / 60)).padStart(2, "0");
   const seconds = String(workSeconds % 60).padStart(2, "0");
-  const roleLabel = role ? (roleLabels[role] ?? role) : "Сотрудник";
+  const roleLabel = role ? (workspaceGroupLabels[role] ?? role) : "Пользователь";
 
   return (
     <>

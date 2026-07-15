@@ -38,6 +38,9 @@ async function proxy(
     headers.set("x-real-ip", ip);
   }
   headers.set("x-forwarded-proto", incoming.protocol.replace(":", "") || "http");
+  // Нужен для PUBLIC_SCHEDULE_HOSTS (schedule.sportmax.fit без token в URL).
+  headers.set("x-forwarded-host", incoming.host);
+  headers.set("host", incoming.host);
 
   const init: RequestInit = {
     method: request.method,

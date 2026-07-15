@@ -41,6 +41,7 @@ class Client(TimeStampedModel):
     last_name = models.CharField("Фамилия", max_length=100)
     middle_name = models.CharField("Отчество", max_length=100, blank=True)
     phone = models.CharField("Телефон", max_length=32)
+    secondary_phone = models.CharField("Доп. телефон", max_length=32, blank=True, default="")
     email = models.EmailField("Email", blank=True)
     birth_date = models.DateField("Дата рождения", null=True, blank=True)
     gender = models.CharField(
@@ -201,3 +202,26 @@ class ClientLead(TimeStampedModel):
         verbose_name = "Лид клиента"
         verbose_name_plural = "Лиды клиентов"
         ordering = ["-lead_date", "-id"]
+
+
+class ClientNote(TimeStampedModel):
+    """Заметка по клиенту."""
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.CASCADE,
+        related_name="client_notes",
+        verbose_name="Компания",
+    )
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.CASCADE,
+        related_name="notes_entries",
+        verbose_name="Клиент",
+    )
+    body = models.TextField("Заметка")
+
+    class Meta:
+        verbose_name = "Заметка клиента"
+        verbose_name_plural = "Заметки клиентов"
+        ordering = ["-created_at", "-id"]

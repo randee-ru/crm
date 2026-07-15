@@ -53,6 +53,7 @@ export type ClientRecord = {
   first_name: string;
   middle_name?: string;
   phone: string;
+  secondary_phone?: string;
   email: string;
   birth_date: string | null;
   is_active: boolean;
@@ -88,6 +89,13 @@ export type ClientCallRecord = {
   call_summary: string;
 };
 
+export type ClientNoteRecord = {
+  id: number;
+  body: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type ClientProfile = ClientDetail & {
   external_id: string;
   middle_name: string;
@@ -118,6 +126,7 @@ export type ClientProfile = ClientDetail & {
   interests: string[];
   messages: ClientMessageRecord[];
   leads: ClientLeadRecord[];
+  notes_entries: ClientNoteRecord[];
   visits: ClientVisitRecord[];
   sales: ClientSaleRecord[];
   deals: ClientDealRecord[];
@@ -355,6 +364,7 @@ export type ClientWriteInput = {
   last_name: string;
   middle_name?: string;
   phone: string;
+  secondary_phone?: string;
   email?: string;
   birth_date?: string | null;
   notes?: string;

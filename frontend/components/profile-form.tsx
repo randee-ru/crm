@@ -5,19 +5,13 @@ import { useRouter } from "next/navigation";
 
 import { updateProfileAction } from "@/app/actions/profile";
 import { UserAvatar } from "@/components/user-avatar";
+import { workspaceGroupLabels } from "@/lib/access-groups";
 import type { ActionState, AuthUser } from "@/lib/types";
 
 type ProfileFormProps = {
   user: AuthUser;
   role?: string;
   companyName?: string;
-};
-
-const roleLabels: Record<string, string> = {
-  owner: "Владелец",
-  admin: "Администратор",
-  manager: "Менеджер",
-  staff: "Сотрудник",
 };
 
 function buildDisplayName(firstName: string, lastName: string, fallback: string) {
@@ -113,7 +107,7 @@ export function ProfileForm({ user, role, companyName }: ProfileFormProps) {
         <div>
           <p className="text-[15px] font-semibold text-[var(--text)]">{previewUser.display_name}</p>
           <p className="text-[13px] text-[var(--accent-strong)]">
-            {role ? (roleLabels[role] ?? role) : "Сотрудник"}
+            {role ? (workspaceGroupLabels[role] ?? role) : "Пользователь"}
           </p>
           {companyName ? <p className="text-[12px] text-[var(--muted)]">{companyName}</p> : null}
           <button

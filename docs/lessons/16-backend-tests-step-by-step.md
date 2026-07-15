@@ -34,7 +34,7 @@ class TrainerApiTest(TestCase):
         self.http = DjangoClient()
         self.user = get_user_model().objects.create_user(
             username="admin",
-            password="admin12345",
+            password="<test-password>",
         )
         self.company = Company.objects.create(name="Sportmax", slug="sportmax")
         CompanyMembership.objects.create(
@@ -44,7 +44,7 @@ class TrainerApiTest(TestCase):
         )
         login = self.http.post(
             "/api/v1/auth/login/",
-            data={"username": "admin", "password": "admin12345"},
+            data={"username": "admin", "password": "<test-password>"},
             content_type="application/json",
         )
         self.token = login.json()["token"]

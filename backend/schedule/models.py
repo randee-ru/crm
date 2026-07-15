@@ -96,6 +96,15 @@ class GroupProgram(TimeStampedModel):
         related_name="group_programs",
         verbose_name="Компания",
     )
+    trainer = models.ForeignKey(
+        Trainer,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="group_programs",
+        verbose_name="Тренер",
+    )
+    room = models.CharField("Зал", max_length=120, blank=True)
     title = models.CharField("Название", max_length=160)
     code = models.CharField("Код", max_length=64, blank=True)
     description = models.TextField("Описание", blank=True)
@@ -113,6 +122,15 @@ class GroupProgram(TimeStampedModel):
                 name="uniq_group_program_title_per_company",
             )
         ]
+
+    def clean(self) -> None:
+        errors: dict[str, str] = {}
+        if self.trainer_id and self.trainer.company_id != self.company_id:
+            errors["trainer"] = "Тренер должен принадлежать той же компании, что и программа."
+        if self.trainer_id and not self.trainer.trains_group_programs:
+            errors["trainer"] = "Выберите тренера групповых программ."
+        if errors:
+            raise ValidationError(errors)
 
     def __str__(self) -> str:
         return self.title

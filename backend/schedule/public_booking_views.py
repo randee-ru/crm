@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 from datetime import date
 
+from django.core.cache import cache
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
@@ -11,6 +13,7 @@ from rest_framework.views import APIView
 from companies.models import Company
 from notifications.telegram import send_telegram_notification
 from schedule.client_auth import (
+    display_phone_hint,
     login_schedule_portal,
     poll_callcheck_status,
     request_password_reset,
@@ -19,9 +22,10 @@ from schedule.client_auth import (
     resolve_client_session,
     verify_schedule_otp,
 )
+from telephony.phone import normalize_phone
 from schedule.group_serializers import PublicClientEnrollmentSerializer
 from schedule.models import GroupScheduleSlot, GroupSlotEnrollment
-from schedule.otp_protection import create_otp_captcha, extract_client_ip
+from schedule.otp_protection import extract_client_ip
 from schedule.public_access import PublicScheduleAccessMixin
 from schedule.public_booking import (
     cancel_public_enrollment,
@@ -49,10 +53,12 @@ class PublicScheduleLoginView(PublicScheduleAccessMixin, APIView):
         try:
             payload = login_schedule_portal(company, phone, password)
         except ValueError as exc:
-            send_telegram_notification(
-                "🚫 Неудачный вход в личный кабинет\n"
-                f"{company.name}\n"
-                f"{phone} · {exc}",
+            _send_auth_error_notification(
+                company=company,
+                event="login",
+                phone=phone,
+                detail=str(exc),
+                title="Неудачный вход в личный кабинет",
             )
             return Response({"detail": str(exc)}, status=400)
         send_telegram_notification(
@@ -83,8 +89,6 @@ class PublicScheduleForgotPasswordView(PublicScheduleAccessMixin, APIView):
                 company,
                 phone,
                 user_ip=extract_client_ip(request),
-                challenge_id=str(request.data.get("challenge_id") or "").strip(),
-                captcha_answer=str(request.data.get("captcha_answer") or "").strip(),
                 honeypot=str(request.data.get("website") or "").strip(),
             )
         except ValueError as exc:
@@ -122,10 +126,12 @@ class PublicScheduleResetPasswordView(PublicScheduleAccessMixin, APIView):
                 email=email,
             )
         except ValueError as exc:
-            send_telegram_notification(
-                "🚫 Ошибка сброса пароля личного кабинета\n"
-                f"{company.name}\n"
-                f"{phone} · {exc}",
+            _send_auth_error_notification(
+                company=company,
+                event="reset",
+                phone=phone,
+                detail=str(exc),
+                title="Ошибка сброса пароля личного кабинета",
             )
             return Response({"detail": str(exc)}, status=400)
         send_telegram_notification(
@@ -169,7 +175,7 @@ class PublicScheduleOtpChallengeView(PublicScheduleAccessMixin, APIView):
         denied = self.ensure_published(company, request)
         if denied:
             return denied
-        return Response(create_otp_captcha())
+        return Response({"detail": "Проверка отключена."})
 
 
 class PublicScheduleOtpRequestView(PublicScheduleAccessMixin, APIView):
@@ -192,8 +198,6 @@ class PublicScheduleOtpRequestView(PublicScheduleAccessMixin, APIView):
                 company,
                 phone,
                 user_ip=extract_client_ip(request),
-                challenge_id=str(request.data.get("challenge_id") or "").strip(),
-                captcha_answer=str(request.data.get("captcha_answer") or "").strip(),
                 honeypot=str(request.data.get("website") or "").strip(),
             )
         except ValueError as exc:
@@ -368,3 +372,21 @@ class PublicScheduleEnrollmentCancelView(PublicScheduleAccessMixin, APIView):
             return Response({"detail": str(exc)}, status=400)
 
         return Response(PublicClientEnrollmentSerializer(enrollment).data)
+
+
+_AUTH_ERROR_NOTIFICATION_TTL_SECONDS = 10 * 60
+
+
+def _send_auth_error_notification(*, company: Company, event: str, phone: str, detail: str, title: str) -> None:
+    normalized_phone = normalize_phone(phone)
+    dedupe_source = f"{company.id}:{event}:{normalized_phone}:{detail}".encode("utf-8")
+    dedupe_key = f"schedule-auth-error:{hashlib.sha1(dedupe_source).hexdigest()}"
+    if not cache.add(dedupe_key, "1", timeout=_AUTH_ERROR_NOTIFICATION_TTL_SECONDS):
+        return
+
+    phone_label = display_phone_hint(normalized_phone or phone)
+    send_telegram_notification(
+        f"🚫 {title}\n"
+        f"{company.name}\n"
+        f"{phone_label} · {detail}",
+    )

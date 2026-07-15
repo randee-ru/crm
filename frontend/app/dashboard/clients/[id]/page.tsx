@@ -26,6 +26,7 @@ export default async function ClientDetailPage({ params }: ClientDetailPageProps
   const clientId = Number(id);
   const session = await getAuthSession();
   const canManageBlocks = ["owner", "admin", "manager"].includes(session?.company?.role ?? "");
+  const canManageMarketing = session?.company?.role === "admin";
 
   if (Number.isNaN(clientId)) {
     notFound();
@@ -48,7 +49,13 @@ export default async function ClientDetailPage({ params }: ClientDetailPageProps
   return (
       <div className="workspace-content min-h-0 flex-1">
         <WorkspaceCard className="clients-workspace-card min-w-0 flex-1">
-          <ClientProfilePanel profile={profile} client={client} branches={branches} canManageBlocks={canManageBlocks} />
+          <ClientProfilePanel
+            profile={profile}
+            client={client}
+            branches={branches}
+            canManageBlocks={canManageBlocks}
+            canManageMarketing={canManageMarketing}
+          />
         </WorkspaceCard>
       </div>
   );

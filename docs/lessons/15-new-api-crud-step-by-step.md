@@ -142,7 +142,7 @@ path("api/v1/", include("employees.urls")),
 # Логин
 TOKEN=$(curl -s -X POST http://127.0.0.1:8000/api/v1/auth/login/ \
   -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"121351"}' | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
+  -d '{"username":"admin","password":"<demo-password>"}' | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
 
 # Список
 curl -s "http://127.0.0.1:8000/api/v1/trainers/?company=sportmax" \

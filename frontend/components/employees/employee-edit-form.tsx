@@ -1,9 +1,11 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { updateEmployeeAction } from "@/app/actions/employees";
+import { normalizeWorkspaceGroupId, workspaceGroupOptions } from "@/lib/access-groups";
+import { formatRussianPhoneInput } from "@/lib/phone";
 import type { ActionState, BranchOption, StaffMembershipRecord } from "@/lib/types";
 
 type EmployeeEditFormProps = {
@@ -13,17 +15,13 @@ type EmployeeEditFormProps = {
 
 const initialState: ActionState = {};
 
-const roleOptions = [
-  { value: "employee", label: "Сотрудник" },
-  { value: "manager", label: "Менеджер" },
-  { value: "admin", label: "Администратор" },
-  { value: "owner", label: "Владелец" },
-] as const;
-
 export function EmployeeEditForm({ membership, branches }: EmployeeEditFormProps) {
   const router = useRouter();
   const action = updateEmployeeAction.bind(null, membership.id);
   const [state, formAction, isPending] = useActionState(action, initialState);
+  const [phone, setPhone] = useState(() =>
+    membership.phone ? formatRussianPhoneInput(membership.phone) : "",
+  );
 
   useEffect(() => {
     if (state.success) {
@@ -64,9 +62,35 @@ export function EmployeeEditForm({ membership, branches }: EmployeeEditFormProps
           />
         </label>
         <label className="block">
-          <span className="mb-1 block text-[13px] font-medium text-[var(--text)]">Роль</span>
-          <select name="role" defaultValue={membership.role} className="form-field">
-            {roleOptions.map((option) => (
+          <span className="mb-1 block text-[13px] font-medium text-[var(--text)]">Телефон</span>
+          <input
+            name="phone"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            value={phone}
+            onChange={(event) => setPhone(formatRussianPhoneInput(event.target.value))}
+            placeholder="+7 (900) 000-00-00"
+            className="form-field"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-[13px] font-medium text-[var(--text)]">Дата рождения</span>
+          <input
+            name="birth_date"
+            type="date"
+            defaultValue={membership.birth_date ?? ""}
+            className="form-field"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-[13px] font-medium text-[var(--text)]">Группа</span>
+          <select
+            name="role"
+            defaultValue={normalizeWorkspaceGroupId(membership.role) || "reception"}
+            className="form-field"
+          >
+            {workspaceGroupOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>

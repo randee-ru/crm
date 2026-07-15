@@ -31,6 +31,16 @@ class ClientListApiTest(TestCase):
             branch=self.branch,
             role=CompanyMembership.Role.MANAGER,
         )
+        self.admin_user = get_user_model().objects.create_user(
+            username="admin",
+            password="admin12345",
+        )
+        CompanyMembership.objects.create(
+            user=self.admin_user,
+            company=self.company,
+            branch=self.branch,
+            role=CompanyMembership.Role.ADMIN,
+        )
         self.employee_user = get_user_model().objects.create_user(
             username="employee",
             password="admin12345",
@@ -59,9 +69,13 @@ class ClientListApiTest(TestCase):
             ends_at=timezone.localdate() + timedelta(days=10),
         )
         self.token = Token.objects.create(user=self.user)
+        self.admin_token = Token.objects.create(user=self.admin_user)
 
     def auth_headers(self) -> dict[str, str]:
         return {"HTTP_AUTHORIZATION": f"Token {self.token.key}"}
+
+    def admin_headers(self) -> dict[str, str]:
+        return {"HTTP_AUTHORIZATION": f"Token {self.admin_token.key}"}
 
     def test_client_list_uses_registration_date_over_import_created_at(self) -> None:
         imported_client = Client.objects.create(
@@ -413,11 +427,45 @@ class ClientListApiTest(TestCase):
             f"/api/v1/clients/{self.client_record.id}/?company=sportmax",
             data={"notes": "Нужен повторный звонок", "is_active": True},
             content_type="application/json",
-            **self.auth_headers(),
+            **self.admin_headers(),
         )
         self.assertEqual(update_response.status_code, 200)
         self.client_record.refresh_from_db()
         self.assertEqual(self.client_record.notes, "Нужен повторный звонок")
+
+    def test_client_notes_and_marketing_can_be_updated_only_by_admin(self) -> None:
+        manager_response = self.http.patch(
+            f"/api/v1/clients/{self.client_record.id}/?company=sportmax",
+            data={
+                "notes": "Новый комментарий",
+                "lead_source": "Instagram",
+                "acquisition_channel": "Ads",
+                "manager_name": "Менеджер",
+            },
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+        self.assertEqual(manager_response.status_code, 400)
+        self.client_record.refresh_from_db()
+        self.assertNotEqual(self.client_record.notes, "Новый комментарий")
+
+        admin_response = self.http.patch(
+            f"/api/v1/clients/{self.client_record.id}/?company=sportmax",
+            data={
+                "notes": "Новый комментарий",
+                "lead_source": "Instagram",
+                "acquisition_channel": "Ads",
+                "manager_name": "Менеджер",
+            },
+            content_type="application/json",
+            **self.admin_headers(),
+        )
+        self.assertEqual(admin_response.status_code, 200)
+        self.client_record.refresh_from_db()
+        self.assertEqual(self.client_record.notes, "Новый комментарий")
+        self.assertEqual(self.client_record.lead_source, "Instagram")
+        self.assertEqual(self.client_record.acquisition_channel, "Ads")
+        self.assertEqual(self.client_record.manager_name, "Менеджер")
 
     def test_client_block_fields_can_be_updated_only_by_manage_roles(self) -> None:
         manager_response = self.http.patch(
@@ -474,6 +522,7 @@ class ClientProfileApiTest(TestCase):
             first_name="Иван",
             last_name="Петров",
             phone="+79991112233",
+            secondary_phone="+79991112234",
         )
         self.program = GroupProgram.objects.create(
             company=self.company,
@@ -527,6 +576,8 @@ class ClientProfileApiTest(TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertGreaterEqual(len(payload["lessons"]), 2)
+        self.assertEqual(payload["phone"], "+79991112233")
+        self.assertEqual(payload["secondary_phone"], "+79991112234")
         titles = {item["title"]: item for item in payload["lessons"]}
         self.assertIn("Функциональная тренировка", titles)
         self.assertIn("Йога", titles)

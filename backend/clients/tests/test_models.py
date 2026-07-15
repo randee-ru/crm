@@ -20,9 +20,10 @@ class ClientModelTest(TestCase):
             first_name="Anna",
             last_name="Petrova",
             phone="+79990001122",
+            secondary_phone="+79990001123",
         )
 
         self.assertEqual(client.full_name, "Petrova Anna")
         self.assertEqual(str(client), "Petrova Anna (+79990001122)")
+        self.assertEqual(client.secondary_phone, "+79990001123")
         self.assertEqual(company.clients.count(), 1)
-

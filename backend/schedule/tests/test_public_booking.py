@@ -57,11 +57,6 @@ class PublicScheduleBookingTest(TestCase):
     def public_url(self, path: str) -> str:
         return f"/api/v1/public/schedule/sportmax{path}?token=embed-secret"
 
-    def _challenge(self) -> dict:
-        response = self.http.get(self.public_url("/auth/challenge"))
-        self.assertEqual(response.status_code, 200)
-        return response.json()
-
     def _login(self, phone: str = "89991112233", password: str = "121351") -> str:
         response = self.http.post(
             self.public_url("/auth/login"),
@@ -71,17 +66,11 @@ class PublicScheduleBookingTest(TestCase):
         self.assertEqual(response.status_code, 200, response.content)
         return response.json()["session_token"]
 
-    def _request_reset_code(self, phone: str, *, answer: int | None = None) -> object:
-        challenge = self._challenge()
-        captcha_key = f"otp_captcha:{challenge['challenge_id']}"
-        expected = cache.get(captcha_key)
-        self.assertIsNotNone(expected)
+    def _request_reset_code(self, phone: str) -> object:
         return self.http.post(
             self.public_url("/auth/forgot-password"),
             data={
                 "phone": phone,
-                "challenge_id": challenge["challenge_id"],
-                "captcha_answer": str(answer if answer is not None else expected),
                 "website": "",
             },
             content_type="application/json",
@@ -136,13 +125,34 @@ class PublicScheduleBookingTest(TestCase):
         )
         self.assertEqual(response.status_code, 400)
 
-    def test_forgot_password_requires_captcha(self) -> None:
-        response = self.http.post(
-            self.public_url("/auth/forgot-password"),
-            data={"phone": "89991112233"},
+    @patch("schedule.public_booking_views.send_telegram_notification")
+    def test_login_error_is_friendly_and_deduped(self, telegram_mock) -> None:
+        self.client_record.schedule_portal_password = ""
+        self.client_record.save(update_fields=["schedule_portal_password"])
+
+        first = self.http.post(
+            self.public_url("/auth/login"),
+            data={"phone": "89991112233", "password": "121351"},
             content_type="application/json",
         )
-        self.assertEqual(response.status_code, 400)
+        second = self.http.post(
+            self.public_url("/auth/login"),
+            data={"phone": "89991112233", "password": "121351"},
+            content_type="application/json",
+        )
+
+        self.assertEqual(first.status_code, 400)
+        self.assertIn("Для этого номера пароль ещё не создан", first.json()["detail"])
+        self.assertEqual(second.status_code, 400)
+        self.assertEqual(telegram_mock.call_count, 1)
+        self.assertIn("Подтвердите номер звонком", telegram_mock.call_args.args[0])
+
+    def test_forgot_password_starts_without_captcha(self) -> None:
+        response = self._request_reset_code("89991112233")
+        self.assertEqual(response.status_code, 200, response.content)
+        body = response.json()
+        self.assertIn("check_id", body)
+        self.assertIn("call_phone", body)
 
     def test_foreign_phone_rejected(self) -> None:
         response = self._request_reset_code("+380501112233")
@@ -183,6 +193,36 @@ class PublicScheduleBookingTest(TestCase):
         )
         self.assertEqual(login_response.status_code, 200)
 
+    @patch("schedule.client_auth._load_callcheck", return_value=None)
+    @patch("schedule.public_booking_views.send_telegram_notification")
+    def test_reset_password_error_is_friendly_and_deduped(self, telegram_mock, _load_callcheck_mock) -> None:
+        first = self.http.post(
+            self.public_url("/auth/reset-password"),
+            data={
+                "phone": "89991112233",
+                "check_id": "expired-check",
+                "email": "ivan@example.com",
+                "new_password": "4321",
+            },
+            content_type="application/json",
+        )
+        second = self.http.post(
+            self.public_url("/auth/reset-password"),
+            data={
+                "phone": "89991112233",
+                "check_id": "expired-check",
+                "email": "ivan@example.com",
+                "new_password": "4321",
+            },
+            content_type="application/json",
+        )
+
+        self.assertEqual(first.status_code, 400)
+        self.assertIn("Подтверждение устарело", first.json()["detail"])
+        self.assertEqual(second.status_code, 400)
+        self.assertEqual(telegram_mock.call_count, 1)
+        self.assertIn("Подтверждение устарело", telegram_mock.call_args.args[0])
+
     def test_cannot_book_within_one_hour(self) -> None:
         session_token = self._login()
 
@@ -206,6 +246,36 @@ class PublicScheduleBookingTest(TestCase):
         )
         self.assertEqual(enroll_response.status_code, 400)
         self.assertIn("1 час", enroll_response.json()["detail"])
+
+    @patch("schedule.public_booking.send_company_sms", return_value=True)
+    def test_can_reenroll_after_cancel(self, sms_mock) -> None:
+        session_token = self._login()
+
+        enroll_response = self.http.post(
+            self.public_url(f"/slots/{self.slot.id}/enroll"),
+            HTTP_X_CLIENT_SESSION=session_token,
+        )
+        self.assertEqual(enroll_response.status_code, 201)
+        enrollment_id = enroll_response.json()["id"]
+
+        cancel_response = self.http.post(
+            self.public_url(f"/enrollments/{enrollment_id}/cancel"),
+            HTTP_X_CLIENT_SESSION=session_token,
+        )
+        self.assertEqual(cancel_response.status_code, 200)
+        self.assertEqual(cancel_response.json()["status"], "cancelled")
+
+        reenroll_response = self.http.post(
+            self.public_url(f"/slots/{self.slot.id}/enroll"),
+            HTTP_X_CLIENT_SESSION=session_token,
+        )
+        self.assertEqual(reenroll_response.status_code, 201, reenroll_response.content)
+        self.assertEqual(reenroll_response.json()["status"], "confirmed")
+        self.assertEqual(reenroll_response.json()["id"], enrollment_id)
+        self.assertEqual(
+            GroupSlotEnrollment.objects.filter(slot=self.slot, client=self.client_record).count(),
+            1,
+        )
 
     def test_cannot_cancel_within_one_hour(self) -> None:
         session_token = self._login()

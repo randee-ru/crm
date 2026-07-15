@@ -1,0 +1,23 @@
+# Scanner URI patterns for nginx map.
+# Format:
+#   ~*<regex> 1;
+#
+# Keep this list for noisy probes that should never reach Django/Next.
+# Reload nginx after edits (see scanner-blocked-ips.conf).
+
+~*/wp-admin 1;
+~*/wp-includes/ 1;
+~*/wp-content/ 1;
+~*/xmlrpc\.php 1;
+~*/wordpress/ 1;
+~*/wlwmanifest\.xml 1;
+~*/phpmyadmin 1;
+~*/\.env 1;
+~*/\.git/ 1;
+~*/actuator 1;
+~*/vendor/phpunit 1;
+~*/cgi-bin/ 1;
+~*/\.aws/ 1;
+~*/HNAP1 1;
+~*/boaform/ 1;
+~*/manager/html 1;

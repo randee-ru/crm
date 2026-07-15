@@ -18,10 +18,15 @@ from schedule.models import (
 
 
 class GroupProgramSerializer(serializers.ModelSerializer):
+    trainer_display = serializers.SerializerMethodField()
+
     class Meta:
         model = GroupProgram
         fields = [
             "id",
+            "trainer",
+            "trainer_display",
+            "room",
             "title",
             "code",
             "description",
@@ -30,11 +35,24 @@ class GroupProgramSerializer(serializers.ModelSerializer):
             "is_active",
         ]
 
+    def get_trainer_display(self, program: GroupProgram) -> str:
+        if program.trainer_id:
+            return program.trainer.full_name
+        return ""
+
 
 class GroupProgramWriteSerializer(serializers.ModelSerializer):
+    trainer = serializers.PrimaryKeyRelatedField(
+        queryset=Trainer.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+
     class Meta:
         model = GroupProgram
         fields = [
+            "trainer",
+            "room",
             "title",
             "code",
             "description",
@@ -53,6 +71,14 @@ class GroupProgramWriteSerializer(serializers.ModelSerializer):
         if queryset.exists():
             raise serializers.ValidationError("Программа с таким названием уже существует.")
         return value
+
+    def validate_trainer(self, trainer: Trainer | None) -> Trainer | None:
+        company = self.context.get("company")
+        if trainer and company and trainer.company_id != company.id:
+            raise serializers.ValidationError("Тренер должен принадлежать текущей компании.")
+        if trainer and not trainer.trains_group_programs:
+            raise serializers.ValidationError("Выберите тренера групповых программ.")
+        return trainer
 
     def create(self, validated_data: dict) -> GroupProgram:
         validated_data["company"] = self.context["company"]
@@ -173,10 +199,20 @@ class GroupScheduleSlotWriteSerializer(serializers.ModelSerializer):
         company = self.context.get("company")
         if trainer and company and trainer.company_id != company.id:
             raise serializers.ValidationError("Тренер должен принадлежать текущей компании.")
+        if trainer and not trainer.trains_group_programs:
+            raise serializers.ValidationError("Выберите тренера групповых программ.")
         return trainer
 
     def create(self, validated_data: dict) -> GroupScheduleSlot:
         validated_data["company"] = self.context["company"]
+        program = validated_data.get("program")
+        if program is not None:
+            room = validated_data.get("room")
+            if not room:
+                validated_data["room"] = program.room
+            trainer = validated_data.get("trainer")
+            if trainer is None and program.trainer and program.trainer.trains_group_programs:
+                validated_data["trainer"] = program.trainer
         return super().create(validated_data)
 
 
@@ -320,8 +356,22 @@ class GroupSlotEnrollmentWriteSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Клиент заблокирован для групповых программ.")
         return client
 
+    def validate(self, attrs: dict) -> dict:
+        slot: GroupScheduleSlot = self.context["slot"]
+        client = attrs.get("client") or getattr(self.instance, "client", None)
+        if client is not None and self.instance is not None:
+            queryset = GroupSlotEnrollment.objects.filter(slot=slot, client=client)
+            queryset = queryset.exclude(pk=self.instance.pk)
+            if queryset.exists():
+                raise serializers.ValidationError({"client": "Клиент уже записан на это занятие."})
+        return attrs
+
     def create(self, validated_data: dict) -> GroupSlotEnrollment:
         slot: GroupScheduleSlot = self.context["slot"]
+        client: Client = validated_data["client"]
+        existing = GroupSlotEnrollment.objects.filter(slot=slot, client=client).select_related("client").first()
+        if existing is not None:
+            return existing
         validated_data["slot"] = slot
         validated_data["company"] = slot.company
         occupied = slot.enrollments.filter(

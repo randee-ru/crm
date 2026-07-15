@@ -101,12 +101,12 @@ def create_public_enrollment(*, slot: GroupScheduleSlot, client: Client) -> Grou
     if now >= booking_deadline(slot):
         raise ValueError("Запись на занятие закрыта — осталось меньше 1 часа до начала.")
 
-    existing = GroupSlotEnrollment.objects.filter(
+    existing_active = GroupSlotEnrollment.objects.filter(
         slot=slot,
         client=client,
         status__in=ACTIVE_ENROLLMENT_STATUSES,
     ).first()
-    if existing:
+    if existing_active:
         raise ValueError("Вы уже записаны на это занятие.")
 
     occupied = occupied_count(slot)
@@ -114,6 +114,18 @@ def create_public_enrollment(*, slot: GroupScheduleSlot, client: Client) -> Grou
     status = GroupSlotEnrollment.Status.CONFIRMED
     if occupied >= max_participants:
         status = GroupSlotEnrollment.Status.WAITLIST
+
+    # После отмены запись остаётся (unique slot+client) — реактивируем её.
+    cancelled = GroupSlotEnrollment.objects.filter(
+        slot=slot,
+        client=client,
+        status=GroupSlotEnrollment.Status.CANCELLED,
+    ).first()
+    if cancelled is not None:
+        cancelled.status = status
+        cancelled.notes = cancelled.notes or "Онлайн-запись"
+        cancelled.save(update_fields=["status", "notes", "updated_at"])
+        return cancelled
 
     return GroupSlotEnrollment.objects.create(
         company=slot.company,
@@ -132,6 +144,7 @@ def send_enrollment_confirmation_sms(
     enrollment: GroupSlotEnrollment,
     user_ip: str = "",
 ) -> bool:
+    """Подтверждение записи SMS опционально — при ошибке записи не ломаем."""
     message = format_enrollment_confirmation_message(
         company_name=company.name,
         class_title=slot.custom_title or slot.program.title,
@@ -149,7 +162,11 @@ def send_enrollment_confirmation_sms(
             purpose="enrollment",
         )
     except SmsSendError:
-        logger.exception("Failed to send enrollment confirmation SMS for %s", company.slug)
+        # На проде без буквенного отправителя SMS часто падает — запись уже создана.
+        logger.warning(
+            "Enrollment SMS skipped for company=%s (SMS.ru unavailable or sender required)",
+            company.slug,
+        )
         return False
 
 

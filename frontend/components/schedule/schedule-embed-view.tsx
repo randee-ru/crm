@@ -286,6 +286,34 @@ export function ScheduleEmbedView({ companySlug, token }: ScheduleEmbedViewProps
         </p>
       </header>
 
+      <div className="schedule-embed-mobile-weekbar" aria-label="Переход по неделям">
+        <button
+          type="button"
+          className="schedule-embed-mobile-weeknav"
+          aria-label="Предыдущая неделя"
+          onClick={() => setWeekStart((current) => addDays(current, -7))}
+        >
+          <IconChevronLeft size={18} />
+        </button>
+        <div className="schedule-embed-mobile-weeklabel">
+          <strong>{formatWeekRange(weekStart)}</strong>
+          <span>{weekStats.upcoming} занятий на неделе</span>
+        </div>
+        {!isCurrentWeek ? (
+          <button type="button" className="schedule-embed-mobile-today" onClick={goToToday}>
+            Сегодня
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className="schedule-embed-mobile-weeknav"
+          aria-label="Следующая неделя"
+          onClick={() => setWeekStart((current) => addDays(current, 7))}
+        >
+          <IconChevronRight size={18} />
+        </button>
+      </div>
+
       {payload.booking_enabled && showLogin ? (
         <div className="schedule-embed-auth-overlay" onClick={() => setShowLogin(false)}>
           <div className="schedule-embed-auth-modal" onClick={(event) => event.stopPropagation()}>
@@ -364,11 +392,14 @@ export function ScheduleEmbedView({ companySlug, token }: ScheduleEmbedViewProps
               key={key}
               type="button"
               className={`schedule-embed-day-chip${active ? " schedule-embed-day-chip--active" : ""}${today ? " schedule-embed-day-chip--today" : ""}`}
+              aria-label={`${WEEKDAYS_FULL[weekday]} ${dayNumberLabel(date)}${today ? ", сегодня" : ""}, занятий: ${count}`}
+              aria-pressed={active}
               onClick={() => setSelectedDay(key)}
             >
-              <span className="schedule-embed-day-chip-weekday">{today ? "Сегодня" : WEEKDAYS[weekday]}</span>
+              <span className="schedule-embed-day-chip-weekday">{WEEKDAYS[weekday]}</span>
               <strong>{dayNumberLabel(date)}</strong>
-              <em>{count}</em>
+              <em>{count > 0 ? count : "—"}</em>
+              {today ? <span className="schedule-embed-day-chip-dot" aria-hidden="true" /> : null}
             </button>
           );
         })}
@@ -379,10 +410,15 @@ export function ScheduleEmbedView({ companySlug, token }: ScheduleEmbedViewProps
       >
         <header className="schedule-embed-mobile-day-head">
           <div>
-            <strong>{formatDayDate(selectedDayDate)}</strong>
+            <strong>
+              {formatDayDate(selectedDayDate)}
+              {selectedDayToday ? <span className="schedule-embed-mobile-today-badge">Сегодня</span> : null}
+            </strong>
             <span>{WEEKDAYS_FULL[weekdayIndex(selectedDayDate)]}</span>
           </div>
-          <span className="schedule-embed-day-count">{selectedDaySlots.length}</span>
+          <span className="schedule-embed-day-count" title="Занятий в этот день">
+            {selectedDaySlots.length}
+          </span>
         </header>
 
         {selectedDaySlots.length === 0 ? (
@@ -413,10 +449,6 @@ export function ScheduleEmbedView({ companySlug, token }: ScheduleEmbedViewProps
                     ) : null}
                   </div>
                   <strong className="schedule-embed-mobile-card-title">{slot.display_title}</strong>
-                  <div className="schedule-embed-mobile-card-meta">
-                    {slot.trainer_display ? <span>{slot.trainer_display}</span> : null}
-                    {slot.room ? <span>{slot.room}</span> : null}
-                  </div>
                   {!slot.is_past ? (
                     <p className="schedule-embed-mobile-card-seats">
                       {slot.is_enrolled
@@ -424,31 +456,31 @@ export function ScheduleEmbedView({ companySlug, token }: ScheduleEmbedViewProps
                         : seatsLabel(slot.seats_left)}
                     </p>
                   ) : null}
-                </div>
-                <div className="schedule-embed-mobile-card-actions">
-                  <button type="button" className="schedule-embed-mobile-more" onClick={() => setSelectedSlot(slot)}>
-                    Подробнее
-                  </button>
-                  {!slot.is_past && !slot.is_enrolled && slot.can_book ? (
-                    <button
-                      type="button"
-                      className="schedule-embed-slot-book schedule-embed-mobile-book"
-                      disabled={isPending}
-                      onClick={() => handleBook(slot)}
-                    >
-                      {sessionToken ? "Записаться" : "Войти"}
+                  <div className="schedule-embed-mobile-card-actions">
+                    <button type="button" className="schedule-embed-mobile-more" onClick={() => setSelectedSlot(slot)}>
+                      Подробнее
                     </button>
-                  ) : null}
-                  {!slot.is_past && slot.is_enrolled && slot.enrollment_id ? (
-                    <button
-                      type="button"
-                      className="schedule-embed-slot-cancel schedule-embed-mobile-book"
-                      disabled={isPending || !slot.can_cancel}
-                      onClick={() => handleCancel(slot.enrollment_id as number)}
-                    >
-                      Отменить
-                    </button>
-                  ) : null}
+                    {!slot.is_past && !slot.is_enrolled && slot.can_book ? (
+                      <button
+                        type="button"
+                        className="schedule-embed-slot-book schedule-embed-mobile-book"
+                        disabled={isPending}
+                        onClick={() => handleBook(slot)}
+                      >
+                        {sessionToken ? "Записаться" : "Войти"}
+                      </button>
+                    ) : null}
+                    {!slot.is_past && slot.is_enrolled && slot.enrollment_id ? (
+                      <button
+                        type="button"
+                        className="schedule-embed-slot-cancel schedule-embed-mobile-book"
+                        disabled={isPending || !slot.can_cancel}
+                        onClick={() => handleCancel(slot.enrollment_id as number)}
+                      >
+                        Отменить
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
               </article>
             ))}
@@ -488,17 +520,7 @@ export function ScheduleEmbedView({ companySlug, token }: ScheduleEmbedViewProps
                   {daySlots.map((slot) => (
                     <article
                       key={slot.id}
-                      className={`schedule-embed-slot schedule-embed-slot--clickable${slot.is_past ? " schedule-embed-slot--past" : ""}${slot.is_enrolled ? " schedule-embed-slot--enrolled" : ""}`}
-                      onClick={() => setSelectedSlot(slot)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          setSelectedSlot(slot);
-                        }
-                      }}
-                      role="button"
-                      tabIndex={0}
-                      aria-label={`Подробнее: ${slot.display_title}`}
+                      className={`schedule-embed-slot${slot.is_past ? " schedule-embed-slot--past" : ""}${slot.is_enrolled ? " schedule-embed-slot--enrolled" : ""}`}
                     >
                       <div className="schedule-embed-slot-accent" style={{ backgroundColor: slot.display_color }} />
                       <div className="schedule-embed-slot-body">
@@ -506,64 +528,57 @@ export function ScheduleEmbedView({ companySlug, token }: ScheduleEmbedViewProps
                           <div className="schedule-embed-slot-time">
                             {formatTime(slot.start_time)} – {formatTime(slot.end_time)}
                           </div>
-                    {slot.is_past ? (
-                      <span className="schedule-embed-chip schedule-embed-chip--past">Завершено</span>
-                    ) : slot.is_enrolled ? (
-                      <span className="schedule-embed-chip schedule-embed-chip--enrolled">
-                        {enrollmentStatusLabel(slot.enrollment_status || "confirmed")}
-                      </span>
-                    ) : slotAvailabilityLabel(slot) ? (
-                      <span
-                        className={`schedule-embed-chip${slot.is_started ? " schedule-embed-chip--live" : " schedule-embed-chip--closed"}`}
-                      >
-                        {slotAvailabilityLabel(slot)}
-                      </span>
-                    ) : null}
+                          {slot.is_past ? (
+                            <span className="schedule-embed-chip schedule-embed-chip--past">Завершено</span>
+                          ) : slot.is_enrolled ? (
+                            <span className="schedule-embed-chip schedule-embed-chip--enrolled">
+                              {enrollmentStatusLabel(slot.enrollment_status || "confirmed")}
+                            </span>
+                          ) : slotAvailabilityLabel(slot) ? (
+                            <span
+                              className={`schedule-embed-chip${slot.is_started ? " schedule-embed-chip--live" : " schedule-embed-chip--closed"}`}
+                            >
+                              {slotAvailabilityLabel(slot)}
+                            </span>
+                          ) : null}
                         </div>
-                        <div className="schedule-embed-slot-main">
-                          <strong>{slot.display_title}</strong>
-                          {slot.program_code ? <span className="schedule-embed-slot-code">{slot.program_code}</span> : null}
-                        </div>
-                        <div className="schedule-embed-slot-details">
-                          {slot.trainer_display ? <span>{slot.trainer_display}</span> : null}
-                          {slot.room ? <span>{slot.room}</span> : null}
-                        </div>
-                        {!slot.is_past && slot.can_book && !slot.is_enrolled ? (
-                          <div className="schedule-embed-slot-footer">
-                            <span className="schedule-embed-slot-seats">{seatsLabel(slot.seats_left)}</span>
+                        <strong className="schedule-embed-slot-title">{slot.display_title}</strong>
+                        {!slot.is_past ? (
+                          <p className="schedule-embed-slot-seats">
+                            {slot.is_enrolled
+                              ? enrollmentStatusLabel(slot.enrollment_status || "confirmed")
+                              : seatsLabel(slot.seats_left)}
+                          </p>
+                        ) : null}
+                        <div className="schedule-embed-slot-actions">
+                          <button
+                            type="button"
+                            className="schedule-embed-slot-more"
+                            onClick={() => setSelectedSlot(slot)}
+                          >
+                            Подробнее
+                          </button>
+                          {!slot.is_past && slot.can_book && !slot.is_enrolled ? (
                             <button
                               type="button"
                               className="schedule-embed-slot-book"
                               disabled={isPending}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                handleBook(slot);
-                              }}
+                              onClick={() => handleBook(slot)}
                             >
-                              {sessionToken ? "Записаться" : "Войти и записаться"}
+                              {sessionToken ? "Записаться" : "Войти"}
                             </button>
-                          </div>
-                        ) : !slot.is_past && !slot.is_enrolled && slotAvailabilityLabel(slot) ? (
-                          <p className="schedule-embed-slot-closed">{slotAvailabilityLabel(slot)}</p>
-                        ) : null}
-                        {!slot.is_past && slot.is_enrolled && slot.enrollment_id ? (
-                          <div className="schedule-embed-slot-footer">
-                            <span className="schedule-embed-slot-seats schedule-embed-slot-seats--enrolled">
-                              {enrollmentStatusLabel(slot.enrollment_status || "confirmed")}
-                            </span>
+                          ) : null}
+                          {!slot.is_past && slot.is_enrolled && slot.enrollment_id ? (
                             <button
                               type="button"
                               className="schedule-embed-slot-cancel schedule-embed-slot-cancel--compact"
-                              disabled={isPending}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                handleCancel(slot.enrollment_id as number);
-                              }}
+                              disabled={isPending || !slot.can_cancel}
+                              onClick={() => handleCancel(slot.enrollment_id as number)}
                             >
                               Отменить
                             </button>
-                          </div>
-                        ) : null}
+                          ) : null}
+                        </div>
                       </div>
                     </article>
                   ))}

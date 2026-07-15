@@ -34,6 +34,7 @@ function readClientInput(formData: FormData): ClientWriteInput {
     first_name: String(formData.get("first_name") ?? "").trim(),
     middle_name: String(formData.get("middle_name") ?? "").trim(),
     phone: String(formData.get("phone") ?? "").trim(),
+    secondary_phone: String(formData.get("secondary_phone") ?? "").trim(),
     email: String(formData.get("email") ?? "").trim(),
     birth_date: birthDateRaw || null,
     notes: String(formData.get("notes") ?? "").trim(),

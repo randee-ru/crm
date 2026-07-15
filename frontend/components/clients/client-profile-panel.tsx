@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Cake } from "lucide-react";
-import { useMemo, useState, type ReactNode } from "react";
-import { ClientForm } from "@/components/client-form";
+import { useActionState, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createClientNoteAction, deleteClientNoteAction, updateClientNoteAction } from "@/app/actions/client-notes";
+import { updateClientAction } from "@/app/actions/clients";
 import { ClickToCallChip } from "@/components/telephony/click-to-call-chip";
 import { TelephonyAudioPlayer } from "@/components/telephony/telephony-audio-player";
 import {
@@ -26,6 +28,7 @@ import {
   getClientInitials,
 } from "@/lib/api";
 import type { BranchOption, ClientDetail, ClientProfile } from "@/lib/types";
+import type { ActionState } from "@/lib/types";
 
 const MESSENGER_CHANNEL_LABELS: Record<string, string> = {
   max: "МАКС",
@@ -99,6 +102,7 @@ type ClientProfilePanelProps = {
   client: ClientDetail;
   branches: BranchOption[];
   canManageBlocks?: boolean;
+  canManageMarketing?: boolean;
 };
 
 function statusLabel(profile: ClientProfile): string {
@@ -230,10 +234,21 @@ function tabCount(profile: ClientProfile, tabId: TabId): number | null {
   }
 }
 
-export function ClientProfilePanel({ profile, client, branches, canManageBlocks = false }: ClientProfilePanelProps) {
+export function ClientProfilePanel({
+  profile,
+  client,
+  branches,
+  canManageBlocks = false,
+  canManageMarketing = false,
+}: ClientProfilePanelProps) {
   const [tab, setTab] = useState<TabId>("main");
   const [showEdit, setShowEdit] = useState(false);
+  const [showNotesEditor, setShowNotesEditor] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [player, setPlayer] = useState<{ callId: number; title: string; duration: number } | null>(null);
+  const [editState, editAction] = useActionState(updateClientAction.bind(null, client.id), {} as ActionState);
+  const [noteState, noteAction] = useActionState(createClientNoteAction.bind(null, client.id), {} as ActionState);
+  const router = useRouter();
 
   const timeline = useMemo(() => buildTimeline(profile), [profile]);
   const timelineGroups = useMemo(() => groupTimelineByDate(timeline), [timeline]);
@@ -244,6 +259,33 @@ export function ClientProfilePanel({ profile, client, branches, canManageBlocks 
   );
 
   const statusText = statusLabel(profile);
+  const latestNote = profile.notes_entries[0]?.body?.trim() || "";
+
+  useEffect(() => {
+    if (editState.success) {
+      setShowEdit(false);
+    }
+  }, [editState.success]);
+
+  function handleQuickAction(action: "deal" | "task" | "note" | "lesson" | "message") {
+    if (action === "note") {
+      setShowNotesEditor(true);
+      setTab("main");
+      window.setTimeout(() => {
+        document.getElementById("client-notes-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 0);
+      return;
+    }
+
+    const targets: Record<Exclude<typeof action, "note">, string> = {
+      deal: "/dashboard/sales",
+      task: "/dashboard/tasks/new",
+      lesson: "/dashboard/schedule",
+      message: "/dashboard/messages",
+    };
+
+    router.push(targets[action as Exclude<typeof action, "note">]);
+  }
 
   return (
     <div className="client-card">
@@ -253,9 +295,15 @@ export function ClientProfilePanel({ profile, client, branches, canManageBlocks 
             <IconArrowLeft size={15} className="client-card-back-icon" />
             К списку клиентов
           </Link>
-          <button type="button" className="client-card-save" onClick={() => setShowEdit((value) => !value)}>
-            {showEdit ? "Скрыть редактирование" : "Редактировать"}
-          </button>
+          {showEdit ? (
+            <button type="submit" form="client-inline-edit-form" className="client-card-save">
+              {editState.error ? "Попробовать снова" : "Сохранить"}
+            </button>
+          ) : (
+            <button type="button" className="client-card-save" onClick={() => setShowEdit(true)}>
+              Редактировать
+            </button>
+          )}
         </div>
 
         <div className="client-card-hero-main">
@@ -270,7 +318,7 @@ export function ClientProfilePanel({ profile, client, branches, canManageBlocks 
             <div className="client-card-header-meta">
               {profile.phone ? (
                 <ClickToCallChip phone={profile.phone} clientId={profile.id}>
-                  {profile.phone}
+                  {profile.secondary_phone ? `${profile.phone} · доп.: ${profile.secondary_phone}` : profile.phone}
                 </ClickToCallChip>
               ) : null}
               {profile.email ? (
@@ -320,14 +368,66 @@ export function ClientProfilePanel({ profile, client, branches, canManageBlocks 
           <div className="client-card-main-layout">
             <aside className="client-card-sidebar">
               <SidebarCard title="Контакты">
-                <ContactField icon={<IconPhone size={16} />} label="Телефон" value={profile.phone} />
-                <ContactField icon={<IconMail size={16} />} label="Email" value={profile.email} />
-                <ContactField
-                  icon={<Cake size={16} />}
-                  label="Дата рождения"
-                  value={profile.birth_date ? formatClientDate(profile.birth_date) : ""}
-                />
-                <ContactField icon={<IconIdCard size={16} />} label="Паспорт" value={profile.passport} />
+                <form id="client-inline-edit-form" action={editAction} className="client-inline-edit">
+                  {editState.error ? <p className="client-inline-edit-error">{editState.error}</p> : null}
+                  <input type="hidden" name="last_name" value={client.last_name} />
+                  <input type="hidden" name="first_name" value={client.first_name} />
+                  <input type="hidden" name="middle_name" value={client.middle_name ?? ""} />
+                  <input type="hidden" name="branch_id" value={client.branch_id ?? ""} />
+                  {!(showEdit && canManageMarketing) ? <input type="hidden" name="notes" value={client.notes ?? ""} /> : null}
+                  {!(showEdit && canManageMarketing) ? <input type="hidden" name="lead_source" value={client.lead_source ?? ""} /> : null}
+                  {!(showEdit && canManageMarketing) ? (
+                    <input type="hidden" name="acquisition_channel" value={client.acquisition_channel ?? ""} />
+                  ) : null}
+                  {!(showEdit && canManageMarketing) ? <input type="hidden" name="manager_name" value={client.manager_name ?? ""} /> : null}
+                  <input type="hidden" name="is_active" value={client.is_active ? "on" : ""} />
+                  <input type="hidden" name="club_access_blocked" value={client.club_access_blocked ? "on" : ""} />
+                  <input type="hidden" name="group_programs_blocked" value={client.group_programs_blocked ? "on" : ""} />
+                  {showEdit ? (
+                    <>
+                      <InlineContactField
+                        icon={<IconPhone size={16} />}
+                        label="Основной телефон"
+                        name="phone"
+                        defaultValue={client.phone}
+                        required
+                      />
+                      <InlineContactField
+                        icon={<IconPhone size={16} />}
+                        label="Дополнительный телефон"
+                        name="secondary_phone"
+                        defaultValue={client.secondary_phone || ""}
+                      />
+                      <InlineContactField
+                        icon={<IconMail size={16} />}
+                        label="Email"
+                        name="email"
+                        defaultValue={client.email}
+                        type="email"
+                      />
+                      <InlineContactField
+                        icon={<Cake size={16} />}
+                        label="Дата рождения"
+                        name="birth_date"
+                        defaultValue={client.birth_date ?? ""}
+                        type="date"
+                        max={new Date().toISOString().slice(0, 10)}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <ContactField icon={<IconPhone size={16} />} label="Основной телефон" value={profile.phone} />
+                      <ContactField icon={<IconPhone size={16} />} label="Дополнительный телефон" value={profile.secondary_phone || ""} />
+                      <ContactField icon={<IconMail size={16} />} label="Email" value={profile.email} />
+                      <ContactField
+                        icon={<Cake size={16} />}
+                        label="Дата рождения"
+                        value={profile.birth_date ? formatClientDate(profile.birth_date) : ""}
+                      />
+                      <ContactField icon={<IconIdCard size={16} />} label="Паспорт" value={profile.passport} />
+                    </>
+                  )}
+                </form>
               </SidebarCard>
 
               <SidebarCard title="Клуб и абонемент">
@@ -350,13 +450,19 @@ export function ClientProfilePanel({ profile, client, branches, canManageBlocks 
               </SidebarCard>
 
               <SidebarCard title="Маркетинг">
-                <InfoLine label="Источник" value={profile.lead_source} />
-                <InfoLine label="Канал" value={profile.acquisition_channel} />
-                <InfoLine label="Менеджер" value={profile.manager_name} />
-              </SidebarCard>
-
-              <SidebarCard title="Комментарий">
-                <p className="client-card-notes">{profile.notes || "Комментарий не указан"}</p>
+                {showEdit && canManageMarketing ? (
+                  <>
+                    <InlineInfoField label="Источник" name="lead_source" defaultValue={client.lead_source} />
+                    <InlineInfoField label="Канал" name="acquisition_channel" defaultValue={client.acquisition_channel} />
+                    <InlineInfoField label="Менеджер" name="manager_name" defaultValue={client.manager_name} />
+                  </>
+                ) : (
+                  <>
+                    <InfoLine label="Источник" value={profile.lead_source} />
+                    <InfoLine label="Канал" value={profile.acquisition_channel} />
+                    <InfoLine label="Менеджер" value={profile.manager_name} />
+                  </>
+                )}
               </SidebarCard>
             </aside>
 
@@ -364,13 +470,90 @@ export function ClientProfilePanel({ profile, client, branches, canManageBlocks 
               <div className="client-card-timeline-toolbar">
                 <span className="client-card-timeline-toolbar-label">Быстрые действия</span>
                 <div className="client-card-timeline-actions">
-                  <button type="button" className="client-card-action-btn">Сделка</button>
-                  <button type="button" className="client-card-action-btn">Задача</button>
-                  <button type="button" className="client-card-action-btn">Заметка</button>
-                  <button type="button" className="client-card-action-btn">Занятие</button>
-                  <button type="button" className="client-card-action-btn">Сообщение</button>
+                  <button type="button" className="client-card-action-btn" onClick={() => handleQuickAction("deal")}>Сделка</button>
+                  <button type="button" className="client-card-action-btn" onClick={() => handleQuickAction("task")}>Задача</button>
+                  <button type="button" className="client-card-action-btn" onClick={() => handleQuickAction("note")}>Заметка</button>
+                  <button type="button" className="client-card-action-btn" onClick={() => handleQuickAction("lesson")}>Занятие</button>
+                  <button type="button" className="client-card-action-btn" onClick={() => handleQuickAction("message")}>Сообщение</button>
                 </div>
               </div>
+
+              <div className="client-card-note-summary" id="client-note-section">
+                <span className="client-card-note-summary-label">Последняя заметка</span>
+                <p className="client-card-note-summary-body">{latestNote || "Заметок пока нет"}</p>
+              </div>
+
+              <section className="client-notes-panel" id="client-notes-section">
+                <div className="client-notes-panel-head">
+                  <div>
+                    <h2>Заметки клиента</h2>
+                    <p>История комментариев, заметок и рабочих пометок.</p>
+                  </div>
+                  <button type="button" className="client-card-action-btn" onClick={() => setShowNotesEditor((value) => !value)}>
+                    {showNotesEditor ? "Скрыть редактор" : "Новая заметка"}
+                  </button>
+                </div>
+
+                {showNotesEditor ? (
+                  <form action={noteAction} className="client-note-create-form">
+                    {noteState.error ? <p className="client-inline-edit-error">{noteState.error}</p> : null}
+                    <textarea name="body" rows={4} className="client-card-notes-input" placeholder="Напишите заметку..." />
+                    <div className="client-note-create-actions">
+                      <button type="submit" className="client-card-save">Сохранить</button>
+                    </div>
+                  </form>
+                ) : null}
+
+                <div className="client-notes-list">
+                  {profile.notes_entries.length === 0 ? (
+                    <div className="client-notes-empty">Заметок пока нет</div>
+                  ) : (
+                    profile.notes_entries.map((note) => {
+                      const isEditing = editingNoteId === note.id;
+                      return (
+                        <article key={note.id} className="client-note-item">
+                          {isEditing ? (
+                            <form
+                              action={updateClientNoteAction.bind(null, client.id, note.id)}
+                              className="client-note-edit-form"
+                            >
+                              <textarea name="body" defaultValue={note.body} rows={4} className="client-card-notes-input" />
+                              <div className="client-note-item-actions">
+                                <button type="submit" className="client-card-save">Сохранить</button>
+                                <button type="button" className="client-card-action-btn" onClick={() => setEditingNoteId(null)}>
+                                  Отмена
+                                </button>
+                              </div>
+                            </form>
+                          ) : (
+                            <>
+                              <p className="client-note-item-body">{note.body}</p>
+                              <div className="client-note-item-meta">
+                                <span>{formatDateTime(note.created_at)}</span>
+                                <div className="client-note-item-actions">
+                                  <button type="button" className="client-card-action-btn" onClick={() => setEditingNoteId(note.id)}>
+                                    Редактировать
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="client-card-action-btn client-card-meta-chip--danger"
+                                    onClick={async () => {
+                                      await deleteClientNoteAction(client.id, note.id);
+                                      router.refresh();
+                                    }}
+                                  >
+                                    Удалить
+                                  </button>
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </article>
+                      );
+                    })
+                  )}
+                </div>
+              </section>
 
               {timelineGroups.length === 0 ? (
                 <div className="client-card-empty-state">
@@ -553,13 +736,6 @@ export function ClientProfilePanel({ profile, client, branches, canManageBlocks 
 
         {tab === "reviews" ? <EmptySection title="Оценки и отзывы" text="Отзывы клиента появятся после подключения модуля оценок." /> : null}
         {tab === "files" ? <EmptySection title="Файлы" text="Файлы клиента можно будет прикреплять в следующих этапах." /> : null}
-
-        {showEdit ? (
-          <section className="client-card-edit">
-            <h2>Редактирование клиента</h2>
-            <ClientForm branches={branches} client={client} mode="edit" canManageBlocks={canManageBlocks} />
-          </section>
-        ) : null}
       </div>
 
       {player ? (
@@ -612,6 +788,52 @@ function ContactField({ icon, label, value }: { icon: ReactNode; label: string; 
         <strong>{value || "—"}</strong>
       </div>
     </div>
+  );
+}
+
+function InlineContactField({
+  icon,
+  label,
+  name,
+  defaultValue,
+  type = "text",
+  required,
+  max,
+}: {
+  icon: ReactNode;
+  label: string;
+  name: string;
+  defaultValue: string;
+  type?: string;
+  required?: boolean;
+  max?: string;
+}) {
+  return (
+    <label className="client-card-contact client-card-contact--editable">
+      <span className="client-card-contact-icon" aria-hidden>
+        {icon}
+      </span>
+      <div className="client-card-contact-edit">
+        <span className="client-card-contact-label">{label}</span>
+        <input
+          name={name}
+          defaultValue={defaultValue}
+          type={type}
+          required={required}
+          max={max}
+          className="client-card-contact-input"
+        />
+      </div>
+    </label>
+  );
+}
+
+function InlineInfoField({ label, name, defaultValue }: { label: string; name: string; defaultValue: string }) {
+  return (
+    <label className="client-card-info-line client-card-info-line--editable">
+      <span>{label}</span>
+      <input name={name} defaultValue={defaultValue} className="client-card-info-input" />
+    </label>
   );
 }
 

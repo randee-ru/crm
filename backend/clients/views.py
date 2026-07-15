@@ -6,7 +6,8 @@ from django.db.models import DateField, OuterRef, Prefetch, Q, QuerySet, Subquer
 from django.db.models.functions import Cast, Coalesce
 from django.utils import timezone
 from rest_framework.authentication import TokenAuthentication
-from rest_framework.generics import ListAPIView, ListCreateAPIView, RetrieveAPIView, RetrieveUpdateAPIView
+from django.shortcuts import get_object_or_404
+from rest_framework.generics import ListAPIView, ListCreateAPIView, RetrieveAPIView, RetrieveUpdateAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -19,13 +20,15 @@ from accounts.permissions import (
     resolve_company_slug,
 )
 from branches.models import Branch
-from clients.models import Client
+from clients.models import Client, ClientNote
 from notifications.telegram import send_telegram_notification
 from clients.serializers import (
     BranchOptionSerializer,
     ClientDetailSerializer,
     ClientListSerializer,
     ClientOptionSerializer,
+    ClientNoteSerializer,
+    ClientNoteWriteSerializer,
     ClientWriteSerializer,
 )
 from clients.profile_serializers import ClientProfileSerializer
@@ -63,6 +66,7 @@ class ClientQuerysetMixin:
             .prefetch_related(
                 "messages",
                 "leads",
+                "notes_entries",
                 "attendance_records",
                 "sales",
                 "deals__stage",
@@ -255,6 +259,45 @@ class ClientDetailView(ClientQuerysetMixin, RetrieveUpdateAPIView):
         context = super().get_serializer_context()
         context["company"] = get_company_from_request(self.request)
         return context
+
+
+class ClientNoteListCreateView(ClientQuerysetMixin, ListCreateAPIView):
+    lookup_url_kwarg = "client_id"
+
+    def get_queryset(self):
+        return ClientNote.objects.filter(
+            company__slug=resolve_company_slug(self.request, required=True),
+            client_id=self.kwargs[self.lookup_url_kwarg],
+        )
+
+    def get_serializer_class(self):
+        return ClientNoteSerializer if self.request.method == "GET" else ClientNoteWriteSerializer
+
+    def get_client(self) -> Client:
+        return get_object_or_404(self.get_company_clients_queryset(), id=self.kwargs[self.lookup_url_kwarg])
+
+    def get_serializer_context(self) -> dict:
+        context = super().get_serializer_context()
+        context["company"] = get_company_from_request(self.request)
+        context["client"] = self.get_client()
+        return context
+
+    def perform_create(self, serializer) -> None:
+        serializer.save(company=self.get_serializer_context()["company"], client=self.get_client())
+
+
+class ClientNoteDetailView(ClientQuerysetMixin, RetrieveUpdateDestroyAPIView):
+    lookup_url_kwarg = "note_id"
+
+    def get_queryset(self):
+        return ClientNote.objects.filter(
+            company__slug=resolve_company_slug(self.request, required=True),
+            client_id=self.kwargs["client_id"],
+            id=self.kwargs[self.lookup_url_kwarg],
+        )
+
+    def get_serializer_class(self):
+        return ClientNoteSerializer if self.request.method == "GET" else ClientNoteWriteSerializer
 
 
 class ClientProfileView(ClientQuerysetMixin, RetrieveAPIView):

@@ -6,7 +6,6 @@ import { formatRussianPhoneInput, isValidRussianMobile, normalizeRussianPhone } 
 import {
   clearSessionToken,
   fetchCallcheckStatus,
-  fetchOtpChallenge,
   getStoredPhone,
   loginSchedulePortal,
   requestPasswordReset,
@@ -25,6 +24,41 @@ type ScheduleEmbedAuthPanelProps = {
 
 type AuthStep = "login" | "forgot" | "call" | "reset";
 
+const AUTH_STEP_COPY: Record<
+  AuthStep,
+  {
+    title: string;
+    subtitle: string;
+    hintTitle: string;
+    hintText: string;
+  }
+> = {
+  login: {
+    title: "Вход в личный кабинет",
+    subtitle: "Введите номер телефона и пароль. Если пароль ещё не создан, мы поможем восстановить доступ.",
+    hintTitle: "Если входите впервые",
+    hintText: "Нажмите «Забыли пароль?» и подтвердите номер звонком. Это займёт пару минут.",
+  },
+  forgot: {
+    title: "Подтвердите номер",
+    subtitle: "Мы сразу позвоним на ваш номер для подтверждения, без дополнительной капчи.",
+    hintTitle: "Что понадобится",
+    hintText: "Номер телефона и доступ к нему. После звонка вы сразу сможете задать новый пароль.",
+  },
+  call: {
+    title: "Почти готово",
+    subtitle: "Осталось принять короткий звонок с указанного номера.",
+    hintTitle: "Что сделать",
+    hintText: "Позвоните на номер ниже со своего телефона и можете сразу сбросить вызов. Звонок бесплатный.",
+  },
+  reset: {
+    title: "Задайте новый пароль",
+    subtitle: "После подтверждения номера можно сразу сохранить пароль и войти.",
+    hintTitle: "Совет",
+    hintText: "Выберите пароль, который удобно вводить с телефона, чтобы не возвращаться к восстановлению снова.",
+  },
+};
+
 export function ScheduleEmbedAuthPanel({
   companySlug,
   embedToken,
@@ -37,10 +71,8 @@ export function ScheduleEmbedAuthPanel({
   const [email, setEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [captchaAnswer, setCaptchaAnswer] = useState("");
-  const [challengeId, setChallengeId] = useState("");
-  const [challengeQuestion, setChallengeQuestion] = useState("");
   const [checkId, setCheckId] = useState("");
+  const [callPhone, setCallPhone] = useState("");
   const [callPhonePretty, setCallPhonePretty] = useState("");
   const [callPhoneHtml, setCallPhoneHtml] = useState("");
   const [step, setStep] = useState<AuthStep>("login");
@@ -53,33 +85,6 @@ export function ScheduleEmbedAuthPanel({
     const storedPhone = getStoredPhone(companySlug);
     if (storedPhone) setPhone(formatRussianPhoneInput(storedPhone));
   }, [companySlug]);
-
-  const loadChallenge = async () => {
-    const challenge = await fetchOtpChallenge(companySlug, embedToken);
-    setChallengeId(challenge.challenge_id);
-    setChallengeQuestion(challenge.question);
-    setCaptchaAnswer("");
-  };
-
-  useEffect(() => {
-    if (clientName || step !== "forgot") return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const challenge = await fetchOtpChallenge(companySlug, embedToken);
-        if (cancelled) return;
-        setChallengeId(challenge.challenge_id);
-        setChallengeQuestion(challenge.question);
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Не удалось загрузить проверку");
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [clientName, companySlug, embedToken, step]);
 
   useEffect(() => {
     if (step !== "call" || !checkId) return;
@@ -133,6 +138,15 @@ export function ScheduleEmbedAuthPanel({
     onAuthenticated(sessionToken);
   };
 
+  const loadChallenge = async () => {
+    setCheckId("");
+    setCallPhone("");
+    setCallPhonePretty("");
+    setCallPhoneHtml("");
+    setMessage("");
+    setError("");
+  };
+
   const handleLogin = () => {
     setError("");
     setMessage("");
@@ -165,11 +179,10 @@ export function ScheduleEmbedAuthPanel({
     startTransition(async () => {
       try {
         const result = await requestPasswordReset(companySlug, embedToken, normalizeRussianPhone(phone), {
-          challenge_id: challengeId,
-          captcha_answer: captchaAnswer.trim(),
           website: honeypotRef.current?.value || "",
         });
         setCheckId(result.check_id);
+        setCallPhone(result.call_phone);
         setCallPhonePretty(result.call_phone_pretty);
         setCallPhoneHtml(result.call_phone_html || result.call_phone_pretty);
         setMessage(result.detail);
@@ -180,11 +193,6 @@ export function ScheduleEmbedAuthPanel({
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Не удалось начать проверку");
-        try {
-          await loadChallenge();
-        } catch {
-          // keep original error
-        }
       }
     });
   };
@@ -219,8 +227,13 @@ export function ScheduleEmbedAuthPanel({
   return (
     <section className="schedule-embed-auth">
       <div className="schedule-embed-auth-copy">
-        <strong>Запись на занятия</strong>
-        <span>Войдите по номеру телефона и паролю</span>
+        <strong>{AUTH_STEP_COPY[step].title}</strong>
+        <span>{AUTH_STEP_COPY[step].subtitle}</span>
+      </div>
+
+      <div className="schedule-embed-auth-note">
+        <strong>{AUTH_STEP_COPY[step].hintTitle}</strong>
+        <span>{AUTH_STEP_COPY[step].hintText}</span>
       </div>
 
       {step === "login" ? (
@@ -253,7 +266,7 @@ export function ScheduleEmbedAuthPanel({
               void loadChallenge().catch(() => undefined);
             }}
           >
-            Первый вход / забыли пароль?
+            Не помню пароль
           </button>
         </div>
       ) : null}
@@ -278,38 +291,12 @@ export function ScheduleEmbedAuthPanel({
             aria-hidden="true"
             defaultValue=""
           />
-          <label className="schedule-embed-auth-captcha">
-            <span>Защита от роботов: сколько будет {challengeQuestion || "…"}?</span>
-            <div className="schedule-embed-auth-captcha-row">
-              <input
-                type="text"
-                inputMode="numeric"
-                autoComplete="off"
-                placeholder="Ответ"
-                value={captchaAnswer}
-                onChange={(event) => setCaptchaAnswer(event.target.value)}
-              />
-              <button
-                type="button"
-                className="schedule-embed-auth-back"
-                disabled={isPending}
-                onClick={() => {
-                  startTransition(async () => {
-                    try {
-                      await loadChallenge();
-                    } catch (err) {
-                      setError(err instanceof Error ? err.message : "Не удалось обновить проверку");
-                    }
-                  });
-                }}
-              >
-                Обновить
-              </button>
-            </div>
-          </label>
+          <p className="schedule-embed-auth-call-hint">
+            Мы сразу отправим запрос на подтверждение звонком. Никаких дополнительных кодов вводить не нужно.
+          </p>
           <button
             type="button"
-            disabled={isPending || !phone.trim() || !captchaAnswer.trim() || !challengeId}
+            disabled={isPending || !phone.trim()}
             onClick={handleForgotPassword}
           >
             {isPending ? "Подготовка…" : "Подтвердить номер звонком"}
@@ -323,16 +310,19 @@ export function ScheduleEmbedAuthPanel({
       {step === "call" ? (
         <div className="schedule-embed-auth-form">
           <p className="schedule-embed-auth-call-hint">
-            Позвоните на номер ниже со своего телефона. Звонок бесплатный — можно сразу сбросить.
+            Позвоните на номер ниже со своего телефона. Звонок бесплатный, его можно сразу сбросить.
           </p>
-          {callPhoneHtml ? (
-            <a className="schedule-embed-auth-call-number" href={`tel:${callPhoneHtml.replace(/\D/g, "")}`}>
+          {callPhonePretty || callPhoneHtml ? (
+            <a
+              className="schedule-embed-auth-call-number"
+              href={`tel:${(callPhone || callPhonePretty || callPhoneHtml).replace(/\D/g, "")}`}
+            >
               {callPhonePretty || callPhoneHtml}
             </a>
           ) : (
             <strong className="schedule-embed-auth-call-number">{callPhonePretty}</strong>
           )}
-          <p className="schedule-embed-auth-message">Ждём звонок… обычно это занимает несколько секунд</p>
+          <p className="schedule-embed-auth-message">Ждём подтверждение. Обычно это занимает несколько секунд.</p>
           <button
             type="button"
             disabled={isPending || !checkId}
@@ -404,8 +394,16 @@ export function ScheduleEmbedAuthPanel({
         </div>
       ) : null}
 
-      {message ? <p className="schedule-embed-auth-message">{message}</p> : null}
-      {error ? <p className="schedule-embed-auth-error">{error}</p> : null}
+      {message ? (
+        <div className="schedule-embed-auth-status schedule-embed-auth-status--success" role="status">
+          {message}
+        </div>
+      ) : null}
+      {error ? (
+        <div className="schedule-embed-auth-status schedule-embed-auth-status--error" role="alert">
+          {error}
+        </div>
+      ) : null}
     </section>
   );
 }

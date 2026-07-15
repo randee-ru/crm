@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import date, datetime, timedelta
 
 from django.db import transaction
@@ -9,12 +10,26 @@ from clients.models import Client
 from companies.models import Company
 from telephony.lead_deals_service import ensure_lead_deal_from_call
 from telephony.lines import fetch_mango_line_directory, resolve_mango_call_line_name
-from telephony.mango_client import MangoCall, MangoConfig, determine_call_direction, get_mango_calls, resolve_mango_config
+from telephony.mango_client import (
+    MangoCall,
+    MangoConfig,
+    MangoRateLimitError,
+    determine_call_direction,
+    get_mango_calls,
+    is_mango_rate_limit_error,
+    resolve_mango_config,
+)
 from telephony.phone import phone_tail
 from telephony.models import CallLog, TelephonyIntegration
 from telephony.recording_jobs import enqueue_call_recording_archives
 from telephony.recording_storage import purge_old_recordings
 from telephony.phone import normalize_phone, phone_tail
+
+
+logger = logging.getLogger(__name__)
+MANGO_SYNC_COOLDOWN_KEY = "mango_sync_cooldown_until"
+MANGO_SYNC_DEFAULT_COOLDOWN_SECONDS = 30 * 60
+MANGO_SYNC_MAX_COOLDOWN_SECONDS = 24 * 60 * 60
 
 
 def build_client_phone_index(company: Company) -> dict[str, Client]:
@@ -42,6 +57,38 @@ def resolve_client(index: dict[str, Client], *phones: str) -> Client | None:
 
 def resolve_line_name(call: MangoCall, existing_line_name: str = "", line_directory: dict | None = None) -> str:
     return resolve_mango_call_line_name(call, line_directory=line_directory, existing_line_name=existing_line_name)
+
+
+def _mango_sync_cooldown_until(integration: TelephonyIntegration) -> datetime | None:
+    settings_data = integration.settings if isinstance(integration.settings, dict) else {}
+    raw_value = settings_data.get(MANGO_SYNC_COOLDOWN_KEY)
+    if not isinstance(raw_value, str) or not raw_value.strip():
+        return None
+
+    try:
+        cooldown_until = datetime.fromisoformat(raw_value)
+    except ValueError:
+        return None
+
+    if cooldown_until.tzinfo is None:
+        cooldown_until = timezone.make_aware(cooldown_until, timezone.get_current_timezone())
+    return cooldown_until
+
+
+def _mango_sync_rate_limited(integration: TelephonyIntegration) -> bool:
+    cooldown_until = _mango_sync_cooldown_until(integration)
+    return bool(cooldown_until and cooldown_until > timezone.now())
+
+
+def _set_mango_sync_cooldown(integration: TelephonyIntegration, retry_after_seconds: int | None = None) -> datetime:
+    retry_after = retry_after_seconds if retry_after_seconds is not None else MANGO_SYNC_DEFAULT_COOLDOWN_SECONDS
+    retry_after = max(60, min(retry_after, MANGO_SYNC_MAX_COOLDOWN_SECONDS))
+    cooldown_until = timezone.now() + timedelta(seconds=retry_after)
+    settings_data = dict(integration.settings or {})
+    settings_data[MANGO_SYNC_COOLDOWN_KEY] = cooldown_until.isoformat()
+    integration.settings = settings_data
+    integration.save(update_fields=["settings", "updated_at"])
+    return cooldown_until
 
 
 def build_external_id(call: MangoCall) -> str:
@@ -130,7 +177,12 @@ def refresh_call_recording_from_mango(call: CallLog, config: MangoConfig) -> str
         return call.recording_id
 
     call_date = timezone.localdate(call.started_at)
-    mango_calls = get_mango_calls(config, call_date, call_date)
+    try:
+        mango_calls = get_mango_calls(config, call_date, call_date)
+    except Exception as exc:
+        if is_mango_rate_limit_error(exc):
+            return ""
+        raise
     for mango_call in mango_calls:
         if not mango_call.recording_id:
             continue
@@ -154,10 +206,22 @@ def try_refresh_call_recording(call: CallLog) -> CallLog:
     integration = TelephonyIntegration.objects.filter(company=call.company).first()
     if integration is None:
         return call
+    if _mango_sync_rate_limited(integration):
+        return call
     config = resolve_mango_config(integration)
     if config is None:
         return call
-    refresh_call_recording_from_mango(call, config)
+    try:
+        refresh_call_recording_from_mango(call, config)
+    except Exception as exc:
+        logger.warning(
+            "Failed to refresh call recording for company=%s call=%s: %s",
+            call.company.slug,
+            call.id,
+            exc,
+        )
+        # Если Mango недоступен или вернул неожиданный ответ, не роняем UI записи.
+        return call
     call.refresh_from_db()
     return call
 
@@ -173,16 +237,38 @@ def sync_mango_calls(
     if config is None:
         raise RuntimeError("Mango Office не настроен. Укажите API Key и API Salt в настройках телефонии.")
 
-    line_directory = fetch_mango_line_directory(config)
-    integration.settings = {
-        **(integration.settings or {}),
-        "line_directory": line_directory,
-    }
-    integration.save(update_fields=["settings", "updated_at"])
+    if _mango_sync_rate_limited(integration):
+        cooldown_until = _mango_sync_cooldown_until(integration)
+        logger.warning(
+            "Skipping Mango sync for company=%s until=%s because the previous request hit the rate limit",
+            company.slug,
+            cooldown_until,
+        )
+        return 0, integration, 0
 
-    date_to = date_to or timezone.localdate()
-    date_from = date_from or (date_to - timedelta(days=13))
-    mango_calls = get_mango_calls(config, date_from, date_to)
+    try:
+        line_directory = fetch_mango_line_directory(config)
+        integration.settings = {
+            **(integration.settings or {}),
+            "line_directory": line_directory,
+        }
+        integration.save(update_fields=["settings", "updated_at"])
+
+        date_to = date_to or timezone.localdate()
+        date_from = date_from or (date_to - timedelta(days=13))
+        mango_calls = get_mango_calls(config, date_from, date_to)
+    except Exception as exc:
+        if not is_mango_rate_limit_error(exc):
+            raise
+        retry_after_seconds = exc.retry_after_seconds if isinstance(exc, MangoRateLimitError) else None
+        cooldown_until = _set_mango_sync_cooldown(integration, retry_after_seconds)
+        logger.warning(
+            "Mango sync rate limited for company=%s until=%s",
+            company.slug,
+            cooldown_until,
+        )
+        return 0, integration, 0
+
     client_index = build_client_phone_index(company)
 
     existing_by_recording = {

@@ -9,7 +9,7 @@ import type { ChatRoomRecord } from "@/lib/types";
 
 type MessagesChatSidebarProps = {
   rooms: ChatRoomRecord[];
-  activeRoomId: number | null;
+  activeRoomKey: string | null;
   search?: string;
 };
 
@@ -29,7 +29,7 @@ function formatRoomDate(value: string | null) {
   return new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "short" }).format(date);
 }
 
-export function MessagesChatSidebar({ rooms, activeRoomId, search = "" }: MessagesChatSidebarProps) {
+export function MessagesChatSidebar({ rooms, activeRoomKey, search = "" }: MessagesChatSidebarProps) {
   const filteredRooms = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return rooms;
@@ -64,11 +64,11 @@ export function MessagesChatSidebar({ rooms, activeRoomId, search = "" }: Messag
 
       <div className="messages-chat-list">
         {filteredRooms.map((room) => {
-          const isActive = room.id === activeRoomId;
+          const isActive = activeRoomKey === room.slug || activeRoomKey === String(room.id);
           return (
             <Link
               key={room.id}
-              href={`/dashboard/messages?room=${room.id}`}
+              href={`/dashboard/messages?room=${room.slug === "notifications" ? room.slug : room.id}`}
               className={`messages-chat-item ${isActive ? "messages-chat-item--active" : ""}`}
             >
               <span className="messages-chat-icon" aria-hidden="true">

@@ -1,14 +1,21 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 
 import { EmployeeCreateForm } from "@/components/employees/employee-create-form";
 import { WorkspaceCard } from "@/components/workspace-card";
+import { getAuthSession } from "@/lib/auth";
 import { getEmployeesDashboard } from "@/lib/api";
 import type { BranchOption } from "@/lib/types";
 
 export const metadata: Metadata = { title: "Новый сотрудник" };
 
 export default async function NewEmployeePage() {
+  const session = await getAuthSession();
+  if (!session || session.company?.disabled_modules?.includes("employees")) {
+    notFound();
+  }
+
   const branches = await getEmployeesDashboard()
     .then((dashboard) => dashboard.branches)
     .catch(() => [] as BranchOption[]);

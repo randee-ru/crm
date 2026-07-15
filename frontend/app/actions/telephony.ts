@@ -4,7 +4,10 @@ import { revalidatePath } from "next/cache";
 
 import { getAuthHeaders, getCompanySlugFromCookie } from "@/lib/auth";
 import { API_BASE_URL } from "@/lib/api-config";
+import { getTelephonyIntegration } from "@/lib/api";
 import type { CallListFilters, CallLogRecord, PaginatedResponse, TelephonyIntegrationRecord } from "@/lib/types";
+
+const AUTO_SYNC_COOLDOWN_MS = 15 * 60 * 1000;
 
 async function parseApiError(response: Response): Promise<string> {
   try {
@@ -65,16 +68,20 @@ export async function syncMangoCallsAction(): Promise<{ synced: number; last_syn
   return result;
 }
 
-export async function maybeAutoSyncMangoAction(
-  integration: TelephonyIntegrationRecord,
-): Promise<{ synced: number } | null> {
-  if (integration.provider !== "mango" || !integration.has_api_key || !integration.has_api_secret) {
+export async function maybeAutoSyncMangoAction(): Promise<{ synced: number } | null> {
+  const integration = await getTelephonyIntegration().catch(() => null);
+  if (
+    !integration ||
+    integration.provider !== "mango" ||
+    !integration.is_active ||
+    !integration.has_api_key ||
+    !integration.has_api_secret
+  ) {
     return null;
   }
 
-  const lastSynced = integration.last_synced_at ? new Date(integration.last_synced_at).getTime() : 0;
-  const fifteenMinutes = 15 * 60 * 1000;
-  if (Date.now() - lastSynced < fifteenMinutes) {
+  const lastSyncedAt = integration.last_synced_at ? new Date(integration.last_synced_at).getTime() : 0;
+  if (lastSyncedAt && Date.now() - lastSyncedAt < AUTO_SYNC_COOLDOWN_MS) {
     return null;
   }
 

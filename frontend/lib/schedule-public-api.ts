@@ -43,10 +43,14 @@ function publicHeaders(sessionToken?: string): HeadersInit {
 }
 
 function publicPath(companySlug: string, path: string, token: string): string {
-  const params = new URLSearchParams({ token });
+  const params = new URLSearchParams();
+  if (token.trim()) {
+    params.set("token", token);
+  }
   // Идём через Next API proxy, чтобы Django получал реальный IP клиента
   // (простой rewrite /backend → Django даёт REMOTE_ADDR=127.0.0.1).
-  return `/api/public/schedule/${companySlug}${path}?${params.toString()}`;
+  const query = params.toString();
+  return `/api/public/schedule/${companySlug}${path}${query ? `?${query}` : ""}`;
 }
 
 async function parseError(response: Response): Promise<string> {
@@ -67,19 +71,6 @@ export async function fetchPublicSchedule(
     throw new Error(await parseError(response));
   }
   return response.json() as Promise<PublicSchedulePayload>;
-}
-
-export async function fetchOtpChallenge(
-  companySlug: string,
-  embedToken: string,
-): Promise<{ challenge_id: string; question: string }> {
-  const response = await fetch(publicPath(companySlug, "/auth/challenge", embedToken), {
-    cache: "no-store",
-  });
-  if (!response.ok) {
-    throw new Error(await parseError(response));
-  }
-  return response.json() as Promise<{ challenge_id: string; question: string }>;
 }
 
 export async function loginSchedulePortal(
@@ -103,7 +94,7 @@ export async function requestPasswordReset(
   companySlug: string,
   embedToken: string,
   phone: string,
-  challenge: { challenge_id: string; captcha_answer: string; website?: string },
+  challenge: { website?: string } = {},
 ): Promise<{
   detail: string;
   check_id: string;
@@ -118,8 +109,6 @@ export async function requestPasswordReset(
     headers: publicHeaders(),
     body: JSON.stringify({
       phone,
-      challenge_id: challenge.challenge_id,
-      captcha_answer: challenge.captcha_answer,
       website: challenge.website || "",
     }),
   });
@@ -142,7 +131,10 @@ export async function fetchCallcheckStatus(
   embedToken: string,
   checkId: string,
 ): Promise<{ status: string; detail: string; check_id: string; call_phone_pretty?: string }> {
-  const params = new URLSearchParams({ token: embedToken, check_id: checkId });
+  const params = new URLSearchParams({ check_id: checkId });
+  if (embedToken.trim()) {
+    params.set("token", embedToken);
+  }
   const response = await fetch(
     `/api/public/schedule/${companySlug}/auth/callcheck-status?${params.toString()}`,
     { cache: "no-store" },
@@ -186,15 +178,13 @@ export async function requestScheduleOtp(
   companySlug: string,
   embedToken: string,
   phone: string,
-  challenge: { challenge_id: string; captcha_answer: string; website?: string },
+  challenge: { website?: string } = {},
 ): Promise<{ detail: string; debug_code?: string }> {
   const response = await fetch(publicPath(companySlug, "/auth/request-code", embedToken), {
     method: "POST",
     headers: publicHeaders(),
     body: JSON.stringify({
       phone,
-      challenge_id: challenge.challenge_id,
-      captcha_answer: challenge.captcha_answer,
       website: challenge.website || "",
     }),
   });

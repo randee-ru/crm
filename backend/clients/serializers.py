@@ -4,7 +4,7 @@ from rest_framework import serializers
 
 from accounts.models import CompanyMembership
 from branches.models import Branch
-from clients.models import Client
+from clients.models import Client, ClientNote
 
 
 class BranchOptionSerializer(serializers.ModelSerializer):
@@ -19,6 +19,12 @@ class ClientOptionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Client
         fields = ["id", "full_name", "phone"]
+
+
+class ClientNoteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ClientNote
+        fields = ["id", "body", "created_at", "updated_at"]
 
 
 class ClientListSerializer(serializers.ModelSerializer):
@@ -42,6 +48,7 @@ class ClientListSerializer(serializers.ModelSerializer):
             "first_name",
             "middle_name",
             "phone",
+            "secondary_phone",
             "email",
             "birth_date",
             "is_active",
@@ -115,6 +122,7 @@ class ClientWriteSerializer(serializers.ModelSerializer):
             "first_name",
             "middle_name",
             "phone",
+            "secondary_phone",
             "email",
             "birth_date",
             "notes",
@@ -146,6 +154,18 @@ class ClientWriteSerializer(serializers.ModelSerializer):
             ],
         ).exists()
 
+    def _can_manage_marketing(self) -> bool:
+        request = self.context.get("request")
+        company = self.context.get("company")
+        if request is None or company is None or not request.user.is_authenticated:
+            return False
+        return CompanyMembership.objects.filter(
+            user=request.user,
+            company=company,
+            is_active=True,
+            role=CompanyMembership.Role.ADMIN,
+        ).exists()
+
     def validate(self, attrs):
         if not self._can_manage_blocks():
             blocked_fields = {"club_access_blocked", "group_programs_blocked"} & set(self.initial_data.keys())
@@ -156,11 +176,42 @@ class ClientWriteSerializer(serializers.ModelSerializer):
                         "group_programs_blocked": "Изменять блокировки могут только администратор, менеджер или руководитель.",
                     }
                 )
+        if not self._can_manage_marketing():
+            blocked_fields = {"notes", "lead_source", "acquisition_channel", "manager_name"} & set(self.initial_data.keys())
+            if blocked_fields:
+                raise serializers.ValidationError(
+                    {
+                        "notes": "Изменять комментарий может только администратор.",
+                        "lead_source": "Изменять маркетинг может только администратор.",
+                        "acquisition_channel": "Изменять маркетинг может только администратор.",
+                        "manager_name": "Изменять маркетинг может только администратор.",
+                    }
+                )
         return super().validate(attrs)
 
     def validate_phone(self, phone: str) -> str:
         return phone.strip()
 
+    def validate_secondary_phone(self, phone: str) -> str:
+        return phone.strip()
+
     def create(self, validated_data: dict) -> Client:
         validated_data["company"] = self.context["company"]
+        return super().create(validated_data)
+
+
+class ClientNoteWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ClientNote
+        fields = ["body"]
+
+    def validate_body(self, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("Заметка не может быть пустой.")
+        return value
+
+    def create(self, validated_data: dict) -> ClientNote:
+        validated_data["company"] = self.context["company"]
+        validated_data["client"] = self.context["client"]
         return super().create(validated_data)

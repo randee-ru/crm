@@ -11,6 +11,7 @@ from accounts.models import CompanyMembership
 from branches.models import Branch
 from clients.models import Client
 from companies.models import Company
+from employees.models import Trainer
 from schedule.models import GroupProgram, GroupScheduleSlot, GroupSlotEnrollment, ScheduleEvent
 
 
@@ -28,6 +29,24 @@ class ScheduleApiTest(TestCase):
             company=self.company,
             branch=self.branch,
             role=CompanyMembership.Role.MANAGER,
+        )
+        self.group_trainer = Trainer.objects.create(
+            company=self.company,
+            branch=self.branch,
+            first_name="Анна",
+            last_name="Иванова",
+            phone="+79990001122",
+            email="group.trainer@sportmax.fit",
+            trains_group_programs=True,
+        )
+        self.personal_trainer = Trainer.objects.create(
+            company=self.company,
+            branch=self.branch,
+            first_name="Ирина",
+            last_name="Петрова",
+            phone="+79990003344",
+            email="floor.trainer@sportmax.fit",
+            trains_gym_floor=True,
         )
         self.client_record = Client.objects.create(
             company=self.company,
@@ -135,6 +154,76 @@ class ScheduleApiTest(TestCase):
         program = GroupProgram.objects.get(id=program_id)
         self.assertFalse(program.is_active)
 
+    def test_group_program_accepts_room_and_group_trainer(self) -> None:
+        response = self.http.post(
+            "/api/v1/schedule/programs/?company=sportmax",
+            data={
+                "title": "Велофит",
+                "code": "CYCLE",
+                "description": "Описание",
+                "color": "#ff5500",
+                "sort_order": 3,
+                "room": "Cycle Studio",
+                "trainer": self.group_trainer.id,
+                "is_active": True,
+            },
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+        self.assertEqual(response.status_code, 201)
+        payload = response.json()
+        self.assertEqual(payload["room"], "Cycle Studio")
+        self.assertEqual(payload["trainer"], self.group_trainer.id)
+        self.assertEqual(payload["trainer_display"], self.group_trainer.full_name)
+
+    def test_group_program_rejects_non_group_trainer(self) -> None:
+        response = self.http.post(
+            "/api/v1/schedule/programs/?company=sportmax",
+            data={
+                "title": "Новая программа с залом",
+                "code": "NEW2",
+                "description": "Описание",
+                "color": "#123456",
+                "sort_order": 78,
+                "room": "Main Hall",
+                "trainer": self.personal_trainer.id,
+                "is_active": True,
+            },
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Выберите тренера групповых программ", response.json()["trainer"][0])
+
+    def test_group_slot_inherits_program_defaults(self) -> None:
+        program = GroupProgram.objects.create(
+            company=self.company,
+            title="Копия Йоги",
+            code="YOGA2",
+            description="Описание",
+            color="#123456",
+            sort_order=2,
+            trainer=self.group_trainer,
+            room="Cycle Studio",
+            is_active=True,
+        )
+        response = self.http.post(
+            "/api/v1/schedule/group-slots/?company=sportmax",
+            data={
+                "program": program.id,
+                "session_date": timezone.localdate().isoformat(),
+                "start_time": "13:00",
+                "end_time": "14:00",
+            },
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+        self.assertEqual(response.status_code, 201)
+        payload = response.json()
+        self.assertEqual(payload["room"], "Cycle Studio")
+        self.assertEqual(payload["trainer"], self.group_trainer.id)
+        self.assertEqual(payload["trainer_display"], self.group_trainer.full_name)
+
     def test_group_slot_enrollment_rejects_blocked_client(self) -> None:
         response = self.http.post(
             f"/api/v1/schedule/group-slots/{self.slot.id}/enrollments/?company=sportmax",
@@ -147,3 +236,28 @@ class ScheduleApiTest(TestCase):
         )
         self.assertEqual(response.status_code, 400)
         self.assertIn("Клиент заблокирован для прохода в клуб.", response.json()["client"][0])
+
+    def test_group_slot_enrollment_is_idempotent_for_same_client(self) -> None:
+        first = self.http.post(
+            f"/api/v1/schedule/group-slots/{self.slot.id}/enrollments/?company=sportmax",
+            data={
+                "client": self.client_record.id,
+                "status": GroupSlotEnrollment.Status.CONFIRMED,
+            },
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+        second = self.http.post(
+            f"/api/v1/schedule/group-slots/{self.slot.id}/enrollments/?company=sportmax",
+            data={
+                "client": self.client_record.id,
+                "status": GroupSlotEnrollment.Status.CONFIRMED,
+            },
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(second.status_code, 201)
+        self.assertEqual(first.json()["id"], second.json()["id"])
+        self.assertEqual(GroupSlotEnrollment.objects.filter(slot=self.slot, client=self.client_record).count(), 1)

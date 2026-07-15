@@ -60,6 +60,28 @@ services:
       redis:
         condition: service_started
 
+  telephony-sync:
+    profiles: ["docker-backend"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: crm-kit-telephony-sync
+    command: python manage.py run_telephony_sync_worker --interval-seconds 120 --lookback-days 2 --archive-limit 10
+    volumes:
+      - .:/app
+    env_file:
+      - .env.example
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      MESSENGER_GATEWAY_URL: http://messenger-gateway:8787
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   messenger_gateway_data:

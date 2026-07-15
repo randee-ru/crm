@@ -1,7 +1,7 @@
 "use server";
 
 import { getCompanySlugFromCookie } from "@/lib/auth";
-import { getNotifications, markAllNotificationsRead, markNotificationRead } from "@/lib/api";
+import { deleteNotification, getNotifications, markAllNotificationsRead, markNotificationRead } from "@/lib/api";
 import type { NotificationRecord } from "@/lib/types";
 
 export async function listNotificationsAction(): Promise<NotificationRecord[]> {
@@ -17,4 +17,9 @@ export async function markAllNotificationsReadAction(): Promise<void> {
 export async function markNotificationReadAction(notificationId: number): Promise<void> {
   const companySlug = await getCompanySlugFromCookie();
   await markNotificationRead(companySlug, notificationId).catch(() => undefined);
+}
+
+export async function deleteNotificationAction(notificationId: number): Promise<void> {
+  const companySlug = await getCompanySlugFromCookie();
+  await deleteNotification(companySlug, notificationId).catch(() => undefined);
 }

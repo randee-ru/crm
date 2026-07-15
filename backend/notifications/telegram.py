@@ -25,7 +25,7 @@ def send_telegram_notification(text: str) -> None:
         requests.post(
             f"https://api.telegram.org/bot{token}/sendMessage",
             json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"},
-            timeout=5,
+            timeout=(2, 4),
         )
-    except requests.RequestException:
-        logger.exception("Не удалось отправить уведомление в Telegram")
+    except requests.RequestException as exc:
+        logger.warning("Не удалось отправить уведомление в Telegram: %s", exc)

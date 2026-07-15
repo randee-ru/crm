@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from datetime import date
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Count, Q, QuerySet
 from rest_framework import status
 from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
+from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -32,6 +34,15 @@ from schedule.models import (
 )
 from schedule.services import ensure_embed_token, get_schedule_settings
 from schedule.views import ScheduleQuerysetMixin
+
+
+def _raise_drf_validation_error(exc: DjangoValidationError) -> None:
+    detail = getattr(exc, "message_dict", None)
+    if detail:
+        if "__all__" in detail:
+            detail["non_field_errors"] = detail.pop("__all__")
+        raise DRFValidationError(detail)
+    raise DRFValidationError(getattr(exc, "messages", ["Некорректные данные."]))
 
 
 class GroupProgramListView(ScheduleQuerysetMixin, ListCreateAPIView):
@@ -377,7 +388,10 @@ class GroupSlotEnrollmentListCreateView(ScheduleQuerysetMixin, ListCreateAPIView
             context=self.get_serializer_context(),
         )
         write_serializer.is_valid(raise_exception=True)
-        instance = write_serializer.save()
+        try:
+            instance = write_serializer.save()
+        except DjangoValidationError as exc:
+            _raise_drf_validation_error(exc)
         read_serializer = GroupSlotEnrollmentSerializer(instance)
         return Response(read_serializer.data, status=status.HTTP_201_CREATED)
 
@@ -415,5 +429,8 @@ class GroupSlotEnrollmentDetailView(ScheduleQuerysetMixin, RetrieveUpdateDestroy
             context=self.get_serializer_context(),
         )
         write_serializer.is_valid(raise_exception=True)
-        instance = write_serializer.save()
+        try:
+            instance = write_serializer.save()
+        except DjangoValidationError as exc:
+            _raise_drf_validation_error(exc)
         return Response(GroupSlotEnrollmentSerializer(instance).data)

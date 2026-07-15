@@ -55,7 +55,7 @@ function readInvitationInput(formData: FormData): StaffInvitationWriteInput {
   return {
     email: String(formData.get("email") ?? "").trim(),
     full_name: String(formData.get("full_name") ?? "").trim(),
-    role: String(formData.get("role") ?? "employee"),
+    role: String(formData.get("role") ?? "reception"),
     message,
     expires_at: expiresAtIso,
     branch_id: readBranchId(formData),
@@ -63,22 +63,30 @@ function readInvitationInput(formData: FormData): StaffInvitationWriteInput {
 }
 
 function readCreateInput(formData: FormData): StaffMembershipCreateInput {
+  const phone = String(formData.get("phone") ?? "").trim();
+  const birthDate = String(formData.get("birth_date") ?? "").trim();
   return {
     first_name: String(formData.get("first_name") ?? "").trim(),
     last_name: String(formData.get("last_name") ?? "").trim(),
     email: String(formData.get("email") ?? "").trim(),
+    phone,
+    birth_date: birthDate || null,
     password: String(formData.get("password") ?? ""),
-    role: String(formData.get("role") ?? "employee"),
+    role: String(formData.get("role") ?? "reception"),
     branch_id: readBranchId(formData),
   };
 }
 
 function readMembershipInput(formData: FormData): StaffMembershipUpdateInput {
+  const phone = String(formData.get("phone") ?? "").trim();
+  const birthDate = String(formData.get("birth_date") ?? "").trim();
   return {
     first_name: String(formData.get("first_name") ?? "").trim(),
     last_name: String(formData.get("last_name") ?? "").trim(),
     email: String(formData.get("email") ?? "").trim(),
-    role: String(formData.get("role") ?? "employee"),
+    phone,
+    birth_date: birthDate || null,
+    role: String(formData.get("role") ?? "reception"),
     is_active: formData.get("is_active") === "on",
     branch_id: readBranchId(formData),
   };
@@ -182,6 +190,26 @@ export async function updateEmployeeAction(
   revalidatePath(`/dashboard/employees/${membershipId}`);
   revalidatePath("/dashboard/settings?section=employees");
   return { success: "Настройки сотрудника обновлены." };
+}
+
+export async function deleteEmployeeAction(membershipId: number): Promise<ActionState> {
+  const companySlug = await getCompanySlugFromCookie();
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/staff/memberships/${membershipId}/?company=${encodeURIComponent(companySlug)}`,
+    {
+      method: "DELETE",
+      headers: await getAuthHeaders(),
+    },
+  );
+
+  if (!response.ok && response.status !== 204) {
+    return { error: await parseApiError(response) };
+  }
+
+  revalidatePath("/dashboard/employees");
+  revalidatePath(`/dashboard/employees/${membershipId}`);
+  revalidatePath("/dashboard/settings?section=employees");
+  return { success: "Сотрудник удалён." };
 }
 
 export async function cancelInvitationAction(invitationId: number): Promise<void> {

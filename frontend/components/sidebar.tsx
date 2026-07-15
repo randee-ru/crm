@@ -55,7 +55,7 @@ export function Sidebar({
     avatar_url: null,
   };
 
-  const isModuleEnabled = (id: string) => id === "settings" || !disabledModules.includes(id);
+  const isModuleEnabled = (id: string) => !disabledModules.includes(id);
 
   const flatItems = useMemo(
     () => workspaceNavigation.filter((item) => isModuleEnabled(item.id)),

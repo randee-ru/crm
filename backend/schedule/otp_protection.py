@@ -10,7 +10,7 @@ from django.http import HttpRequest
 
 from telephony.phone import normalize_phone
 
-CAPTCHA_TTL_SECONDS = 300
+CAPTCHA_TTL_SECONDS = 60
 OTP_PHONE_COOLDOWN_SECONDS = 60
 OTP_PHONE_HOUR_LIMIT = 5
 OTP_IP_MINUTE_LIMIT = 5
@@ -51,7 +51,7 @@ def assert_russian_mobile(phone: str) -> str:
     return normalized
 
 
-def create_otp_captcha() -> dict[str, str]:
+def create_otp_captcha() -> dict[str, str | int]:
     a = random.randint(1, 9)
     b = random.randint(1, 9)
     challenge_id = secrets.token_urlsafe(18)
@@ -59,15 +59,16 @@ def create_otp_captcha() -> dict[str, str]:
     return {
         "challenge_id": challenge_id,
         "question": f"{a} + {b}",
+        "expires_in_seconds": CAPTCHA_TTL_SECONDS,
     }
 
 
 def verify_otp_captcha(challenge_id: str, answer: str) -> None:
     if not challenge_id:
-        raise ValueError("Подтвердите, что вы не робот: обновите пример и введите ответ.")
+        raise ValueError("Сначала загрузите пример и введите ответ.")
     expected = cache.get(_captcha_key(challenge_id))
     if expected is None:
-        raise ValueError("Проверка устарела. Обновите пример и попробуйте снова.")
+        raise ValueError("Пример обновился. Нажмите «Обновить» и введите новый ответ.")
     try:
         provided = int(str(answer).strip())
     except (TypeError, ValueError) as exc:

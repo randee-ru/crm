@@ -17,7 +17,7 @@ POST /api/v1/auth/logout/
 ```bash
 curl -X POST http://localhost:8000/api/v1/auth/login/ \
   -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"121351"}'
+  -d '{"username":"admin","password":"<demo-password>"}'
 ```
 
 ## Пример ответа
@@ -65,7 +65,7 @@ curl http://localhost:8000/api/v1/clients/?company=sportmax \
 После `seed_demo`:
 
 - login: `admin`
-- password: `121351`
+- password: `<demo-password>`
 
 ## Тест
 

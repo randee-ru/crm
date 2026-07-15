@@ -2,22 +2,19 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { EmployeeDeleteButton } from "@/components/employees/employee-delete-button";
 import { EmployeeEditForm } from "@/components/employees/employee-edit-form";
 import { FitnessModulePage } from "@/components/fitness-module-page";
 import { WidgetCard } from "@/components/widget-card";
+import { workspaceGroupLabels } from "@/lib/access-groups";
+import { getAuthSession } from "@/lib/auth";
 import { getEmployeeMembership, getEmployeesDashboard } from "@/lib/api";
+import { formatRussianPhoneInput } from "@/lib/phone";
 
 type EmployeeDetailPageProps = {
   params: Promise<{
     membershipId: string;
   }>;
-};
-
-const roleLabels: Record<string, string> = {
-  owner: "Владелец",
-  admin: "Администратор",
-  manager: "Менеджер",
-  employee: "Сотрудник",
 };
 
 export async function generateMetadata({ params }: EmployeeDetailPageProps): Promise<Metadata> {
@@ -38,8 +35,13 @@ export async function generateMetadata({ params }: EmployeeDetailPageProps): Pro
 export default async function EmployeeDetailPage({ params }: EmployeeDetailPageProps) {
   const resolved = await params;
   const membershipId = Number(resolved.membershipId);
+  const session = await getAuthSession();
 
   if (!Number.isFinite(membershipId)) {
+    notFound();
+  }
+
+  if (!session || session.company?.disabled_modules?.includes("employees")) {
     notFound();
   }
 
@@ -57,7 +59,7 @@ export default async function EmployeeDetailPage({ params }: EmployeeDetailPageP
   return (
     <FitnessModulePage
       title="Настройка сотрудника"
-      description="Редактируйте карточку сотрудника, роль, филиал и активность без переключения между экранами."
+      description="Редактируйте карточку сотрудника, группу, филиал и активность без переключения между экранами."
       showCreate={false}
       sidebar={
         <>
@@ -72,9 +74,23 @@ export default async function EmployeeDetailPage({ params }: EmployeeDetailPageP
                 <span className="font-semibold text-[var(--text)]">{membership.email}</span>
               </div>
               <div className="flex items-center justify-between gap-3">
-                <span className="text-[var(--muted)]">Роль</span>
+                <span className="text-[var(--muted)]">Телефон</span>
                 <span className="font-semibold text-[var(--text)]">
-                  {roleLabels[membership.role] ?? membership.role}
+                  {membership.phone ? formatRussianPhoneInput(membership.phone) : "—"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[var(--muted)]">Дата рождения</span>
+                <span className="font-semibold text-[var(--text)]">
+                  {membership.birth_date
+                    ? new Date(`${membership.birth_date}T00:00:00`).toLocaleDateString("ru-RU")
+                    : "—"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[var(--muted)]">Группа</span>
+                <span className="font-semibold text-[var(--text)]">
+                  {workspaceGroupLabels[membership.role] ?? membership.role}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-3">
@@ -91,20 +107,17 @@ export default async function EmployeeDetailPage({ params }: EmployeeDetailPageP
               <Link href="/dashboard/employees" className="bitrix-link text-[13px] font-medium">
                 Вернуться к списку
               </Link>
+              <EmployeeDeleteButton
+                membershipId={membership.id}
+                employeeName={membership.display_name}
+                disabled={membership.user_id === session.user.id}
+              />
               <Link
                 href="/dashboard/settings?section=employees"
                 className="bitrix-link text-[13px] font-medium"
               >
                 Открыть настройки раздела
               </Link>
-              <a
-                href="http://127.0.0.1:8000/admin/accounts/companymembership/"
-                target="_blank"
-                rel="noreferrer"
-                className="bitrix-link text-[13px] font-medium"
-              >
-                Открыть админку
-              </a>
             </div>
           </WidgetCard>
         </>
@@ -125,7 +138,7 @@ export default async function EmployeeDetailPage({ params }: EmployeeDetailPageP
               </p>
               <h1 className="mt-2 text-[28px] font-semibold">{membership.display_name}</h1>
               <p className="mt-2 text-[13px] text-white/75">
-                Настройте роль, филиал и параметры доступа сотрудника.
+                Настройте группу, филиал и параметры доступа сотрудника.
               </p>
             </div>
             <span className="rounded-full bg-white/15 px-3 py-1.5 text-[12px] font-semibold text-white">

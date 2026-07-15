@@ -84,6 +84,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(`Request failed with status ${response.status}`);
   }
 
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    return undefined as T;
+  }
+
   return response.json() as Promise<T>;
 }
 
@@ -670,6 +679,16 @@ export async function markNotificationRead(
   });
 }
 
+export async function deleteNotification(
+  companySlug: string,
+  notificationId: number,
+): Promise<void> {
+  const params = new URLSearchParams({ company: companySlug });
+  await request<void>(`/api/v1/notifications/${notificationId}/?${params.toString()}`, {
+    method: "DELETE",
+  });
+}
+
 export function getApiBaseUrl(): string {
   return API_BASE_URL;
 }
@@ -744,20 +763,24 @@ export const paymentMethodLabels: Record<string, string> = {
 
 export function formatDateTime(value: string | null | undefined): string {
   if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
   return new Intl.DateTimeFormat("ru-RU", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(new Date(value));
+  }).format(date);
 }
 
 export function formatTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
   return new Intl.DateTimeFormat("ru-RU", {
     hour: "2-digit",
     minute: "2-digit",
-  }).format(new Date(value));
+  }).format(date);
 }
 
 export function formatMoney(value: string | number): string {
@@ -784,11 +807,13 @@ export const clientStatusLabels: Record<string, string> = {
 };
 
 export function formatClientDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
   return new Intl.DateTimeFormat("ru-RU", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
-  }).format(new Date(value));
+  }).format(date);
 }
 
 export function getClientInitials(fullName: string): string {

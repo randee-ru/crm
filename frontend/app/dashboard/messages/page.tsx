@@ -4,8 +4,10 @@ import { MessengerChannelWorkspace } from "@/components/messages/messenger-chann
 import { MessagesChatPanel } from "@/components/messages/messages-chat-panel";
 import { MessagesChatSidebar } from "@/components/messages/messages-chat-sidebar";
 import { MessagesModuleHeader } from "@/components/messages/messages-module-header";
+import { NotificationsMessagesPanel } from "@/components/messages/notifications-messages-panel";
 import { WorkspaceCard } from "@/components/workspace-card";
 import { getMessengerAccountAction } from "@/app/actions/messenger";
+import { getNotifications } from "@/lib/api";
 import type { MessengerChannelProvider } from "@/lib/messenger";
 import {
   getChatMessages,
@@ -15,6 +17,7 @@ import {
   getMessengerThreads,
 } from "@/lib/api";
 import { getAuthSession } from "@/lib/auth";
+import type { ChatRoomRecord } from "@/lib/types";
 
 export const metadata: Metadata = {
   title: "Мессенджер",
@@ -31,6 +34,16 @@ function resolveActiveView(view?: string) {
   if (CHANNEL_VIEWS.has(view)) return view;
   return "chats";
 }
+
+const NOTIFICATIONS_ROOM: ChatRoomRecord = {
+  id: -1,
+  title: "Уведомления",
+  slug: "notifications",
+  room_type: "notifications",
+  last_message_at: null,
+  last_message_preview: "Все системные уведомления",
+  last_message_author: null,
+};
 
 export default async function MessagesPage({ searchParams }: MessagesPageProps) {
   const params = await searchParams;
@@ -68,11 +81,19 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
     );
   }
 
-  const [rooms, session] = await Promise.all([getChatRooms(), getAuthSession()]);
+  const [rooms, session, notifications] = await Promise.all([
+    getChatRooms(),
+    getAuthSession(),
+    getNotifications().catch(() => []),
+  ]);
 
-  const activeRoomId = params.room ? Number(params.room) : (rooms[0]?.id ?? null);
-  const activeRoom = rooms.find((room) => room.id === activeRoomId) ?? rooms[0] ?? null;
-  const messages = activeRoom ? await getChatMessages(activeRoom.id) : [];
+  const allRooms = [NOTIFICATIONS_ROOM, ...rooms];
+  const activeRoomKey = params.room ?? String(allRooms[0]?.id ?? "");
+  const activeRoom =
+    activeRoomKey === NOTIFICATIONS_ROOM.slug
+      ? NOTIFICATIONS_ROOM
+      : allRooms.find((room) => String(room.id) === activeRoomKey) ?? allRooms[0] ?? null;
+  const messages = activeRoom && activeRoom.id > 0 ? await getChatMessages(activeRoom.id) : [];
 
   return (
     <div className="workspace-content min-h-0 flex-1">
@@ -80,15 +101,19 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
         <MessagesModuleHeader activeView={activeView} />
         <div className="messages-layout">
           <MessagesChatSidebar
-            rooms={rooms}
-            activeRoomId={activeRoom?.id ?? null}
+            rooms={allRooms}
+            activeRoomKey={activeRoom?.slug ?? (activeRoom ? String(activeRoom.id) : null)}
             search={params.search}
           />
-          <MessagesChatPanel
-            room={activeRoom}
-            initialMessages={messages}
-            currentUserName={session?.user.display_name ?? session?.user.username ?? ""}
-          />
+          {activeRoom?.slug === NOTIFICATIONS_ROOM.slug ? (
+            <NotificationsMessagesPanel notifications={notifications} />
+          ) : (
+            <MessagesChatPanel
+              room={activeRoom}
+              initialMessages={messages}
+              currentUserName={session?.user.display_name ?? session?.user.username ?? ""}
+            />
+          )}
         </div>
       </WorkspaceCard>
     </div>

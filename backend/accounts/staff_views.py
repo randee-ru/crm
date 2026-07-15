@@ -39,7 +39,7 @@ class StaffDashboardView(StaffQuerysetMixin, APIView):
 
         memberships = (
             CompanyMembership.objects.filter(company=company)
-            .select_related("user", "branch")
+            .select_related("user", "user__profile", "branch")
             .order_by("user__last_name", "user__first_name")
         )
         invitations = EmployeeInvitation.objects.filter(company=company).select_related("branch").order_by(
@@ -51,6 +51,7 @@ class StaffDashboardView(StaffQuerysetMixin, APIView):
                 Q(user__first_name__icontains=search)
                 | Q(user__last_name__icontains=search)
                 | Q(user__email__icontains=search)
+                | Q(user__profile__phone__icontains=search)
                 | Q(role__icontains=search)
             )
             invitations = invitations.filter(
@@ -60,7 +61,7 @@ class StaffDashboardView(StaffQuerysetMixin, APIView):
             )
 
         active_members = memberships.filter(is_active=True).count()
-        admins = memberships.filter(role__in=[CompanyMembership.Role.OWNER, CompanyMembership.Role.ADMIN]).count()
+        admins = memberships.filter(role=CompanyMembership.Role.ADMIN).count()
         pending_invites = invitations.filter(status=EmployeeInvitation.Status.PENDING).count()
 
         return Response(
@@ -102,14 +103,14 @@ class StaffMembershipCreateView(StaffQuerysetMixin, APIView):
         return Response(read_serializer.data, status=201)
 
 
-class StaffMembershipDetailView(StaffQuerysetMixin, RetrieveUpdateAPIView):
+class StaffMembershipDetailView(StaffQuerysetMixin, RetrieveUpdateDestroyAPIView):
     lookup_url_kwarg = "membership_id"
 
     def get_queryset(self) -> QuerySet[CompanyMembership]:
         company = self.get_company()
         if company is None:
             return CompanyMembership.objects.none()
-        return CompanyMembership.objects.filter(company=company).select_related("user", "branch")
+        return CompanyMembership.objects.filter(company=company).select_related("user", "user__profile", "branch")
 
     def get_serializer_class(self):
         if self.request.method in {"PUT", "PATCH"}:
@@ -133,6 +134,30 @@ class StaffMembershipDetailView(StaffQuerysetMixin, RetrieveUpdateAPIView):
             context=self.get_serializer_context(),
         )
         return Response(read_serializer.data)
+
+    def destroy(self, request: Request, *args, **kwargs) -> Response:
+        membership = self.get_object()
+        if membership.user_id == request.user.id:
+            return Response({"detail": "Нельзя удалить собственный доступ."}, status=400)
+
+        if membership.role == CompanyMembership.Role.OWNER:
+            other_owners = (
+                CompanyMembership.objects.filter(
+                    company=membership.company,
+                    role=CompanyMembership.Role.OWNER,
+                    is_active=True,
+                )
+                .exclude(id=membership.id)
+                .exists()
+            )
+            if not other_owners:
+                return Response(
+                    {"detail": "Нельзя удалить последнего владельца компании."},
+                    status=400,
+                )
+
+        membership.delete()
+        return Response(status=204)
 
 
 class StaffInvitationListCreateView(StaffQuerysetMixin, ListCreateAPIView):

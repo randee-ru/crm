@@ -1,11 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 
 import { cancelInvitationAction } from "@/app/actions/employees";
+import { EmployeeDeleteButton } from "@/components/employees/employee-delete-button";
 import { RoleMenuSettings } from "@/components/employees/role-menu-settings";
 import { WorkspaceCard } from "@/components/workspace-card";
 import { getModuleSettingsAction } from "@/app/actions/company";
+import { workspaceGroupLabels } from "@/lib/access-groups";
+import { getAuthSession } from "@/lib/auth";
 import { getEmployeesDashboard } from "@/lib/api";
+import { formatRussianPhoneInput } from "@/lib/phone";
 import type { CompanyModuleSettings, StaffDashboardResponse, StaffMembershipRecord } from "@/lib/types";
 
 export const metadata: Metadata = {
@@ -36,18 +41,12 @@ const emptyModuleSettings: CompanyModuleSettings = {
   role_disabled_modules: {},
 };
 
-const roleLabels: Record<string, string> = {
-  owner: "Владелец",
-  admin: "Администратор",
-  manager: "Менеджер",
-  employee: "Сотрудник",
-};
-
 const rolePills: Record<string, string> = {
   owner: "bg-[#dbeafe] text-[#1d4ed8]",
   admin: "bg-[#e9d5ff] text-[#7c3aed]",
   manager: "bg-[#dcfce7] text-[#15803d]",
-  employee: "bg-[#f3f4f6] text-[#4b5563]",
+  reception: "bg-[#f3f4f6] text-[#4b5563]",
+  user: "bg-[#f8fafc] text-[#64748b]",
 };
 
 const statusPills: Record<string, string> = {
@@ -69,9 +68,18 @@ function formatLastActivity(membership: StaffMembershipRecord) {
     : "Не входил";
 }
 
+function formatStaffPhone(phone: string) {
+  return formatRussianPhoneInput(phone);
+}
+
 export default async function EmployeesPage({ searchParams }: EmployeesPageProps) {
   const params = await searchParams;
   const search = params.search?.trim() ?? "";
+  const session = await getAuthSession();
+
+  if (!session || session.company?.disabled_modules?.includes("employees")) {
+    notFound();
+  }
 
   let dashboard = emptyDashboard;
   let moduleSettings = emptyModuleSettings;
@@ -89,10 +97,12 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
   }
 
   const pendingInvitations = dashboard.invitations.filter((item) => item.status === "pending");
+  const currentUserId = session.user.id;
 
   return (
-      <div className="workspace-content min-h-0 flex-1">
+    <div className="workspace-content min-h-0 flex-1">
         <WorkspaceCard className="crm-workspace-card min-w-0 flex-1 overflow-hidden">
+          <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="border-b border-[var(--line)] bg-[linear-gradient(180deg,#2b71bf_0%,#1f5e9e_100%)] px-5 py-5 text-white">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
@@ -101,8 +111,8 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
                 </p>
                 <h1 className="mt-2 text-[30px] font-semibold leading-none">Сотрудники</h1>
                 <p className="mt-3 max-w-3xl text-[13px] leading-6 text-white/75">
-                  Приглашайте или создавайте сотрудников сразу, назначайте роли и филиалы, настраивайте,
-                  какие разделы меню видит каждая роль.
+                  Приглашайте или создавайте сотрудников сразу, назначайте группы и филиалы, настраивайте,
+                  какие разделы меню видит каждая группа.
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -159,10 +169,8 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
                 </p>
               </div>
               <div className="rounded-2xl border border-[var(--line)] bg-white px-4 py-3">
-                <p className="text-[12px] text-[var(--muted)]">Руководители</p>
-                <p className="mt-1 text-[26px] font-semibold text-[var(--text)]">
-                  {dashboard.stats.admins}
-                </p>
+                <p className="text-[12px] text-[var(--muted)]">Админы</p>
+                <p className="mt-1 text-[26px] font-semibold text-[var(--text)]">{dashboard.stats.admins}</p>
               </div>
               <div className="rounded-2xl border border-[var(--line)] bg-white px-4 py-3">
                 <p className="text-[12px] text-[var(--muted)]">Ожидают приглашения</p>
@@ -174,11 +182,20 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
           </div>
 
           <div className="overflow-x-auto bg-white">
+            <div className="border-b border-[var(--line)] px-5 py-3">
+              <h2 className="text-[16px] font-semibold text-[var(--text)]">
+                Список сотрудников
+                <span className="ml-2 text-[13px] font-medium text-[var(--muted)]">
+                  {dashboard.memberships.length}
+                </span>
+              </h2>
+            </div>
             <table className="min-w-full text-left text-[13px]">
               <thead className="border-b border-[var(--line)] bg-[var(--panel-muted)] text-[12px] uppercase tracking-wide text-[var(--muted)]">
                 <tr>
                   <th className="px-4 py-3 font-medium">Сотрудник</th>
                   <th className="px-4 py-3 font-medium">Подразделение</th>
+                  <th className="px-4 py-3 font-medium">Телефон</th>
                   <th className="px-4 py-3 font-medium">E-mail</th>
                   <th className="px-4 py-3 font-medium">Дата последней активности</th>
                   <th className="px-4 py-3 font-medium text-right">Действия</th>
@@ -192,9 +209,9 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
                         <div className="font-semibold text-[var(--text)]">{membership.display_name}</div>
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px]">
                           <span
-                            className={`rounded-full px-2.5 py-1 font-semibold ${rolePills[membership.role] ?? rolePills.employee}`}
+                            className={`rounded-full px-2.5 py-1 font-semibold ${rolePills[membership.role] ?? rolePills.reception}`}
                           >
-                            {roleLabels[membership.role] ?? membership.role}
+                            {workspaceGroupLabels[membership.role] ?? membership.role}
                           </span>
                           <span className={`rounded-full px-2.5 py-1 font-semibold ${membership.is_active ? "bg-[#ecfdf5] text-[#047857]" : "bg-[#f3f4f6] text-[#6b7280]"}`}>
                             {membership.is_active ? "Активен" : "Неактивен"}
@@ -204,21 +221,31 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
                       <td className="px-4 py-3 text-[var(--muted)]">
                         {membership.branch_name || "Без филиала"}
                       </td>
+                      <td className="px-4 py-3 text-[var(--muted)]">
+                        {membership.phone ? formatStaffPhone(membership.phone) : "—"}
+                      </td>
                       <td className="px-4 py-3 text-[var(--muted)]">{membership.email}</td>
                       <td className="px-4 py-3 text-[var(--muted)]">{formatLastActivity(membership)}</td>
-                      <td className="px-4 py-3 text-right">
-                        <Link
-                          href={`/dashboard/employees/${membership.id}`}
-                          className="rounded-full bg-[#eef4fb] px-3 py-1.5 text-[12px] font-semibold text-[#1f5e9e] hover:bg-[#dce9f8]"
-                        >
-                          Настроить
-                        </Link>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          <Link
+                            href={`/dashboard/employees/${membership.id}`}
+                            className="rounded-full bg-[#eef4fb] px-3 py-1.5 text-[12px] font-semibold text-[#1f5e9e] hover:bg-[#dce9f8]"
+                          >
+                            Настроить
+                          </Link>
+                          <EmployeeDeleteButton
+                            membershipId={membership.id}
+                            employeeName={membership.display_name}
+                            disabled={membership.user_id === currentUserId}
+                          />
+                        </div>
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td className="px-4 py-10 text-center text-[13px] text-[var(--muted)]" colSpan={5}>
+                    <td className="px-4 py-10 text-center text-[13px] text-[var(--muted)]" colSpan={6}>
                       {search ? "Сотрудники не найдены." : "Пока нет сотрудников. Добавьте первого."}
                     </td>
                   </tr>
@@ -264,7 +291,7 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2 text-[12px]">
                       <span className="rounded-full bg-[#f8fafc] px-2.5 py-1 text-[var(--muted)]">
-                        {roleLabels[invitation.role] ?? invitation.role}
+                        {workspaceGroupLabels[invitation.role] ?? invitation.role}
                       </span>
                       <span className="rounded-full bg-[#f8fafc] px-2.5 py-1 text-[var(--muted)]">
                         {invitation.branch_name || "Без филиала"}
@@ -304,7 +331,8 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
           <div className="border-t border-[var(--line)] bg-white px-5 py-5">
             <RoleMenuSettings initialSettings={moduleSettings} />
           </div>
+          </div>
         </WorkspaceCard>
-      </div>
+    </div>
   );
 }

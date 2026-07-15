@@ -38,7 +38,7 @@ export function NotificationsPanel() {
 
   if (!isOpen) return null;
 
-  const items = notifications.slice(0, 20);
+  const items = notifications.filter((item) => !item.is_read).slice(0, 20);
 
   return (
     <>
@@ -131,7 +131,7 @@ export function NotificationsPanel() {
               );
             })
           ) : (
-            <div className="px-4 py-6 text-[13px] text-[var(--muted)]">Пока нет уведомлений.</div>
+            <div className="px-4 py-6 text-[13px] text-[var(--muted)]">Пока нет непрочитанных уведомлений.</div>
           )}
         </div>
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 
 import {
@@ -16,7 +16,17 @@ import {
   updateGroupProgramAction,
   updateGroupScheduleSlotAction,
 } from "@/app/actions/schedule";
-import { IconClose, IconGlobe, IconGrip, IconPencil, IconPrinter, IconSettings, IconShare } from "@/components/ui/app-icon";
+import {
+  IconChevronLeft,
+  IconChevronRight,
+  IconClose,
+  IconGlobe,
+  IconGrip,
+  IconPencil,
+  IconPrinter,
+  IconSettings,
+  IconShare,
+} from "@/components/ui/app-icon";
 import { SchedulePublishModal } from "@/components/schedule/schedule-publish-modal";
 import { ScheduleSocialModal } from "@/components/schedule/schedule-social-modal";
 import { ScheduleWeekSwiper } from "@/components/schedule/schedule-week-swiper";
@@ -48,7 +58,7 @@ const HOURS = Array.from({ length: DAY_END_HOUR - DAY_START_HOUR }, (_, index) =
 const DAY_START_MINUTES = 7 * 60;
 const DAY_END_MINUTES = DAY_END_HOUR * 60;
 const MAX_SLOT_END_MINUTES = DAY_END_MINUTES - 1;
-const HOUR_HEIGHT = 116;
+const HOUR_HEIGHT = 82;
 const SLOT_DRAG_THRESHOLD = 6;
 const MENU_WIDTH = 220;
 const MENU_HEIGHT = 120;
@@ -232,7 +242,7 @@ function buildDaySlotLayouts(daySlots: GroupScheduleSlotRecord[]): DaySlotLayout
     for (const { item, laneIndex } of assigned) {
       const top = ((item.start - DAY_START_MINUTES) / (DAY_END_MINUTES - DAY_START_MINUTES)) * 100;
       const durationMinutes = item.end - item.start;
-      const heightPx = Math.max((durationMinutes / 60) * HOUR_HEIGHT - 6, 108);
+      const heightPx = Math.max((durationMinutes / 60) * HOUR_HEIGHT - 6, 78);
       const stackOffsetPx = laneIndex * 26;
       layouts.push({
         slot: item.slot,
@@ -289,6 +299,12 @@ export function ScheduleWorkspace({
   const [slots, setSlots] = useState(initialSlots);
   const [programList, setProgramList] = useState(programs);
   const [query, setQuery] = useState("");
+  const [isProgramsCollapsed, setIsProgramsCollapsed] = useState(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+    return window.localStorage.getItem("schedule-programs-collapsed") === "1";
+  });
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [loadingWeek, setLoadingWeek] = useState(false);
@@ -311,6 +327,10 @@ export function ScheduleWorkspace({
   useEffect(() => {
     setProgramList(programs);
   }, [programs]);
+
+  useEffect(() => {
+    window.localStorage.setItem("schedule-programs-collapsed", isProgramsCollapsed ? "1" : "0");
+  }, [isProgramsCollapsed]);
 
   const programsById = useMemo(() => new Map(programList.map((item) => [item.id, item])), [programList]);
   const groupTrainers = useMemo(
@@ -810,15 +830,16 @@ export function ScheduleWorkspace({
 
   const boardHeight = HOURS.length * HOUR_HEIGHT;
 
+  const workspaceStyle = {
+    "--schedule-programs-width": isProgramsCollapsed ? "48px" : "320px",
+  } as CSSProperties;
+
   return (
-    <div className={`schedule-workspace${isDragging ? " schedule-workspace--dragging" : ""}`}>
+    <div className={`schedule-workspace${isDragging ? " schedule-workspace--dragging" : ""}`} style={workspaceStyle}>
       <header className="schedule-hero">
         <div className="schedule-hero-copy">
           <span className="schedule-hero-badge">Групповые программы</span>
           <h1>Расписание</h1>
-          <p>
-            {companyName} · перетаскивайте занятия по времени, а через правый клик можно быстро копировать блок.
-          </p>
         </div>
         <div className="schedule-hero-actions">
           <div className="schedule-hero-toolbar schedule-hero-toolbar--compact">
@@ -840,89 +861,105 @@ export function ScheduleWorkspace({
               Настройки
             </Link>
           </div>
-          <div className="schedule-hero-stats schedule-hero-stats--compact">
-            <div className="schedule-stat-card schedule-stat-card--compact">
-              <span>Программ</span>
-              <strong>{programList.length}</strong>
-            </div>
-            <div className="schedule-stat-card schedule-stat-card--compact">
-              <span>Занятий</span>
-              <strong>{slots.length}</strong>
-            </div>
-          </div>
         </div>
       </header>
 
       {message ? <div className="schedule-workspace-message">{message}</div> : null}
 
       <div className="schedule-workspace-body">
-        <aside className="schedule-programs-panel">
-          <div className="schedule-programs-panel-head">
-            <div className="schedule-programs-panel-head-row">
-              <strong>Каталог программ</strong>
-              <button type="button" className="schedule-programs-add" onClick={openCreateProgram}>
-                + Направление
-              </button>
-            </div>
-            <input
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Найти CYCLE, PILATES…"
-              className="schedule-programs-search"
-            />
-          </div>
-          <div className="schedule-programs-list">
-            {filteredPrograms.map((program) => (
-              <article
-                key={program.id}
-                className="schedule-program-card"
-                draggable={!busy}
-                onDragStart={(event) => {
-                  beginDrag();
-                  event.dataTransfer.setData(DRAG_PROGRAM, String(program.id));
-                  event.dataTransfer.effectAllowed = "copy";
-                }}
-                onContextMenu={(event) => openProgramMenu(program, event)}
-                style={{
-                  background: `linear-gradient(135deg, ${program.color}18 0%, #ffffff 55%)`,
-                  borderColor: `${program.color}55`,
-                }}
-              >
-                <div className="schedule-program-card-top">
-                  <span className="schedule-program-grip" style={{ color: program.color }}>
-                    <IconGrip size={14} />
-                  </span>
-                  <div className="schedule-program-card-title">
-                    <strong>{program.title}</strong>
-                    <span className="schedule-program-code" style={{ background: `${program.color}22`, color: program.color }}>
-                      {program.code}
-                    </span>
+        <aside className={`schedule-programs-panel${isProgramsCollapsed ? " schedule-programs-panel--collapsed" : ""}`}>
+          {isProgramsCollapsed ? (
+            <button
+              type="button"
+              className="schedule-programs-collapse schedule-programs-collapse--floating"
+              onClick={() => setIsProgramsCollapsed((value) => !value)}
+              aria-label="Развернуть каталог"
+              title="Развернуть каталог"
+            >
+              <IconChevronRight size={15} />
+            </button>
+          ) : (
+            <>
+              <div className="schedule-programs-panel-head">
+                <div className="schedule-programs-panel-head-row">
+                  <div className="schedule-programs-panel-title-wrap">
+                    <strong>Каталог программ</strong>
                   </div>
+                  <div className="schedule-programs-panel-actions">
                     <button
                       type="button"
-                      className="schedule-program-card-menu"
-                      aria-label="Действия направления"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setProgramMenu((current) =>
-                          current && current.program.id === program.id ? null : { program, ...clampMenuPosition(event.clientX, event.clientY) },
-                        );
-                      }}
+                      className="schedule-programs-collapse"
+                      onClick={() => setIsProgramsCollapsed((value) => !value)}
+                      aria-label="Свернуть каталог"
                     >
-                      •••
+                      <IconChevronLeft size={15} />
                     </button>
-                </div>
-                <p>{program.description}</p>
-                {program.room || program.trainer_display ? (
-                  <div className="schedule-program-card-meta">
-                    {program.room ? <span>{program.room}</span> : null}
-                    {program.trainer_display ? <span>{program.trainer_display}</span> : null}
+                    <button type="button" className="schedule-programs-add" onClick={openCreateProgram}>
+                      + Направление
+                    </button>
                   </div>
-                ) : null}
-              </article>
-            ))}
-          </div>
+                </div>
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Найти CYCLE, PILATES…"
+                  className="schedule-programs-search"
+                />
+              </div>
+              <div className="schedule-programs-list">
+                {filteredPrograms.map((program) => (
+                  <article
+                    key={program.id}
+                    className="schedule-program-card"
+                    draggable={!busy}
+                    onDragStart={(event) => {
+                      beginDrag();
+                      event.dataTransfer.setData(DRAG_PROGRAM, String(program.id));
+                      event.dataTransfer.effectAllowed = "copy";
+                    }}
+                    onContextMenu={(event) => openProgramMenu(program, event)}
+                    style={{
+                      background: `linear-gradient(135deg, ${program.color}18 0%, #ffffff 55%)`,
+                      borderColor: `${program.color}55`,
+                    }}
+                  >
+                    <div className="schedule-program-card-top">
+                      <span className="schedule-program-grip" style={{ color: program.color }}>
+                        <IconGrip size={14} />
+                      </span>
+                      <div className="schedule-program-card-title">
+                        <strong>{program.title}</strong>
+                        <span className="schedule-program-code" style={{ background: `${program.color}22`, color: program.color }}>
+                          {program.code}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className="schedule-program-card-menu"
+                        aria-label="Действия направления"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setProgramMenu((current) =>
+                            current && current.program.id === program.id ? null : { program, ...clampMenuPosition(event.clientX, event.clientY) },
+                          );
+                        }}
+                      >
+                        •••
+                      </button>
+                    </div>
+                    <p>{program.description}</p>
+                    {program.room || program.trainer_display ? (
+                      <div className="schedule-program-card-meta">
+                        {program.room ? <span>{program.room}</span> : null}
+                        {program.trainer_display ? <span>{program.trainer_display}</span> : null}
+                      </div>
+                    ) : null}
+                  </article>
+                ))}
+              </div>
+            </>
+          )}
         </aside>
 
         <section className="schedule-board-panel">
@@ -944,7 +981,14 @@ export function ScheduleWorkspace({
               </div>
             </div>
 
-            <ScheduleWeekSwiper weekStart={weekStart} onWeekChange={setWeekStart}>
+            <ScheduleWeekSwiper
+              weekStart={weekStart}
+              onWeekChange={setWeekStart}
+              stats={[
+                { label: "Программ", value: programList.length },
+                { label: "Занятий", value: slots.length },
+              ]}
+            >
               {(slideWeekStart, weekDays) => (
                 <div className="schedule-board-days" data-week={slideWeekStart.toISOString()}>
                   {weekDays.map((date) => {
@@ -1371,7 +1415,7 @@ function SlotEditorModal({
 
   return (
     <div className="schedule-modal-backdrop" onClick={onClose}>
-        <div className="schedule-modal schedule-modal--wide" onClick={(event) => event.stopPropagation()}>
+      <div className="schedule-modal schedule-modal--wide" onClick={(event) => event.stopPropagation()}>
         <div
           className="schedule-modal-hero"
           style={{ background: `linear-gradient(135deg, ${heroColor} 0%, ${heroColor}cc 100%)` }}
@@ -1388,98 +1432,90 @@ function SlotEditorModal({
           </button>
         </div>
 
-        <section className="schedule-modal-enrollments schedule-modal-enrollments--top">
-          <div className="schedule-modal-enrollments-head">
-            <strong>Записались ({occupiedCount})</strong>
-            <span>
-              {occupiedCount}/{slot.max_participants_effective} мест
-            </span>
-          </div>
-          {enrollmentMessage ? <p className="schedule-modal-enrollment-error">{enrollmentMessage}</p> : null}
-          <div className="schedule-modal-enrollment-add">
-            <input
-              value={clientSearch}
-              onChange={(event) => setClientSearch(event.target.value)}
-              placeholder="Поиск по имени, фамилии, телефону или email"
-              className="schedule-modal-client-search"
-            />
-            <div className="schedule-modal-client-list">
-              {visibleClientResults.length === 0 ? (
-                <div className="schedule-modal-client-empty">Ничего не найдено</div>
+        <div className="schedule-modal-content">
+          <section className="schedule-modal-enrollments schedule-modal-enrollments--top">
+            <div className="schedule-modal-enrollments-head">
+              <strong>Записались ({occupiedCount})</strong>
+              <span>
+                {occupiedCount}/{slot.max_participants_effective} мест
+              </span>
+            </div>
+            {enrollmentMessage ? <p className="schedule-modal-enrollment-error">{enrollmentMessage}</p> : null}
+            <div className="schedule-modal-enrollment-add">
+              <input
+                value={clientSearch}
+                onChange={(event) => setClientSearch(event.target.value)}
+                placeholder="Поиск клиента"
+                className="schedule-modal-client-search"
+              />
+              <div className="schedule-modal-client-list">
+                {visibleClientResults.length === 0 ? (
+                  <div className="schedule-modal-client-empty">
+                    {clientSearch.trim().length >= 2 ? "Ничего не найдено" : "Введите имя, телефон или email"}
+                  </div>
+                ) : (
+                  visibleClientResults.map((client) => {
+                    const isSelected = String(client.id) === selectedClientId;
+                    const isBlocked = client.club_access_blocked || client.group_programs_blocked;
+                    return (
+                      <button
+                        key={client.id}
+                        type="button"
+                        className={`schedule-modal-client-option${isSelected ? " schedule-modal-client-option--active" : ""}${isBlocked ? " schedule-modal-client-option--blocked" : ""}`}
+                        onClick={() => setSelectedClientId(String(client.id))}
+                      >
+                        <strong>{client.full_name}</strong>
+                        <span>{[client.phone, client.email].filter(Boolean).join(" · ") || "Без контактов"}</span>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+              <button
+                type="button"
+                className="schedule-modal-save schedule-modal-save--compact"
+                disabled={busy || !selectedClientId || selectedClientBlocked}
+                onClick={() => void addEnrollment()}
+              >
+                {selectedClientBlocked ? "Клиент заблокирован" : "Записать"}
+              </button>
+            </div>
+            <div className="schedule-modal-selected-client">
+              {selectedClient ? (
+                <>
+                  <strong>{selectedClient.full_name}</strong>
+                  <span>{[selectedClient.phone, selectedClient.email].filter(Boolean).join(" · ") || "Контакты не указаны"}</span>
+                  {selectedClientBlocked ? <em>{selectedClientBlockLabel}</em> : null}
+                </>
               ) : (
-                visibleClientResults.map((client) => {
-                  const isSelected = String(client.id) === selectedClientId;
-                  const isBlocked = client.club_access_blocked || client.group_programs_blocked;
-                  return (
-                    <button
-                      key={client.id}
-                      type="button"
-                      className={`schedule-modal-client-option${isSelected ? " schedule-modal-client-option--active" : ""}${isBlocked ? " schedule-modal-client-option--blocked" : ""}`}
-                      onClick={() => setSelectedClientId(String(client.id))}
-                    >
-                      <strong>{client.full_name}</strong>
-                      <span>
-                        {[client.phone, client.email].filter(Boolean).join(" · ") || "Без контактов"}
-                      </span>
-                      {isBlocked ? (
-                        <span className="schedule-modal-client-badge">
-                          {client.club_access_blocked ? "Блок входа" : null}
-                          {client.club_access_blocked && client.group_programs_blocked ? " · " : null}
-                          {client.group_programs_blocked ? "Блок групп" : null}
-                        </span>
-                      ) : null}
-                    </button>
-                  );
-                })
+                <span>Выберите клиента из результатов поиска</span>
               )}
             </div>
-            <button
-              type="button"
-              className="schedule-modal-save"
-              disabled={busy || !selectedClientId || selectedClientBlocked}
-              onClick={() => void addEnrollment()}
-            >
-              {selectedClientBlocked ? "Клиент заблокирован" : "Записать"}
-            </button>
-          </div>
-          <div className="schedule-modal-selected-client">
-            {selectedClient ? (
-              <>
-                <strong>{selectedClient.full_name}</strong>
-                <span>
-                  {[selectedClient.phone, selectedClient.email].filter(Boolean).join(" · ") || "Контакты не указаны"}
-                </span>
-                {selectedClientBlocked ? <em>{selectedClientBlockLabel}</em> : null}
-              </>
-            ) : (
-              <span>Выберите клиента из результатов поиска</span>
-            )}
-          </div>
-          <p className="schedule-modal-enrollment-hint">
-            {clientSearchLoading ? "Ищем клиентов…" : clientSearchHint}
-          </p>
-          <div className="schedule-modal-enrollment-list">
-            {enrollments.length === 0 ? (
-              <p className="schedule-modal-enrollment-empty">Пока никто не записан на это занятие.</p>
-            ) : (
-              enrollments.map((item) => (
-                <article key={item.id} className="schedule-modal-enrollment-item">
-                  <div>
-                    <strong>{item.client_name}</strong>
-                    <span>
-                      {item.client_phone || "Без телефона"} · {enrollmentStatusLabel(item.status)}
-                    </span>
-                  </div>
-                  <button type="button" className="schedule-modal-delete" onClick={() => void removeEnrollment(item.id)}>
-                    Убрать
-                  </button>
-                </article>
-              ))
-            )}
-          </div>
-        </section>
+            <p className="schedule-modal-enrollment-hint">
+              {clientSearchLoading ? "Ищем клиентов…" : clientSearchHint}
+            </p>
+            <div className="schedule-modal-enrollment-list">
+              {enrollments.length === 0 ? (
+                <p className="schedule-modal-enrollment-empty">Пока никто не записан на это занятие.</p>
+              ) : (
+                enrollments.map((item) => (
+                  <article key={item.id} className="schedule-modal-enrollment-item">
+                    <div>
+                      <strong>{item.client_name}</strong>
+                      <span>
+                        {item.client_phone || "Без телефона"} · {enrollmentStatusLabel(item.status)}
+                      </span>
+                    </div>
+                    <button type="button" className="schedule-modal-delete" onClick={() => void removeEnrollment(item.id)}>
+                      Убрать
+                    </button>
+                  </article>
+                ))
+              )}
+            </div>
+          </section>
 
-        <div className="schedule-modal-grid">
+          <div className="schedule-modal-grid">
           <label>
             Программа
             <select value={programId} onChange={(event) => setProgramId(event.target.value)}>
@@ -1582,6 +1618,7 @@ function SlotEditorModal({
               placeholder="16+, средний уровень, противопоказания…"
             />
           </label>
+          </div>
         </div>
 
         <div className="schedule-modal-actions">

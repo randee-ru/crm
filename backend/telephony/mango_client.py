@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from datetime import date, datetime, timezone as dt_timezone
 from typing import Any
 
+from django.utils import timezone
+
 
 _RECORDING_URL_CACHE: dict[str, tuple[str, float]] = {}
 _RECORDING_URL_CACHE_TTL_SECONDS = 30 * 60
@@ -51,6 +53,31 @@ class MangoCall:
     entry_id: str = ""
 
 
+class MangoRateLimitError(RuntimeError):
+    def __init__(self, message: str, retry_after_seconds: int | None = None) -> None:
+        super().__init__(message)
+        self.retry_after_seconds = retry_after_seconds
+
+
+def is_mango_rate_limit_error(exc: BaseException | None) -> bool:
+    current: BaseException | None = exc
+    seen: set[int] = set()
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        if isinstance(current, MangoRateLimitError):
+            return True
+        code = getattr(current, "code", None)
+        if code == 429:
+            return True
+        message = f"{current}".lower()
+        reason = str(getattr(current, "reason", "") or "").lower()
+        detail = f"{message} {reason}".strip()
+        if "too many requests" in detail or "rate limit" in detail or " 429" in detail or detail.startswith("429 "):
+            return True
+        current = getattr(current, "__cause__", None) or getattr(current, "__context__", None)
+    return False
+
+
 def resolve_mango_config(integration) -> MangoConfig | None:
     import os
 
@@ -74,6 +101,12 @@ def resolve_mango_config(integration) -> MangoConfig | None:
 
 def generate_signature(api_key: str, api_salt: str, payload: str) -> str:
     return hashlib.sha256(f"{api_key}{payload}{api_salt}".encode()).hexdigest()
+
+
+def _mango_range_end(date_to: date) -> datetime:
+    end_of_day_utc = datetime.combine(date_to, datetime.max.time(), tzinfo=dt_timezone.utc)
+    now_utc = timezone.now().astimezone(dt_timezone.utc)
+    return min(end_of_day_utc, now_utc)
 
 
 def call_mango_api(config: MangoConfig, endpoint: str, payload: dict[str, Any]) -> Any:
@@ -101,6 +134,18 @@ def call_mango_api(config: MangoConfig, endpoint: str, payload: dict[str, Any]) 
             raw = response.read()
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="ignore")
+        if exc.code == 429:
+            retry_after_seconds: int | None = None
+            retry_after = exc.headers.get("Retry-After") if exc.headers else None
+            if retry_after:
+                try:
+                    retry_after_seconds = max(0, int(float(retry_after)))
+                except (TypeError, ValueError):
+                    retry_after_seconds = None
+            raise MangoRateLimitError(
+                f"Mango Office API error: 429 {detail}",
+                retry_after_seconds=retry_after_seconds,
+            ) from exc
         raise RuntimeError(f"Mango Office API error: {exc.code} {detail}") from exc
 
     if "application/json" in content_type:
@@ -111,7 +156,7 @@ def call_mango_api(config: MangoConfig, endpoint: str, payload: dict[str, Any]) 
 def request_mango_stats(config: MangoConfig, date_from: date, date_to: date) -> str:
     payload = {
         "date_from": str(int(datetime.combine(date_from, datetime.min.time(), tzinfo=dt_timezone.utc).timestamp())),
-        "date_to": str(int(datetime.combine(date_to, datetime.max.time(), tzinfo=dt_timezone.utc).timestamp())),
+        "date_to": str(int(_mango_range_end(date_to).timestamp())),
         "fields": (
             "records,start,finish,answer,from_extension,from_number,"
             "to_extension,to_number,disconnect_reason,line_number,location,entry_id"

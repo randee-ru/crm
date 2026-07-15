@@ -54,3 +54,18 @@ class NotificationsApiTest(TestCase):
         notification.refresh_from_db()
         self.assertTrue(notification.is_read)
         self.assertIsNotNone(notification.read_at)
+
+    def test_notification_delete(self) -> None:
+        notification = Notification.objects.create(
+            company=self.company,
+            title="Старое уведомление",
+            body="Удалить",
+            target_url="/dashboard/messages",
+        )
+
+        response = self.http.delete(
+            f"/api/v1/notifications/{notification.id}/?company=sportmax",
+            **self.auth_headers(),
+        )
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(Notification.objects.count(), 0)

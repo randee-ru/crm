@@ -7,7 +7,7 @@ from rest_framework import serializers
 
 from attendance.models import AttendanceRecord
 from bookings.models import Booking
-from clients.models import Client, ClientLead, ClientMessage
+from clients.models import Client, ClientLead, ClientMessage, ClientNote
 from crm.models import Deal
 from schedule.models import GroupSlotEnrollment
 from sales.models import Sale
@@ -56,6 +56,12 @@ class ClientMessageSerializer(serializers.ModelSerializer):
             "body",
             "sent_at",
         ]
+
+
+class ClientNoteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ClientNote
+        fields = ["id", "body", "created_at", "updated_at"]
 
 
 class ClientLeadSerializer(serializers.ModelSerializer):
@@ -168,6 +174,7 @@ class ClientProfileSerializer(serializers.ModelSerializer):
     branch_name = serializers.CharField(source="branch.name", read_only=True, default=None)
     messages = ClientMessageSerializer(many=True, read_only=True)
     leads = ClientLeadSerializer(many=True, read_only=True)
+    notes_entries = serializers.SerializerMethodField()
     visits = serializers.SerializerMethodField()
     sales = serializers.SerializerMethodField()
     deals = serializers.SerializerMethodField()
@@ -221,6 +228,7 @@ class ClientProfileSerializer(serializers.ModelSerializer):
             "updated_at",
             "messages",
             "leads",
+            "notes_entries",
             "visits",
             "sales",
             "deals",
@@ -294,3 +302,7 @@ class ClientProfileSerializer(serializers.ModelSerializer):
     def get_calls(self, client: Client) -> list[dict]:
         qs = client.call_logs.order_by("-started_at", "-id")
         return ClientCallSerializer(self._limit(qs, 100), many=True, context=self.context).data
+
+    def get_notes_entries(self, client: Client) -> list[dict]:
+        qs = client.notes_entries.order_by("-created_at", "-id")
+        return ClientNoteSerializer(self._limit(qs, 100), many=True).data

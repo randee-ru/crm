@@ -12,10 +12,14 @@ import "swiper/css";
 type ScheduleWeekSwiperProps = {
   weekStart: Date;
   onWeekChange: (weekStart: Date) => void;
+  stats?: Array<{
+    label: string;
+    value: number;
+  }>;
   children: (weekStart: Date, weekDays: Date[]) => React.ReactNode;
 };
 
-export function ScheduleWeekSwiper({ weekStart, onWeekChange, children }: ScheduleWeekSwiperProps) {
+export function ScheduleWeekSwiper({ weekStart, onWeekChange, stats = [], children }: ScheduleWeekSwiperProps) {
   const swiperRef = useRef<SwiperType | null>(null);
   const isResetting = useRef(false);
 
@@ -72,14 +76,26 @@ export function ScheduleWeekSwiper({ weekStart, onWeekChange, children }: Schedu
           </button>
         </div>
         <strong className="schedule-week-range">{formatWeekRange(weekStart)}</strong>
-        <button
-          type="button"
-          className="schedule-week-nav"
-          aria-label="Следующая неделя"
-          onClick={() => swiperRef.current?.slideNext()}
-        >
-          <IconChevronRight size={18} />
-        </button>
+        <div className="schedule-week-toolbar-meta">
+          {stats.length > 0 ? (
+            <div className="schedule-week-toolbar-stats" aria-label="Показатели расписания">
+              {stats.map((stat) => (
+                <div key={stat.label} className="schedule-stat-card schedule-stat-card--compact schedule-stat-card--accent">
+                  <span>{stat.label}</span>
+                  <strong>{stat.value}</strong>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          <button
+            type="button"
+            className="schedule-week-nav"
+            aria-label="Следующая неделя"
+            onClick={() => swiperRef.current?.slideNext()}
+          >
+            <IconChevronRight size={18} />
+          </button>
+        </div>
       </div>
 
       <Swiper

@@ -24,7 +24,8 @@ class CompanyMembership(TimeStampedModel):
         OWNER = "owner", "Владелец"
         ADMIN = "admin", "Администратор"
         MANAGER = "manager", "Менеджер"
-        EMPLOYEE = "employee", "Сотрудник"
+        EMPLOYEE = "reception", "Ресепшен"
+        USER = "user", "Пользователь"
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -84,6 +85,8 @@ class UserProfile(TimeStampedModel):
         blank=True,
         null=True,
     )
+    phone = models.CharField("Телефон", max_length=32, blank=True, default="")
+    birth_date = models.DateField("Дата рождения", null=True, blank=True)
 
     class Meta:
         verbose_name = "Профиль пользователя"

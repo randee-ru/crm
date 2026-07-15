@@ -20,6 +20,8 @@ type PublicSchedulePageProps = {
 
 export default async function PublicSchedulePage({ params, searchParams }: PublicSchedulePageProps) {
   const { slug } = await params;
+  // На schedule.sportmax.fit токен в URL не нужен — backend пропускает по Host.
+  // token оставляем опциональным только для обратной совместимости.
   const { token = "" } = await searchParams;
 
   return (

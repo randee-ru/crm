@@ -7,9 +7,11 @@ from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 from companies.models import Company
+from telephony.mango_client import is_mango_rate_limit_error
 from telephony.models import TelephonyIntegration
 from telephony.recording_storage import archive_pending_recordings, purge_old_recordings, recording_retention_days
 from telephony.services import sync_mango_calls
+from telephony.services import _mango_sync_cooldown_until, _mango_sync_rate_limited
 
 
 class Command(BaseCommand):
@@ -43,7 +45,18 @@ class Command(BaseCommand):
             try:
                 synced, integration, archive_queued = sync_mango_calls(company, date_from=date_from, date_to=date_to)
             except Exception as exc:
+                if is_mango_rate_limit_error(exc):
+                    self.stdout.write(self.style.WARNING("  Mango rate limit, skip archive/purge"))
+                    continue
                 self.stdout.write(self.style.WARNING(f"  sync error: {exc}"))
+                continue
+
+            if _mango_sync_rate_limited(integration):
+                self.stdout.write(
+                    self.style.WARNING(
+                        f"  Mango rate limit, skip archive/purge until {_mango_sync_cooldown_until(integration)}"
+                    )
+                )
                 continue
 
             archived, failed = archive_pending_recordings(
