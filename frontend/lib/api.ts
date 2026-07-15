@@ -182,6 +182,13 @@ export async function getClient(clientId: number, companySlug?: string): Promise
   );
 }
 
+export async function getClientByQrToken(qrToken: string, companySlug?: string): Promise<ClientDetail> {
+  const slug = companySlug ?? (await getCompanySlugFromCookie());
+  return request<ClientDetail>(
+    `/api/v1/clients/qr/${encodeURIComponent(qrToken)}/?company=${encodeURIComponent(slug)}`,
+  );
+}
+
 export async function getClientProfile(clientId: number, companySlug?: string): Promise<ClientProfile> {
   const slug = companySlug ?? (await getCompanySlugFromCookie());
   return request<ClientProfile>(

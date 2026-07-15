@@ -186,6 +186,7 @@ class ClientProfileSerializer(serializers.ModelSerializer):
         model = Client
         fields = [
             "id",
+            "qr_token",
             "external_id",
             "full_name",
             "first_name",

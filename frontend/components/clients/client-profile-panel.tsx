@@ -246,6 +246,7 @@ export function ClientProfilePanel({
   const [showNotesEditor, setShowNotesEditor] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [player, setPlayer] = useState<{ callId: number; title: string; duration: number } | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [editState, editAction] = useActionState(updateClientAction.bind(null, client.id), {} as ActionState);
   const [noteState, noteAction] = useActionState(createClientNoteAction.bind(null, client.id), {} as ActionState);
   const router = useRouter();
@@ -260,6 +261,33 @@ export function ClientProfilePanel({
 
   const statusText = statusLabel(profile);
   const latestNote = profile.notes_entries[0]?.body?.trim() || "";
+  const qrLink = `${typeof window === "undefined" ? "https://crm.sportmax.fit" : window.location.origin}/qr/${profile.qr_token}`;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function buildQr() {
+      const QRCode = await import("qrcode");
+      const dataUrl = await QRCode.toDataURL(qrLink, {
+        errorCorrectionLevel: "M",
+        margin: 1,
+        scale: 8,
+        color: {
+          dark: "#0f172a",
+          light: "#ffffff",
+        },
+      });
+      if (!cancelled) {
+        setQrDataUrl(dataUrl);
+      }
+    }
+
+    void buildQr().catch(() => setQrDataUrl(""));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [qrLink]);
 
   useEffect(() => {
     if (editState.success) {
@@ -428,6 +456,21 @@ export function ClientProfilePanel({
                     </>
                   )}
                 </form>
+              </SidebarCard>
+
+              <SidebarCard title="QR клиента">
+                <div className="client-qr-card">
+                  <div className="client-qr-card-preview">
+                    {qrDataUrl ? <img src={qrDataUrl} alt={`QR-код клиента ${profile.full_name}`} /> : null}
+                  </div>
+                  <div className="client-qr-card-body">
+                    <strong>Сканируйте для открытия карточки</strong>
+                    <p>QR ведёт на уникальную страницу клиента и позволяет быстро его идентифицировать в системе.</p>
+                    <a href={qrLink} className="client-card-action-btn" target="_blank" rel="noreferrer">
+                      Открыть ссылку
+                    </a>
+                  </div>
+                </div>
               </SidebarCard>
 
               <SidebarCard title="Клуб и абонемент">

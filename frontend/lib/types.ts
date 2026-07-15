@@ -48,6 +48,7 @@ export type AuthSession = {
 
 export type ClientRecord = {
   id: number;
+  qr_token: string;
   full_name: string;
   last_name: string;
   first_name: string;
@@ -97,6 +98,7 @@ export type ClientNoteRecord = {
 };
 
 export type ClientProfile = ClientDetail & {
+  qr_token: string;
   external_id: string;
   middle_name: string;
   gender: string;

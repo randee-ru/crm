@@ -12,6 +12,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.decorators import api_view, permission_classes
 
 from accounts.permissions import (
     HasCompanyAccess,
@@ -381,6 +382,20 @@ class ClientOptionsView(ClientQuerysetMixin, ListAPIView):
             conditions = phone_condition if conditions is None else conditions | phone_condition
 
         return queryset.filter(conditions) if conditions is not None else queryset
+
+
+class ClientQrLookupView(ClientQuerysetMixin, RetrieveAPIView):
+    lookup_url_kwarg = "qr_token"
+    serializer_class = ClientDetailSerializer
+
+    def get_queryset(self) -> QuerySet[Client]:
+        return self.get_company_clients_queryset()
+
+    def get_object(self):
+        return get_object_or_404(
+            self.get_queryset(),
+            qr_token=self.kwargs[self.lookup_url_kwarg],
+        )
 
 
 class CompanyContextView(APIView):

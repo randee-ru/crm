@@ -9,6 +9,7 @@ from clients.views import (
     ClientNoteDetailView,
     ClientNoteListCreateView,
     ClientOptionsView,
+    ClientQrLookupView,
     ClientProfileView,
     CompanyContextView,
 )
@@ -16,6 +17,7 @@ from clients.views import (
 urlpatterns = [
     path("clients/", ClientListCreateView.as_view(), name="client-list"),
     path("clients/options/", ClientOptionsView.as_view(), name="client-options"),
+    path("clients/qr/<uuid:qr_token>/", ClientQrLookupView.as_view(), name="client-qr-lookup"),
     path("clients/<int:client_id>/", ClientDetailView.as_view(), name="client-detail"),
     path("clients/<int:client_id>/profile/", ClientProfileView.as_view(), name="client-profile"),
     path("clients/<int:client_id>/notes/", ClientNoteListCreateView.as_view(), name="client-notes"),
